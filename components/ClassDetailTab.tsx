@@ -1,9 +1,9 @@
 
 import React, { useState, useMemo } from 'react';
-import { Award, TrendingUp, ThumbsDown, ThumbsUp, AlertCircle } from 'lucide-react';
+import { Award, TrendingUp, ThumbsDown, ThumbsUp, AlertCircle, Link2 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { User, ClassEntity, Violation, Student, Criteria } from '../types';
-import { calculateScore, getWeekNumber, safeParseImages } from '../utils';
+import { calculateScore, getWeekNumber, safeParseImages, formatDateDisplay } from '../utils';
 
 interface ClassDetailTabProps {
   currentUser: User;
@@ -11,9 +11,10 @@ interface ClassDetailTabProps {
   violations: Violation[];
   criteria: Criteria[];
   students: Student[];
+  setViewingViolation: (v: Violation | null) => void;
 }
 
-const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ currentUser, classes, violations, criteria, students }) => {
+const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ currentUser, classes, violations, criteria, students, setViewingViolation }) => {
   const [selectedClassId, setSelectedClassId] = useState('');
 
   const targetClassId = (currentUser.role === 'TEACHER' || currentUser.role === 'RED_FLAG' || currentUser.role === 'DISCIPLINE') && currentUser.className 
@@ -136,18 +137,34 @@ const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ currentUser, classes, v
               {minusViolations.length > 0 ? minusViolations.map(v => {
                   const images = safeParseImages(v.images);
                   return (
-                    <div key={v.id} className="bg-white p-3 rounded-lg border border-red-100 shadow-sm flex flex-col items-start gap-2">
+                    <div 
+                        key={v.id} 
+                        onClick={() => setViewingViolation(v)}
+                        className="bg-white p-3 rounded-lg border border-red-100 shadow-sm flex flex-col items-start gap-2 cursor-pointer hover:bg-red-50 hover:border-red-200 transition-colors"
+                    >
                       <div className="w-full flex justify-between items-start">
                         <div>
                            <div className="font-medium text-slate-800 text-sm">{criteria.find(c => c.id === v.criteriaId)?.content}</div>
-                           <div className="text-xs text-slate-500 mt-1">{v.date} • {v.studentId ? students.find(s=>s.id===v.studentId)?.name : 'Tập thể'}</div>
+                           <div className="text-xs text-slate-500 mt-1">{formatDateDisplay(v.date)} • {v.studentId ? students.find(s=>s.id===v.studentId)?.name : 'Tập thể'}</div>
                         </div>
                         <div className="font-bold text-red-600">-{v.points}</div>
                       </div>
+                      
+                      {/* Image Links Display */}
                       {images.length > 0 && (
-                          <div className="flex gap-1 overflow-x-auto w-full">
+                          <div className="flex flex-wrap gap-2 mt-1">
                               {images.map((img, idx) => (
-                                  <img key={idx} src={img} className="h-10 w-10 object-cover rounded border" alt="evidence"/>
+                                   <a 
+                                      key={idx} 
+                                      href={img} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      onClick={(e) => e.stopPropagation()} 
+                                      className="flex items-center gap-1 text-[10px] text-blue-600 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded border border-blue-200 transition-colors"
+                                  >
+                                      <Link2 size={12} /> 
+                                      <span>Ảnh {images.length > 1 ? idx + 1 : ''}</span>
+                                  </a>
                               ))}
                           </div>
                       )}
@@ -163,18 +180,34 @@ const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ currentUser, classes, v
               {plusViolations.length > 0 ? plusViolations.map(v => {
                   const images = safeParseImages(v.images);
                   return (
-                    <div key={v.id} className="bg-white p-3 rounded-lg border border-green-100 shadow-sm flex flex-col items-start gap-2">
+                    <div 
+                        key={v.id} 
+                        onClick={() => setViewingViolation(v)}
+                        className="bg-white p-3 rounded-lg border border-green-100 shadow-sm flex flex-col items-start gap-2 cursor-pointer hover:bg-green-50 hover:border-green-200 transition-colors"
+                    >
                       <div className="w-full flex justify-between items-start">
                         <div>
                            <div className="font-medium text-slate-800 text-sm">{criteria.find(c => c.id === v.criteriaId)?.content}</div>
-                           <div className="text-xs text-slate-500 mt-1">{v.date} • {v.studentId ? students.find(s=>s.id===v.studentId)?.name : 'Tập thể'}</div>
+                           <div className="text-xs text-slate-500 mt-1">{formatDateDisplay(v.date)} • {v.studentId ? students.find(s=>s.id===v.studentId)?.name : 'Tập thể'}</div>
                         </div>
                         <div className="font-bold text-green-600">+{Math.abs(v.points)}</div>
                       </div>
+                      
+                      {/* Image Links Display */}
                       {images.length > 0 && (
-                          <div className="flex gap-1 overflow-x-auto w-full">
+                          <div className="flex flex-wrap gap-2 mt-1">
                               {images.map((img, idx) => (
-                                  <img key={idx} src={img} className="h-10 w-10 object-cover rounded border" alt="evidence"/>
+                                   <a 
+                                      key={idx} 
+                                      href={img} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      onClick={(e) => e.stopPropagation()} 
+                                      className="flex items-center gap-1 text-[10px] text-blue-600 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded border border-blue-200 transition-colors"
+                                  >
+                                      <Link2 size={12} /> 
+                                      <span>Ảnh {images.length > 1 ? idx + 1 : ''}</span>
+                                  </a>
                               ))}
                           </div>
                       )}

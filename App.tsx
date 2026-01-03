@@ -435,6 +435,7 @@ export default function App() {
             violations={violations} 
             criteria={criteria} 
             students={students} 
+            setViewingViolation={setViewingViolation} // Pass handler
           />
         )}
         {activeTab === 'taskforce' && isCurrentUserAdmin() && (
