@@ -13,11 +13,12 @@ interface ListTabProps {
   users: User[];
   roleConfigs: Record<string, RoleConfig>;
   handleDeleteViolation: (id: string) => void;
+  handleBulkDelete: (ids: string[]) => void; // Added Prop
   setViewingViolation: (v: Violation | null) => void;
   handleEditClick: (e: React.MouseEvent, v: Violation) => void;
 }
 
-const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, students, criteria, users, roleConfigs, handleDeleteViolation, setViewingViolation, handleEditClick }) => {
+const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, students, criteria, users, roleConfigs, handleDeleteViolation, handleBulkDelete, setViewingViolation, handleEditClick }) => {
   const [filterMode, setFilterMode] = useState<'MONTH' | 'WEEK' | 'SEMESTER' | 'ALL'>('MONTH');
   const [filterCriteriaType, setFilterCriteriaType] = useState<'ALL' | 'MINUS' | 'PLUS'>('ALL');
   const [filterMonth, setFilterMonth] = useState(new Date().toISOString().slice(0, 7));
@@ -200,13 +201,29 @@ const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, stu
           const reporterRoleConfig = reporterUser ? roleConfigs[reporterUser.role] : null;
           const reporterRoleLabel = reporterRoleConfig ? reporterRoleConfig.label : 'Không rõ';
           
-          // Nếu là Admin: "Nguyễn Văn A - Cờ đỏ"
-          // Nếu không phải Admin: "Cờ đỏ"
-          const reporterDisplay = isAdmin && reporterUser 
-              ? `${reporterUser.name} - ${reporterRoleLabel}`
-              : `Người báo: ${reporterRoleLabel}`;
+          // Logic: Nếu là Admin hoặc Chính mình -> Thấy "Tên (Lớp) - Role"
+          // Người khác -> Chỉ thấy "Role"
           
+          const isReporterMe = v.reportedBy === currentUser.id;
           const reporterColor = reporterRoleConfig ? reporterRoleConfig.color : 'gray';
+
+          let reporterDisplay: React.ReactNode;
+
+          if (isAdmin || isReporterMe) {
+               const reporterClass = reporterUser?.className ? ` (${reporterUser.className})` : '';
+               reporterDisplay = (
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded border bg-${reporterColor}-50 border-${reporterColor}-100 text-${reporterColor}-700 font-medium`}>
+                      {reporterUser ? `${reporterUser.name}${reporterClass} - ${reporterRoleLabel}` : reporterRoleLabel}
+                  </span>
+               );
+          } else {
+               // User thường chỉ thấy Tag Role
+               reporterDisplay = (
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded border bg-${reporterColor}-50 border-${reporterColor}-100 text-${reporterColor}-700 font-medium`}>
+                      {reporterRoleLabel}
+                  </span>
+               );
+          }
 
           return (
             <div key={v.id} className={`relative group bg-white rounded-xl shadow-sm border p-4 transition-all ${isSelected ? 'border-blue-500 ring-1 ring-blue-500 bg-blue-50/30' : 'border-slate-200 hover:border-blue-300'}`}>
@@ -228,9 +245,7 @@ const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, stu
                   
                   {/* Hiển thị người báo dạng Tag */}
                   <div className="mt-1">
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded border bg-${reporterColor}-50 border-${reporterColor}-100 text-${reporterColor}-700 font-medium`}>
-                          {reporterDisplay}
-                      </span>
+                      {reporterDisplay}
                   </div>
 
                   {/* Hiển thị Link Ảnh */}
@@ -276,7 +291,9 @@ const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, stu
            <div className="font-bold pl-2">Đã chọn {selectedViolationIds.size} mục</div>
            <div className="flex gap-2">
               <button onClick={() => setSelectedViolationIds(new Set())} className="px-4 py-2 text-slate-300 hover:text-white font-medium">Hủy</button>
-              <button onClick={() => alert("Chức năng xóa nhiều chưa được kết nối trong bản demo tách file.")} className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg flex items-center gap-2"><Trash2 size={16} /> Xóa</button>
+              <button onClick={() => { handleBulkDelete(Array.from(selectedViolationIds)); setSelectedViolationIds(new Set()); }} className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg flex items-center gap-2">
+                 <Trash2 size={16} /> Xóa
+              </button>
            </div>
         </div>
       )}

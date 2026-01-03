@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Shield,
   PlusCircle,
@@ -17,7 +17,8 @@ import {
   LogOut,
   Loader2,
   Users,
-  Link2
+  Link2,
+  RefreshCw
 } from 'lucide-react';
 import { User as UserType, Violation, ClassEntity, Student, Criteria, TimeConfig, RoleConfig } from './types';
 import { INITIAL_ROLE_DEFINITIONS, GUEST_USER, INITIAL_TIME_CONFIGS, formatDateForInput, formatDateDisplay, safeParseImages } from './utils';
@@ -48,6 +49,7 @@ export default function App() {
   const [academicYear, setAcademicYear] = useState<string>('2023-2024');
   const [unsavedChanges, setUnsavedChanges] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Login State
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -65,24 +67,34 @@ export default function App() {
   const [editCriteriaId, setEditCriteriaId] = useState('');
   const [editNote, setEditNote] = useState('');
 
-  // Fetch Data
-  useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      const data = await api.getAllData();
-      if (data) {
-        if(data.Users) setUsers(data.Users);
-        if(data.Classes) setClasses(data.Classes);
-        if(data.Students) setStudents(data.Students);
-        if(data.Criteria) setCriteria(data.Criteria);
-        if(data.Violations) setViolations(data.Violations);
-        if(data.TimeConfigs && data.TimeConfigs.length > 0) setTimeConfigs(data.TimeConfigs);
-        // Lưu ý: Nếu có bảng Roles trong tương lai thì load ở đây, hiện tại dùng default
-      }
-      setIsLoading(false);
-    };
-    fetchData();
+  // Fetch Data Function
+  const fetchData = useCallback(async (showLoading = true) => {
+    if (showLoading) setIsLoading(true);
+    else setIsRefreshing(true);
+    
+    const data = await api.getAllData();
+    if (data) {
+      if(data.Users) setUsers(data.Users);
+      if(data.Classes) setClasses(data.Classes);
+      if(data.Students) setStudents(data.Students);
+      if(data.Criteria) setCriteria(data.Criteria);
+      if(data.Violations) setViolations(data.Violations);
+      if(data.TimeConfigs && data.TimeConfigs.length > 0) setTimeConfigs(data.TimeConfigs);
+      // Lưu ý: Nếu có bảng Roles trong tương lai thì load ở đây
+    }
+    
+    if (showLoading) setIsLoading(false);
+    else setIsRefreshing(false);
   }, []);
+
+  // Initial Fetch
+  useEffect(() => {
+    fetchData(true);
+  }, [fetchData]);
+
+  const handleRefresh = () => {
+    fetchData(false); // Silent refresh (show small spinner)
+  };
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,8 +107,6 @@ export default function App() {
       setLoginPassword('');
       setLoginError('');
       
-      // Kiểm tra quyền dựa trên cấu hình role hiện tại
-      // Normalize role key (upper case) để so sánh an toàn
       const userRoleKey = user.role.toUpperCase();
       const roleConfig = roleConfigs[userRoleKey] || roleConfigs['GUEST'];
       
@@ -128,7 +138,6 @@ export default function App() {
         Students: students,
         Criteria: criteria,
         TimeConfigs: timeConfigs
-        // Nếu Backend hỗ trợ lưu Roles thì thêm vào đây
      };
 
      await api.syncSettings(payload);
@@ -136,21 +145,45 @@ export default function App() {
      alert("Đã đồng bộ cấu hình thành công!");
   };
 
+  // --- Xử lý Xóa Đơn Lẻ ---
   const handleDeleteViolation = async (id: string) => {
     if (confirm("Xóa vĩnh viễn mục này trên hệ thống?")) {
+      // Optimistic update
       setViolations(prev => prev.filter(v => v.id !== id));
       if (viewingViolation?.id === id) setViewingViolation(null);
+      
       await api.deleteViolation(id);
     }
+  };
+
+  // --- Xử lý Xóa Nhiều (Mới) ---
+  const handleBulkDelete = async (ids: string[]) => {
+      if (ids.length === 0) return;
+      if (!confirm(`Bạn có chắc muốn xóa ${ids.length} mục đã chọn?`)) return;
+
+      setIsRefreshing(true); // Show loading indicator
+
+      // 1. Optimistic update (Cập nhật giao diện ngay lập tức)
+      setViolations(prev => prev.filter(v => !ids.includes(v.id)));
+
+      // 2. Gọi API xóa hàng loạt
+      try {
+          await api.deleteViolations(ids);
+          // Không cần alert thành công để trải nghiệm mượt hơn, hoặc alert nhỏ
+      } catch (e) {
+          alert("Có lỗi xảy ra khi xóa dữ liệu trên Server.");
+          // Rollback nếu cần (nhưng phức tạp), ở đây ta nên refresh lại data
+          fetchData(false);
+      } finally {
+          setIsRefreshing(false);
+      }
   };
 
   const handleEditClick = (e: React.MouseEvent, v: Violation) => {
     e.stopPropagation();
     setEditingViolation(v);
     
-    // Sửa lỗi ngày: format về YYYY-MM-DD để input date hiển thị đúng (dùng Local Time)
     setEditDate(formatDateForInput(v.date));
-    
     setEditClassId(v.classId);
     setEditStudentId(v.studentId || '');
     setEditCriteriaId(v.criteriaId);
@@ -181,13 +214,11 @@ export default function App() {
     alert("Cập nhật thành công!");
   };
 
-  // Helper để xác định user hiện tại có phải Admin không
   const isCurrentUserAdmin = () => {
       const roleKey = currentUser.role.toUpperCase();
       return roleConfigs[roleKey]?.isAdmin || false;
   };
 
-  // Helper xác định user hiện tại có quyền Entry không
   const canCurrentUserEntry = () => {
       const roleKey = currentUser.role.toUpperCase();
       return roleConfigs[roleKey]?.canEntry || false;
@@ -202,6 +233,14 @@ export default function App() {
     const reporter = users.find(u => u.id === v.reportedBy);
     
     const images = safeParseImages(v.images);
+
+    // Xử lý hiển thị người báo cáo
+    const reporterRoleConfig = reporter ? roleConfigs[reporter.role] : null;
+    const reporterRoleLabel = reporterRoleConfig ? reporterRoleConfig.label : 'Không rõ';
+    const reporterColor = reporterRoleConfig ? reporterRoleConfig.color : 'gray';
+
+    // Chỉ Admin hoặc chính người báo mới thấy tên đầy đủ
+    const showReporterDetails = isCurrentUserAdmin() || currentUser.id === v.reportedBy;
 
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
@@ -233,11 +272,10 @@ export default function App() {
               <div className="space-y-3">
                  <div>
                     <div className="text-2xl font-black text-blue-800">{cls?.name}</div>
-                    {/* Sử dụng formatDateDisplay để hiển thị đúng ngày nhập */}
                     <div className="text-sm font-semibold text-slate-600">{formatDateDisplay(v.date)}</div>
                  </div>
                  <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                    <div className="text-xs font-bold text-slate-500 uppercase mb-1">Đối tượng</div>
+                    <div className="text-xs font-bold text-slate-500 uppercase mb-1">Học sinh</div>
                     <div className="font-medium text-slate-800 flex items-center gap-2"><User size={16} /> {stu ? `${stu.name}` : 'Tập thể lớp'}</div>
                  </div>
                  <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
@@ -246,7 +284,21 @@ export default function App() {
                     <div className={`text-lg font-bold mt-1 ${v.points > 0 ? 'text-red-600' : 'text-green-600'}`}>{v.points > 0 ? `Trừ ${v.points} điểm` : `Cộng ${Math.abs(v.points)} điểm`}</div>
                  </div>
                  {v.note && <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-100 text-sm text-yellow-900"><span className="font-bold">Ghi chú:</span> {v.note}</div>}
-                 <div className="text-xs text-slate-400 text-right mt-2">Người báo: {reporter?.name || reporter?.id || 'Không rõ'}</div>
+                 
+                 {/* Phần hiển thị Người báo cáo */}
+                 <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-100">
+                     <span className="text-xs text-slate-400 font-medium">Người báo cáo</span>
+                     <div className="flex items-center gap-2">
+                        {showReporterDetails && (
+                            <span className="text-xs font-bold text-slate-700 text-right">
+                                {reporter?.name} {reporter?.className ? `(${reporter.className})` : ''}
+                            </span>
+                        )}
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase border bg-${reporterColor}-50 border-${reporterColor}-200 text-${reporterColor}-700`}>
+                            {reporterRoleLabel}
+                        </span>
+                     </div>
+                 </div>
               </div>
            </div>
            <div className="p-4 border-t bg-slate-50 flex justify-end">
@@ -308,24 +360,36 @@ export default function App() {
               <p className="text-blue-200 text-xs opacity-80 pl-9">Hệ thống quản lý thi đua trường học</p>
            </div>
            
-           <div className="relative group">
-              {currentUser.role !== 'GUEST' ? (
-                <button 
-                    onClick={handleLogout}
-                    className="flex items-center gap-2 bg-blue-800/50 hover:bg-blue-800 pl-3 pr-2 py-1.5 rounded-full text-xs font-medium transition-colors border border-blue-700"
-                >
-                    <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold bg-white text-blue-900`}>{currentUser.name.charAt(0)}</div>
-                    <span className="max-w-[80px] truncate">{currentUser.name}</span>
-                    <LogOut size={14} className="ml-1 opacity-70"/>
-                </button>
-              ) : (
-                <button 
-                    onClick={() => setShowLoginModal(true)}
-                    className="flex items-center gap-2 bg-white text-blue-900 hover:bg-blue-50 px-4 py-2 rounded-full text-sm font-bold transition-colors shadow-md"
-                >
-                    <LogIn size={16} /> Đăng nhập
-                </button>
-              )}
+           <div className="flex items-center gap-2">
+              {/* Refresh Button */}
+              <button 
+                onClick={handleRefresh} 
+                disabled={isRefreshing}
+                className="p-2 rounded-full bg-blue-800 text-blue-200 hover:bg-blue-700 hover:text-white transition-colors disabled:opacity-50"
+                title="Làm mới dữ liệu từ Database"
+              >
+                  <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} />
+              </button>
+
+              <div className="relative group">
+                  {currentUser.role !== 'GUEST' ? (
+                    <button 
+                        onClick={handleLogout}
+                        className="flex items-center gap-2 bg-blue-800/50 hover:bg-blue-800 pl-3 pr-2 py-1.5 rounded-full text-xs font-medium transition-colors border border-blue-700"
+                    >
+                        <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold bg-white text-blue-900`}>{currentUser.name.charAt(0)}</div>
+                        <span className="max-w-[80px] truncate">{currentUser.name}</span>
+                        <LogOut size={14} className="ml-1 opacity-70"/>
+                    </button>
+                  ) : (
+                    <button 
+                        onClick={() => setShowLoginModal(true)}
+                        className="flex items-center gap-2 bg-white text-blue-900 hover:bg-blue-50 px-4 py-2 rounded-full text-sm font-bold transition-colors shadow-md"
+                    >
+                        <LogIn size={16} /> Đăng nhập
+                    </button>
+                  )}
+              </div>
            </div>
         </div>
       </header>
@@ -339,7 +403,7 @@ export default function App() {
             criteria={criteria} 
             violations={violations} 
             setViolations={setViolations}
-            roleConfigs={roleConfigs} // Pass config
+            roleConfigs={roleConfigs}
           />
         )}
         {activeTab === 'list' && (
@@ -352,6 +416,7 @@ export default function App() {
             users={users} 
             roleConfigs={roleConfigs}
             handleDeleteViolation={handleDeleteViolation}
+            handleBulkDelete={handleBulkDelete} // Pass bulk handler
             setViewingViolation={setViewingViolation}
             handleEditClick={handleEditClick}
           />
@@ -409,6 +474,7 @@ export default function App() {
       </main>
 
       <nav className="bg-white border-t border-slate-200 fixed bottom-0 left-0 right-0 max-w-md md:max-w-2xl lg:max-w-4xl mx-auto z-10 pb-safe">
+        {/* Navigation Buttons ... (Keep existing) */}
         <div className="flex justify-around items-center">
           {currentUser.role !== 'GUEST' && canCurrentUserEntry() && (
             <button onClick={() => setActiveTab('entry')} className={`flex flex-col items-center py-3 px-2 flex-1 transition-colors ${activeTab === 'entry' ? 'text-blue-700' : 'text-slate-400 hover:text-slate-600'}`}>

@@ -7,7 +7,8 @@ export const api = {
   // 1. Lấy toàn bộ dữ liệu
   getAllData: async () => {
     try {
-      const response = await fetch(`${API_URL}?action=getAllData`);
+      // Thêm tham số t=Time để tránh cache của trình duyệt
+      const response = await fetch(`${API_URL}?action=getAllData&t=${Date.now()}`);
       return await response.json();
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -20,9 +21,17 @@ export const api = {
     return postData('createViolation', violation);
   },
   
-  // 3. Xóa Vi phạm
+  // 3. Xóa Vi phạm (Đơn lẻ)
   deleteViolation: async (id: string) => {
     return postData('deleteViolation', { id });
+  },
+
+  // 3b. Xóa nhiều Vi phạm (Mới)
+  // Gửi mảng ids lên server. Nếu Server chưa hỗ trợ bulk, ta có thể loop ở đây, 
+  // nhưng tốt nhất là gửi 1 request chứa danh sách ID.
+  deleteViolations: async (ids: string[]) => {
+    // Gửi payload dạng { ids: [...] }
+    return postData('deleteViolations', { ids });
   },
 
   // 4. Cập nhật Vi phạm
