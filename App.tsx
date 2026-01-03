@@ -16,10 +16,11 @@ import {
   LogIn,
   LogOut,
   Loader2,
-  Users
+  Users,
+  Link2
 } from 'lucide-react';
 import { User as UserType, Violation, ClassEntity, Student, Criteria, TimeConfig, RoleConfig } from './types';
-import { INITIAL_ROLE_DEFINITIONS, GUEST_USER, INITIAL_TIME_CONFIGS, formatDateForInput } from './utils';
+import { INITIAL_ROLE_DEFINITIONS, GUEST_USER, INITIAL_TIME_CONFIGS, formatDateForInput, formatDateDisplay, safeParseImages } from './utils';
 import { api } from './services/googleApi';
 
 import EntryTab from './components/EntryTab';
@@ -147,7 +148,7 @@ export default function App() {
     e.stopPropagation();
     setEditingViolation(v);
     
-    // Sửa lỗi ngày: format về YYYY-MM-DD để input date hiển thị đúng
+    // Sửa lỗi ngày: format về YYYY-MM-DD để input date hiển thị đúng (dùng Local Time)
     setEditDate(formatDateForInput(v.date));
     
     setEditClassId(v.classId);
@@ -200,6 +201,8 @@ export default function App() {
     const cri = criteria.find(c => c.id === v.criteriaId);
     const reporter = users.find(u => u.id === v.reportedBy);
     
+    const images = safeParseImages(v.images);
+
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
         <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
@@ -208,13 +211,30 @@ export default function App() {
              <button onClick={() => setViewingViolation(null)} className="p-1 rounded-full hover:bg-slate-200"><X size={24} className="text-slate-500" /></button>
            </div>
            <div className="p-5 overflow-y-auto space-y-4">
-              {v.images && v.images.length > 0 ? (
-                <img src={v.images[0]} alt="Bằng chứng" className="w-full h-auto max-h-64 object-contain mx-auto rounded-xl border border-slate-100 bg-slate-50" />
-              ) : <div className="w-full h-32 bg-slate-100 rounded-xl flex items-center justify-center text-slate-400 text-sm italic">Không có ảnh minh họa</div>}
+              
+              {/* Image Links instead of Preview */}
+              {images.length > 0 ? (
+                <div className="flex flex-col gap-2">
+                    {images.map((img, idx) => (
+                         <a 
+                            key={idx} 
+                            href={img} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 w-full p-3 rounded-xl border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+                        >
+                            <Link2 size={18} /> 
+                            <span className="font-semibold text-sm">Xem ảnh minh chứng {images.length > 1 ? idx + 1 : ''}</span>
+                        </a>
+                    ))}
+                </div>
+              ) : <div className="w-full h-20 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 text-sm italic border border-slate-200 border-dashed">Không có ảnh minh họa</div>}
+
               <div className="space-y-3">
                  <div>
                     <div className="text-2xl font-black text-blue-800">{cls?.name}</div>
-                    <div className="text-sm font-semibold text-slate-600">{v.date}</div>
+                    {/* Sử dụng formatDateDisplay để hiển thị đúng ngày nhập */}
+                    <div className="text-sm font-semibold text-slate-600">{formatDateDisplay(v.date)}</div>
                  </div>
                  <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
                     <div className="text-xs font-bold text-slate-500 uppercase mb-1">Đối tượng</div>

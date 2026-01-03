@@ -166,16 +166,20 @@ export const formatDateDisplay = (dateStr: string): string => {
 };
 
 /**
- * Chuyển ngày bất kỳ về YYYY-MM-DD để đưa vào input[type="date"]
+ * Chuyển ngày bất kỳ về YYYY-MM-DD (Local Time) để đưa vào input[type="date"]
+ * Fix lỗi: 2026-01-02T17:00:00.000Z (UTC) -> 2026-01-03 (VN) thay vì bị cắt thành 2026-01-02
  */
 export const formatDateForInput = (dateStr: string): string => {
     if (!dateStr) return '';
     try {
-        // Lấy phần YYYY-MM-DD, bỏ phần giờ nếu là ISO string
-        if (dateStr.includes('T')) {
-            return dateStr.split('T')[0];
-        }
-        return dateStr;
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return dateStr;
+
+        // Sử dụng local time để lấy ngày tháng năm chính xác theo múi giờ người dùng
+        const year = d.getFullYear();
+        const month = (d.getMonth() + 1).toString().padStart(2, '0');
+        const day = d.getDate().toString().padStart(2, '0');
+        return `${year}-${month}-${day}`;
     } catch (e) {
         return '';
     }
