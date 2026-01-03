@@ -15,7 +15,8 @@ import {
   Edit,
   LogIn,
   LogOut,
-  Loader2
+  Loader2,
+  Users
 } from 'lucide-react';
 import { User as UserType, Violation, ClassEntity, Student, Criteria, TimeConfig, RoleConfig } from './types';
 import { INITIAL_ROLE_DEFINITIONS, GUEST_USER, INITIAL_TIME_CONFIGS } from './utils';
@@ -26,6 +27,7 @@ import ListTab from './components/ListTab';
 import RankingTab from './components/RankingTab';
 import ClassDetailTab from './components/ClassDetailTab';
 import SettingsTab from './components/SettingsTab';
+import TaskForceTab from './components/TaskForceTab';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>('list');
@@ -346,6 +348,14 @@ export default function App() {
             students={students} 
           />
         )}
+        {activeTab === 'taskforce' && isCurrentUserAdmin() && (
+          <TaskForceTab 
+            users={users}
+            violations={violations}
+            classes={classes}
+            roleConfigs={roleConfigs}
+          />
+        )}
         {activeTab === 'settings' && (
           isCurrentUserAdmin() ? (
             <SettingsTab 
@@ -391,6 +401,13 @@ export default function App() {
           <button onClick={() => setActiveTab('detail')} className={`flex flex-col items-center py-3 px-2 flex-1 transition-colors ${activeTab === 'detail' ? 'text-blue-700' : 'text-slate-400 hover:text-slate-600'}`}>
             <BarChart2 size={24} strokeWidth={activeTab === 'detail' ? 2.5 : 2} /><span className="text-[10px] font-bold mt-1">Lớp</span>
           </button>
+          
+          {isCurrentUserAdmin() && (
+             <button onClick={() => setActiveTab('taskforce')} className={`flex flex-col items-center py-3 px-2 flex-1 transition-colors ${activeTab === 'taskforce' ? 'text-blue-700' : 'text-slate-400 hover:text-slate-600'}`}>
+               <Users size={24} strokeWidth={activeTab === 'taskforce' ? 2.5 : 2} /><span className="text-[10px] font-bold mt-1">Ban Nền Nếp</span>
+             </button>
+          )}
+
           {isCurrentUserAdmin() && (
             <button onClick={() => setActiveTab('settings')} className={`flex flex-col items-center py-3 px-2 flex-1 transition-colors ${activeTab === 'settings' ? 'text-blue-700' : 'text-slate-400 hover:text-slate-600'}`}>
               <Settings size={24} strokeWidth={activeTab === 'settings' ? 2.5 : 2} /><span className="text-[10px] font-bold mt-1">Cấu Hình</span>

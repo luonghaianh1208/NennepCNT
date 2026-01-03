@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { Award, TrendingUp, ThumbsDown, ThumbsUp, AlertCircle } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { User, ClassEntity, Violation, Student, Criteria } from '../types';
-import { calculateScore, getWeekNumber } from '../utils';
+import { calculateScore, getWeekNumber, safeParseImages } from '../utils';
 
 interface ClassDetailTabProps {
   currentUser: User;
@@ -133,30 +133,54 @@ const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ currentUser, classes, v
          <div className="space-y-3">
             <div className="flex items-center gap-2 text-red-700 font-bold uppercase text-sm border-b border-red-200 pb-2"><ThumbsDown size={18} /> Lịch sử Vi Phạm</div>
             <div className="space-y-2">
-              {minusViolations.length > 0 ? minusViolations.map(v => (
-                <div key={v.id} className="bg-white p-3 rounded-lg border border-red-100 shadow-sm flex justify-between items-start">
-                  <div>
-                     <div className="font-medium text-slate-800 text-sm">{criteria.find(c => c.id === v.criteriaId)?.content}</div>
-                     <div className="text-xs text-slate-500 mt-1">{v.date} • {v.studentId ? students.find(s=>s.id===v.studentId)?.name : 'Tập thể'}</div>
-                  </div>
-                  <div className="font-bold text-red-600">-{v.points}</div>
-                </div>
-              )) : <div className="text-center py-8 text-slate-400 text-sm bg-slate-50 rounded-lg border border-dashed border-slate-200">Không có vi phạm nào</div>}
+              {minusViolations.length > 0 ? minusViolations.map(v => {
+                  const images = safeParseImages(v.images);
+                  return (
+                    <div key={v.id} className="bg-white p-3 rounded-lg border border-red-100 shadow-sm flex flex-col items-start gap-2">
+                      <div className="w-full flex justify-between items-start">
+                        <div>
+                           <div className="font-medium text-slate-800 text-sm">{criteria.find(c => c.id === v.criteriaId)?.content}</div>
+                           <div className="text-xs text-slate-500 mt-1">{v.date} • {v.studentId ? students.find(s=>s.id===v.studentId)?.name : 'Tập thể'}</div>
+                        </div>
+                        <div className="font-bold text-red-600">-{v.points}</div>
+                      </div>
+                      {images.length > 0 && (
+                          <div className="flex gap-1 overflow-x-auto w-full">
+                              {images.map((img, idx) => (
+                                  <img key={idx} src={img} className="h-10 w-10 object-cover rounded border" alt="evidence"/>
+                              ))}
+                          </div>
+                      )}
+                    </div>
+                  );
+              }) : <div className="text-center py-8 text-slate-400 text-sm bg-slate-50 rounded-lg border border-dashed border-slate-200">Không có vi phạm nào</div>}
             </div>
          </div>
 
          <div className="space-y-3">
             <div className="flex items-center gap-2 text-green-700 font-bold uppercase text-sm border-b border-green-200 pb-2"><ThumbsUp size={18} /> Lịch sử Thành Tích</div>
             <div className="space-y-2">
-              {plusViolations.length > 0 ? plusViolations.map(v => (
-                <div key={v.id} className="bg-white p-3 rounded-lg border border-green-100 shadow-sm flex justify-between items-start">
-                  <div>
-                     <div className="font-medium text-slate-800 text-sm">{criteria.find(c => c.id === v.criteriaId)?.content}</div>
-                     <div className="text-xs text-slate-500 mt-1">{v.date} • {v.studentId ? students.find(s=>s.id===v.studentId)?.name : 'Tập thể'}</div>
-                  </div>
-                  <div className="font-bold text-green-600">+{Math.abs(v.points)}</div>
-                </div>
-              )) : <div className="text-center py-8 text-slate-400 text-sm bg-slate-50 rounded-lg border border-dashed border-slate-200">Chưa có thành tích nào</div>}
+              {plusViolations.length > 0 ? plusViolations.map(v => {
+                  const images = safeParseImages(v.images);
+                  return (
+                    <div key={v.id} className="bg-white p-3 rounded-lg border border-green-100 shadow-sm flex flex-col items-start gap-2">
+                      <div className="w-full flex justify-between items-start">
+                        <div>
+                           <div className="font-medium text-slate-800 text-sm">{criteria.find(c => c.id === v.criteriaId)?.content}</div>
+                           <div className="text-xs text-slate-500 mt-1">{v.date} • {v.studentId ? students.find(s=>s.id===v.studentId)?.name : 'Tập thể'}</div>
+                        </div>
+                        <div className="font-bold text-green-600">+{Math.abs(v.points)}</div>
+                      </div>
+                      {images.length > 0 && (
+                          <div className="flex gap-1 overflow-x-auto w-full">
+                              {images.map((img, idx) => (
+                                  <img key={idx} src={img} className="h-10 w-10 object-cover rounded border" alt="evidence"/>
+                              ))}
+                          </div>
+                      )}
+                    </div>
+                  );
+              }) : <div className="text-center py-8 text-slate-400 text-sm bg-slate-50 rounded-lg border border-dashed border-slate-200">Chưa có thành tích nào</div>}
             </div>
          </div>
       </div>

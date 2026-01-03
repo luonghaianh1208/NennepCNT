@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { Download, Filter, Search, CheckSquare, Square, Trash2, AlertTriangle, Eye, Edit } from 'lucide-react';
 import { Violation, ClassEntity, Student, Criteria, User } from '../types';
-import { getWeekNumber } from '../utils';
+import { getWeekNumber, safeParseImages } from '../utils';
 
 interface ListTabProps {
   currentUser: User;
@@ -24,6 +24,9 @@ const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, stu
   const [filterSemester, setFilterSemester] = useState('1');
   const [filterClassId, setFilterClassId] = useState('ALL');
   const [selectedViolationIds, setSelectedViolationIds] = useState<Set<string>>(new Set());
+
+  // Check Admin permission safely
+  const isAdmin = currentUser.role === 'ADMIN' || (currentUser.role !== 'GUEST' && currentUser.role !== 'TEACHER' && currentUser.role !== 'STUDENT'); // Simplified for view, strict for sensitive info
 
   const filteredViolations = useMemo(() => {
     let list = violations;
@@ -93,14 +96,15 @@ const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, stu
       const clsName = classes.find(c => c.id === v.classId)?.name || v.classId;
       const stuName = v.studentId ? (students.find(s => s.id === v.studentId)?.name || v.studentId) : "Tập thể";
       const criContent = criteria.find(c => c.id === v.criteriaId)?.content || v.criteriaId;
-      const reporterName = users.find(u => u.id === v.reportedBy)?.name || v.reportedBy;
       
-      // Quy ước hiển thị điểm: Lỗi (MINUS) hiển thị âm (-), Thành tích (PLUS) hiển thị dương (+) cho dễ hiểu trong Excel
-      // Tuy nhiên, hệ thống đang lưu: Lỗi = dương, Thành tích = âm. Ta đảo lại cho logic báo cáo.
+      // Logic ẩn danh: Chỉ Admin hoặc chính người báo mới thấy tên
+      const isReporterMe = v.reportedBy === currentUser.id;
+      const reporterRawName = users.find(u => u.id === v.reportedBy)?.name || v.reportedBy;
+      const reporterName = (currentUser.role === 'ADMIN' || isReporterMe) ? reporterRawName : "Ẩn danh";
+      
       const displayPoint = v.points > 0 ? `-${v.points}` : `+${Math.abs(v.points)}`;
       const typeLabel = v.points > 0 ? "Vi phạm" : "Thành tích";
 
-      // Hàm escape dấu phẩy và ngoặc kép để không vỡ format CSV
       const escape = (str: string | undefined) => `"${String(str || '').replace(/"/g, '""')}"`;
 
       return [
@@ -116,10 +120,8 @@ const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, stu
       ].join(",");
     });
 
-    // 3. Ghép Header và Rows, thêm BOM (\uFEFF) để Excel nhận dạng UTF-8 Tiếng Việt
     const csvString = "\uFEFF" + [headers.join(","), ...csvRows].join("\n");
 
-    // 4. Tạo Blob và link tải xuống
     const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -179,8 +181,9 @@ const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, stu
           const cls = classes.find(c => c.id === v.classId);
           const stu = students.find(s => s.id === v.studentId);
           const cri = criteria.find(c => c.id === v.criteriaId);
-          const reporter = users.find(u => u.id === v.reportedBy);
           const isSelected = selectedViolationIds.has(v.id);
+          
+          const images = safeParseImages(v.images);
 
           return (
             <div key={v.id} onClick={() => setViewingViolation(v)} className={`relative group bg-white rounded-xl shadow-sm border p-4 cursor-pointer active:scale-[0.99] transition-all ${isSelected ? 'border-blue-500 ring-1 ring-blue-500 bg-blue-50/30' : 'border-slate-200 hover:border-blue-300'}`}>
@@ -197,7 +200,15 @@ const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, stu
                   </div>
                   <div className="text-sm font-medium text-slate-800 mb-0.5">{stu ? `${stu.name} - Cá nhân` : 'Tập thể lớp'}</div>
                   <div className="text-sm text-slate-600">{cri?.content}</div>
-                  {v.images && v.images.length > 0 && <div className="mt-2 flex gap-2">{v.images.map((img, idx) => <img key={idx} src={img} alt="Evidence" className="w-12 h-12 object-cover rounded border border-slate-200" />)}</div>}
+                  
+                  {/* Hiển thị ảnh an toàn */}
+                  {images.length > 0 && (
+                    <div className="mt-2 flex gap-2 overflow-x-auto">
+                      {images.map((img, idx) => (
+                        <img key={idx} src={img} alt="Evidence" className="w-12 h-12 object-cover rounded border border-slate-200" />
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="text-right">
                   <div className={`text-lg font-bold ${v.points > 0 ? 'text-red-600' : 'text-green-600'}`}>{v.points > 0 ? `-${v.points}` : `+${Math.abs(v.points)}`}</div>

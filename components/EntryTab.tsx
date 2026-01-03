@@ -3,7 +3,7 @@ import React, { useState, useRef, useMemo } from 'react';
 import { AlertTriangle, Star, ChevronDown, Camera, X, CheckCircle2, Shield, Upload, Info, Loader2 } from 'lucide-react';
 import { User, ClassEntity, Student, Criteria, Violation, RoleConfig } from '../types';
 import { api } from '../services/googleApi';
-import { parseCSVLine } from '../utils';
+import { parseCSVLine, removeVietnameseTones } from '../utils';
 
 interface EntryTabProps {
   currentUser: User;
@@ -156,10 +156,15 @@ const EntryTab: React.FC<EntryTabProps> = ({ currentUser, classes, students, cri
 
         let imageUrls: string[] = [];
         if (previewImage) {
+            // Chuẩn hóa tên file: Xóa dấu tiếng Việt, thay khoảng trắng bằng _
+            const safeStudentName = selectedStudent ? removeVietnameseTones(selectedStudent.name) : 'TapThe';
+            const safeClassName = selectedClass ? removeVietnameseTones(selectedClass.name) : selectedClassId;
+            const safeViolation = criteriaItem ? removeVietnameseTones(criteriaItem.content) : 'LoiViPham';
+
             const fileNameInfo = {
-                studentName: selectedStudent ? selectedStudent.name : 'TapThe',
-                className: selectedClass ? selectedClass.name : selectedClassId,
-                violation: criteriaItem ? criteriaItem.content : 'LoiViPham',
+                studentName: safeStudentName,
+                className: safeClassName,
+                violation: safeViolation,
                 date: entryDate
             };
             const uploadRes = await api.uploadImage(previewImage, fileNameInfo);
