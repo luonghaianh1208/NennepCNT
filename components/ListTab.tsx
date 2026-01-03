@@ -1,8 +1,8 @@
 
 import React, { useState, useMemo } from 'react';
-import { Download, Filter, Search, CheckSquare, Square, Trash2, AlertTriangle, Eye, Edit } from 'lucide-react';
-import { Violation, ClassEntity, Student, Criteria, User } from '../types';
-import { getWeekNumber, safeParseImages } from '../utils';
+import { Download, Filter, Search, CheckSquare, Square, Trash2, AlertTriangle, Eye, Edit, Link2 } from 'lucide-react';
+import { Violation, ClassEntity, Student, Criteria, User, RoleConfig } from '../types';
+import { getWeekNumber, safeParseImages, formatDateDisplay } from '../utils';
 
 interface ListTabProps {
   currentUser: User;
@@ -11,12 +11,13 @@ interface ListTabProps {
   students: Student[];
   criteria: Criteria[];
   users: User[];
+  roleConfigs: Record<string, RoleConfig>;
   handleDeleteViolation: (id: string) => void;
   setViewingViolation: (v: Violation | null) => void;
   handleEditClick: (e: React.MouseEvent, v: Violation) => void;
 }
 
-const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, students, criteria, users, handleDeleteViolation, setViewingViolation, handleEditClick }) => {
+const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, students, criteria, users, roleConfigs, handleDeleteViolation, setViewingViolation, handleEditClick }) => {
   const [filterMode, setFilterMode] = useState<'MONTH' | 'WEEK' | 'SEMESTER' | 'ALL'>('MONTH');
   const [filterCriteriaType, setFilterCriteriaType] = useState<'ALL' | 'MINUS' | 'PLUS'>('ALL');
   const [filterMonth, setFilterMonth] = useState(new Date().toISOString().slice(0, 7));
@@ -25,8 +26,11 @@ const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, stu
   const [filterClassId, setFilterClassId] = useState('ALL');
   const [selectedViolationIds, setSelectedViolationIds] = useState<Set<string>>(new Set());
 
-  // Check Admin permission safely
-  const isAdmin = currentUser.role === 'ADMIN' || (currentUser.role !== 'GUEST' && currentUser.role !== 'TEACHER' && currentUser.role !== 'STUDENT'); // Simplified for view, strict for sensitive info
+  // Check Admin permission safely based on Role Config
+  const isAdmin = useMemo(() => {
+     const roleKey = currentUser.role.toUpperCase();
+     return roleConfigs[roleKey]?.isAdmin || false;
+  }, [currentUser, roleConfigs]);
 
   const filteredViolations = useMemo(() => {
     let list = violations;
@@ -87,6 +91,7 @@ const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, stu
       "Nội dung/Lỗi",
       "Điểm cộng/trừ",
       "Người báo",
+      "Vai trò người báo",
       "Ghi chú",
       "Loại"
     ];
@@ -97,10 +102,14 @@ const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, stu
       const stuName = v.studentId ? (students.find(s => s.id === v.studentId)?.name || v.studentId) : "Tập thể";
       const criContent = criteria.find(c => c.id === v.criteriaId)?.content || v.criteriaId;
       
-      // Logic ẩn danh: Chỉ Admin hoặc chính người báo mới thấy tên
+      const reporterUser = users.find(u => u.id === v.reportedBy);
+      const reporterRoleConfig = reporterUser ? roleConfigs[reporterUser.role] : null;
+      const reporterRoleLabel = reporterRoleConfig ? reporterRoleConfig.label : 'Không rõ';
+      
+      // Logic hiển thị tên người báo khi Export:
+      // Nếu là Admin hoặc chính mình thì hiện tên, không thì hiện "Ẩn danh"
       const isReporterMe = v.reportedBy === currentUser.id;
-      const reporterRawName = users.find(u => u.id === v.reportedBy)?.name || v.reportedBy;
-      const reporterName = (currentUser.role === 'ADMIN' || isReporterMe) ? reporterRawName : "Ẩn danh";
+      const reporterName = (isAdmin || isReporterMe) ? (reporterUser?.name || v.reportedBy) : "Ẩn danh";
       
       const displayPoint = v.points > 0 ? `-${v.points}` : `+${Math.abs(v.points)}`;
       const typeLabel = v.points > 0 ? "Vi phạm" : "Thành tích";
@@ -109,12 +118,13 @@ const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, stu
 
       return [
         v.id,
-        v.date,
+        formatDateDisplay(v.date),
         escape(clsName),
         escape(stuName),
         escape(criContent),
         displayPoint,
         escape(reporterName),
+        escape(reporterRoleLabel),
         escape(v.note),
         typeLabel
       ].join(",");
@@ -147,7 +157,7 @@ const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, stu
       <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm space-y-3">
          <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-slate-700 font-bold text-sm"><Filter size={16} /> Bộ lọc dữ liệu</div>
-            {currentUser.role === 'ADMIN' && filteredViolations.length > 0 && (
+            {isAdmin && filteredViolations.length > 0 && (
                 <button onClick={handleSelectAll} className="text-xs text-blue-600 font-medium hover:underline">
                   {selectedViolationIds.size === filteredViolations.length ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
                 </button>
@@ -185,37 +195,68 @@ const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, stu
           
           const images = safeParseImages(v.images);
 
+          // Logic hiển thị người báo
+          const reporterUser = users.find(u => u.id === v.reportedBy);
+          const reporterRoleConfig = reporterUser ? roleConfigs[reporterUser.role] : null;
+          const reporterRoleLabel = reporterRoleConfig ? reporterRoleConfig.label : 'Không rõ';
+          
+          // Nếu là Admin: "Nguyễn Văn A - Cờ đỏ"
+          // Nếu không phải Admin: "Cờ đỏ"
+          const reporterDisplay = isAdmin && reporterUser 
+              ? `${reporterUser.name} - ${reporterRoleLabel}`
+              : `Người báo: ${reporterRoleLabel}`;
+          
+          const reporterColor = reporterRoleConfig ? reporterRoleConfig.color : 'gray';
+
           return (
-            <div key={v.id} onClick={() => setViewingViolation(v)} className={`relative group bg-white rounded-xl shadow-sm border p-4 cursor-pointer active:scale-[0.99] transition-all ${isSelected ? 'border-blue-500 ring-1 ring-blue-500 bg-blue-50/30' : 'border-slate-200 hover:border-blue-300'}`}>
-              {currentUser.role === 'ADMIN' && (
-                <div className="absolute top-3 right-3 z-20" onClick={(e) => { e.stopPropagation(); toggleSelection(v.id); }}>
+            <div key={v.id} className={`relative group bg-white rounded-xl shadow-sm border p-4 transition-all ${isSelected ? 'border-blue-500 ring-1 ring-blue-500 bg-blue-50/30' : 'border-slate-200 hover:border-blue-300'}`}>
+              {isAdmin && (
+                <div className="absolute top-3 right-3 z-20 cursor-pointer" onClick={(e) => { e.stopPropagation(); toggleSelection(v.id); }}>
                   {isSelected ? <CheckSquare className="text-blue-600" size={20} fill="white" /> : <Square className="text-slate-300 hover:text-blue-400" size={20} />}
                 </div>
               )}
-              <div className="flex justify-between items-start">
-                <div className="pr-8"> 
+              <div className="flex justify-between items-start" onClick={() => setViewingViolation(v)}>
+                <div className="pr-8 flex-1"> 
                   <div className="flex items-center gap-2 mb-1">
                     <span className="font-bold text-lg text-blue-800">{cls?.name}</span>
-                    <span className="text-xs text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">{v.date}</span>
+                    <span className="text-xs text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded font-medium border border-slate-200">
+                        {formatDateDisplay(v.date)}
+                    </span>
                   </div>
                   <div className="text-sm font-medium text-slate-800 mb-0.5">{stu ? `${stu.name} - Cá nhân` : 'Tập thể lớp'}</div>
-                  <div className="text-sm text-slate-600">{cri?.content}</div>
+                  <div className="text-sm text-slate-600 mb-1">{cri?.content}</div>
                   
-                  {/* Hiển thị ảnh an toàn */}
+                  {/* Hiển thị người báo dạng Tag */}
+                  <div className="mt-1">
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded border bg-${reporterColor}-50 border-${reporterColor}-100 text-${reporterColor}-700 font-medium`}>
+                          {reporterDisplay}
+                      </span>
+                  </div>
+
+                  {/* Hiển thị Link Ảnh */}
                   {images.length > 0 && (
-                    <div className="mt-2 flex gap-2 overflow-x-auto">
+                    <div className="mt-2 flex flex-wrap gap-2">
                       {images.map((img, idx) => (
-                        <img key={idx} src={img} alt="Evidence" className="w-12 h-12 object-cover rounded border border-slate-200" />
+                        <a 
+                            key={idx} 
+                            href={img} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()} // Tránh kích hoạt view modal
+                            className="flex items-center gap-1 text-xs text-blue-600 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded border border-blue-200 transition-colors"
+                        >
+                            <Link2 size={12} /> 
+                            <span>Xem ảnh minh chứng {images.length > 1 ? idx + 1 : ''}</span>
+                        </a>
                       ))}
                     </div>
                   )}
                 </div>
-                <div className="text-right">
+                
+                <div className="text-right flex flex-col justify-between h-full min-h-[80px]">
                   <div className={`text-lg font-bold ${v.points > 0 ? 'text-red-600' : 'text-green-600'}`}>{v.points > 0 ? `-${v.points}` : `+${Math.abs(v.points)}`}</div>
-                  {currentUser.role === 'ADMIN' && (
-                    <div className="flex gap-1 mt-3 justify-end opacity-60 group-hover:opacity-100 transition-opacity">
-                      <button onClick={(e) => handleEditClick(e, v)} className="p-1.5 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition-colors"><Edit size={16} /></button>
-                    </div>
+                  {isAdmin && (
+                    <button onClick={(e) => handleEditClick(e, v)} className="self-end p-1.5 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition-colors mt-auto"><Edit size={16} /></button>
                   )}
                 </div>
               </div>
@@ -230,7 +271,7 @@ const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, stu
         )}
       </div>
 
-      {currentUser.role === 'ADMIN' && selectedViolationIds.size > 0 && (
+      {isAdmin && selectedViolationIds.size > 0 && (
         <div className="fixed bottom-20 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:max-w-2xl bg-slate-900 text-white p-3 rounded-xl shadow-xl flex items-center justify-between z-30 animate-in slide-in-from-bottom-5">
            <div className="font-bold pl-2">Đã chọn {selectedViolationIds.size} mục</div>
            <div className="flex gap-2">

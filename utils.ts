@@ -145,3 +145,38 @@ export const safeParseImages = (imgField: string[] | string | undefined): string
     }
     return [];
 };
+
+/**
+ * Chuyển ngày (ISO/Date string) thành DD/MM/YYYY để hiển thị đẹp
+ */
+export const formatDateDisplay = (dateStr: string): string => {
+    if (!dateStr) return '';
+    try {
+        // Handle ISO string like 2026-01-02T17:00:00.000Z or just YYYY-MM-DD
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return dateStr;
+        
+        const day = d.getDate().toString().padStart(2, '0');
+        const month = (d.getMonth() + 1).toString().padStart(2, '0');
+        const year = d.getFullYear();
+        return `${day}/${month}/${year}`;
+    } catch (e) {
+        return dateStr;
+    }
+};
+
+/**
+ * Chuyển ngày bất kỳ về YYYY-MM-DD để đưa vào input[type="date"]
+ */
+export const formatDateForInput = (dateStr: string): string => {
+    if (!dateStr) return '';
+    try {
+        // Lấy phần YYYY-MM-DD, bỏ phần giờ nếu là ISO string
+        if (dateStr.includes('T')) {
+            return dateStr.split('T')[0];
+        }
+        return dateStr;
+    } catch (e) {
+        return '';
+    }
+};

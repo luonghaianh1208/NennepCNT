@@ -19,7 +19,7 @@ import {
   Users
 } from 'lucide-react';
 import { User as UserType, Violation, ClassEntity, Student, Criteria, TimeConfig, RoleConfig } from './types';
-import { INITIAL_ROLE_DEFINITIONS, GUEST_USER, INITIAL_TIME_CONFIGS } from './utils';
+import { INITIAL_ROLE_DEFINITIONS, GUEST_USER, INITIAL_TIME_CONFIGS, formatDateForInput } from './utils';
 import { api } from './services/googleApi';
 
 import EntryTab from './components/EntryTab';
@@ -146,7 +146,10 @@ export default function App() {
   const handleEditClick = (e: React.MouseEvent, v: Violation) => {
     e.stopPropagation();
     setEditingViolation(v);
-    setEditDate(v.date);
+    
+    // Sửa lỗi ngày: format về YYYY-MM-DD để input date hiển thị đúng
+    setEditDate(formatDateForInput(v.date));
+    
     setEditClassId(v.classId);
     setEditStudentId(v.studentId || '');
     setEditCriteriaId(v.criteriaId);
@@ -327,6 +330,7 @@ export default function App() {
             students={students} 
             criteria={criteria} 
             users={users} 
+            roleConfigs={roleConfigs}
             handleDeleteViolation={handleDeleteViolation}
             setViewingViolation={setViewingViolation}
             handleEditClick={handleEditClick}
