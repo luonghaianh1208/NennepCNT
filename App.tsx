@@ -145,6 +145,18 @@ export default function App() {
      alert("Đã đồng bộ cấu hình thành công!");
   };
 
+  const handleUpdateUser = async (updatedUser: UserType) => {
+      // Optimistic Update
+      setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
+      
+      // Auto save to DB (Assume API supports or user will click Save Settings later. 
+      // Ideally we trigger syncSettings but that saves everything.
+      // For now, let's mark unsaved changes so user is reminded to save)
+      setUnsavedChanges(true); 
+      
+      // If needed, we could call a specific API like api.updateUser(updatedUser) here
+  };
+
   // --- Xử lý Xóa Đơn Lẻ ---
   const handleDeleteViolation = async (id: string) => {
     if (confirm("Xóa vĩnh viễn mục này trên hệ thống?")) {
@@ -438,12 +450,15 @@ export default function App() {
             setViewingViolation={setViewingViolation} // Pass handler
           />
         )}
-        {activeTab === 'taskforce' && isCurrentUserAdmin() && (
+        {activeTab === 'taskforce' && (isCurrentUserAdmin() || currentUser.role === 'BCH_PHU_TRACH') && (
           <TaskForceTab 
+            currentUser={currentUser}
             users={users}
             violations={violations}
             classes={classes}
+            students={students}
             roleConfigs={roleConfigs}
+            onUpdateUser={handleUpdateUser}
           />
         )}
         {activeTab === 'settings' && (
@@ -493,7 +508,7 @@ export default function App() {
             <BarChart2 size={24} strokeWidth={activeTab === 'detail' ? 2.5 : 2} /><span className="text-[10px] font-bold mt-1">Lớp</span>
           </button>
           
-          {isCurrentUserAdmin() && (
+          {(isCurrentUserAdmin() || currentUser.role === 'BCH_PHU_TRACH') && (
              <button onClick={() => setActiveTab('taskforce')} className={`flex flex-col items-center py-3 px-2 flex-1 transition-colors ${activeTab === 'taskforce' ? 'text-blue-700' : 'text-slate-400 hover:text-slate-600'}`}>
                <Users size={24} strokeWidth={activeTab === 'taskforce' ? 2.5 : 2} /><span className="text-[10px] font-bold mt-1">Ban Nền Nếp</span>
              </button>

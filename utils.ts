@@ -5,6 +5,7 @@ import { RoleConfig, ClassEntity, Student, Criteria, User, Violation, TimeConfig
 export const INITIAL_ROLE_DEFINITIONS: Record<string, RoleConfig> = {
   ADMIN: { label: 'Quản trị viên', color: 'blue', canEntry: true, isAdmin: true },
   BCH: { label: 'Ban Chấp Hành', color: 'purple', canEntry: true, isAdmin: false },
+  BCH_PHU_TRACH: { label: 'BCH Phụ trách NN', color: 'indigo', canEntry: true, isAdmin: false },
   RED_FLAG: { label: 'Cờ đỏ', color: 'red', canEntry: true, isAdmin: false },
   DISCIPLINE: { label: 'Nền nếp', color: 'orange', canEntry: true, isAdmin: false },
   TEACHER: { label: 'Giáo viên CN', color: 'green', canEntry: false, isAdmin: false },

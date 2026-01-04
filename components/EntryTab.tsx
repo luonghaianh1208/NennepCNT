@@ -69,49 +69,100 @@ const EntryTab: React.FC<EntryTabProps> = ({ currentUser, classes, students, cri
       const lines = text.split(/\r\n|\n/);
       
       const recordsToProcess: Violation[] = [];
-      const defaultPlusCriteria = criteria.find(c => c.type === 'PLUS');
-
-      // 1. Parse CSV first
+      
+      // 1. Parse CSV based on Mode
       for (let i = 1; i < lines.length; i++) {
         const line = lines[i].trim();
         if (!line) continue;
         const parts = parseCSVLine(line);
         
-        // Expected: Ngay, Ten_Lop, Loai_hoat_dong, Cap_hoat_dong, Ten_thanh_tich, So_luong_HS, Diem_cong, Ghi_chu
-        if (parts.length >= 7) {
-            const [ngay, tenLop, loaiHD, capHD, tenThanhTich, soLuongHS, diemCongStr, ghiChu] = parts;
-            const targetClass = classes.find(c => c.name.toLowerCase() === tenLop.toLowerCase() || c.id.toLowerCase() === tenLop.toLowerCase());
-            
-            if (targetClass && diemCongStr) {
-                const points = parseFloat(diemCongStr);
-                const finalPoints = -Math.abs(points);
-                const detailNote = `[Import] ${tenThanhTich} - Loại: ${loaiHD} - Cấp: ${capHD} - SL: ${soLuongHS}. ${ghiChu || ''}`;
+        if (entryMode === 'VIOLATION') {
+             // Columns: Ngay_vi_pham, Lop_vi_pham, HS_vi_pham, Loi_vi_pham, Diem_tru, Ghi_chu, Link_anh, Nguoi_ghi_loi, Role_nguoi_ghi_loi
+             if (parts.length >= 5) {
+                const [ngay, tenLop, tenHS, noiDungLoi, diemTruStr, ghiChu, linkAnh, nguoiGhi, roleNguoiGhi] = parts;
+                const targetClass = classes.find(c => c.name.toLowerCase() === tenLop.toLowerCase() || c.id.toLowerCase() === tenLop.toLowerCase());
                 
-                recordsToProcess.push({
-                    id: `VCSV${Date.now()}_${i}`,
-                    date: ngay || new Date().toISOString().slice(0, 10),
-                    classId: targetClass.id,
-                    studentId: undefined,
-                    criteriaId: defaultPlusCriteria?.id || 'IMPORTED_CRITERIA', // Fallback ID
-                    points: finalPoints,
-                    note: detailNote,
-                    reportedBy: currentUser.id,
-                    isSecurityReport: false,
-                    timestamp: Date.now(),
-                    images: []
-                });
-            }
+                if (targetClass) {
+                    let targetStudentId: string | undefined = undefined;
+                    if (tenHS && tenHS.trim()) {
+                         const student = students.find(s => s.classId === targetClass.id && s.name.toLowerCase() === tenHS.toLowerCase().trim());
+                         targetStudentId = student ? student.id : undefined;
+                    }
+
+                    // Tìm Criteria ID dựa trên nội dung, nếu không có thì tạo ID ảo
+                    const foundCriteria = criteria.find(c => c.content.toLowerCase() === noiDungLoi.toLowerCase() && c.type === 'MINUS');
+                    const criteriaId = foundCriteria ? foundCriteria.id : `IMP_V_${Date.now()}_${i}`;
+                    
+                    // Điểm trừ nhập vào CSV thường là số dương (ví dụ 5 điểm), nhưng hệ thống lưu là số dương trong field points. 
+                    // Logic cũ: criteria.points là dương. Violation.points cũng là dương (nếu là vi phạm).
+                    const points = parseFloat(diemTruStr);
+                    const finalPoints = Math.abs(points); // Ensure positive for Minus type logic in View
+
+                    const imageList = linkAnh ? [linkAnh] : [];
+                    const reporterInfo = nguoiGhi ? `[Import bởi ${nguoiGhi} - ${roleNguoiGhi || ''}]` : '';
+                    const fullNote = `${ghiChu || ''} ${reporterInfo}`.trim();
+
+                    recordsToProcess.push({
+                        id: `VCSV_V_${Date.now()}_${i}`,
+                        date: ngay || new Date().toISOString().slice(0, 10),
+                        classId: targetClass.id,
+                        studentId: targetStudentId,
+                        criteriaId: criteriaId,
+                        points: finalPoints,
+                        note: fullNote,
+                        reportedBy: currentUser.id, // Vẫn gán ID Admin hiện tại, nhưng ghi chú người gốc
+                        isSecurityReport: false,
+                        timestamp: Date.now(),
+                        images: imageList
+                    });
+                }
+             }
+        } else {
+             // ACHIEVEMENT MODE
+             // Columns: Ngay, Ten_Lop, HS_dat_thanh_tich, Loai_thanh_tich, Ghi_chu
+             if (parts.length >= 4) {
+                 const [ngay, tenLop, tenHS, loaiThanhTich, ghiChu] = parts;
+                 const targetClass = classes.find(c => c.name.toLowerCase() === tenLop.toLowerCase() || c.id.toLowerCase() === tenLop.toLowerCase());
+
+                 if (targetClass) {
+                    let targetStudentId: string | undefined = undefined;
+                    if (tenHS && tenHS.trim()) {
+                         const student = students.find(s => s.classId === targetClass.id && s.name.toLowerCase() === tenHS.toLowerCase().trim());
+                         targetStudentId = student ? student.id : undefined;
+                    }
+
+                    // Find criteria to get points, fallback to default 10 if not found
+                    const foundCriteria = criteria.find(c => c.content.toLowerCase() === loaiThanhTich.toLowerCase() && c.type === 'PLUS');
+                    const criteriaId = foundCriteria ? foundCriteria.id : `IMP_A_${Date.now()}_${i}`;
+                    const points = foundCriteria ? foundCriteria.points : 10; 
+                    const finalPoints = -Math.abs(points); // Achievement stored as negative
+
+                    recordsToProcess.push({
+                        id: `VCSV_A_${Date.now()}_${i}`,
+                        date: ngay || new Date().toISOString().slice(0, 10),
+                        classId: targetClass.id,
+                        studentId: targetStudentId,
+                        criteriaId: criteriaId,
+                        points: finalPoints, // Negative for achievement
+                        note: `${loaiThanhTich}. ${ghiChu || ''}`,
+                        reportedBy: currentUser.id,
+                        isSecurityReport: false,
+                        timestamp: Date.now(),
+                        images: []
+                    });
+                 }
+             }
         }
       }
 
       if (recordsToProcess.length === 0) {
-          alert("Không tìm thấy dữ liệu hợp lệ trong file CSV.");
+          alert("Không tìm thấy dữ liệu hợp lệ trong file CSV hoặc sai định dạng cột.");
           return;
       }
 
       if (!confirm(`Tìm thấy ${recordsToProcess.length} dòng hợp lệ. Bắt đầu lưu vào hệ thống?`)) return;
 
-      // 2. Send to API sequentially (to avoid rate limits or overwhelming GAS)
+      // 2. Send to API sequentially
       setIsSubmitting(true);
       let successCount = 0;
       let errorCount = 0;
@@ -128,7 +179,7 @@ const EntryTab: React.FC<EntryTabProps> = ({ currentUser, classes, students, cri
       }
 
       // 3. Update UI
-      setViolations([...recordsToProcess, ...violations]); // Optimistic update of list
+      setViolations([...recordsToProcess, ...violations]); 
       setIsSubmitting(false);
       setImportProgress('');
       alert(`Hoàn tất import:\n- Thành công: ${successCount}\n- Lỗi: ${errorCount}`);
@@ -141,7 +192,11 @@ const EntryTab: React.FC<EntryTabProps> = ({ currentUser, classes, students, cri
   const handleSubmitViolation = async () => {
     if (!selectedClassId || !selectedCriteriaId) return alert("Vui lòng chọn lớp và nội dung");
     if (selectedType === 'PERSONAL' && !selectedStudentId) return alert("Vui lòng chọn học sinh");
-    if (!previewImage) return alert("Bắt buộc phải có ảnh minh họa/bằng chứng.");
+    
+    // Check image requirement: REQUIRED for Violation, OPTIONAL for Achievement
+    if (entryMode === 'VIOLATION' && !previewImage) {
+        return alert("Bắt buộc phải có ảnh minh họa/bằng chứng cho lỗi vi phạm.");
+    }
 
     setIsSubmitting(true);
 
@@ -156,7 +211,7 @@ const EntryTab: React.FC<EntryTabProps> = ({ currentUser, classes, students, cri
 
         let imageUrls: string[] = [];
         if (previewImage) {
-            // Chuẩn hóa tên file: Xóa dấu tiếng Việt, thay khoảng trắng bằng _
+            // Chuẩn hóa tên file
             const safeStudentName = selectedStudent ? removeVietnameseTones(selectedStudent.name) : 'TapThe';
             const safeClassName = selectedClass ? removeVietnameseTones(selectedClass.name) : selectedClassId;
             const safeViolation = criteriaItem ? removeVietnameseTones(criteriaItem.content) : 'LoiViPham';
@@ -236,7 +291,7 @@ const EntryTab: React.FC<EntryTabProps> = ({ currentUser, classes, students, cri
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="px-4 py-3 border-b border-slate-100 font-semibold text-slate-700 bg-slate-50/50 flex justify-between items-center">
             <span>{entryMode === 'VIOLATION' ? 'Nhập Lỗi Vi Phạm' : 'Nhập Điểm Thành Tích'}</span>
-            {isAdmin && entryMode === 'ACHIEVEMENT' && (
+            {isAdmin && (
                 <div>
                     <input type="file" ref={csvInputRef} onChange={handleCSVImport} accept=".csv" className="hidden" />
                     <button 
@@ -244,7 +299,7 @@ const EntryTab: React.FC<EntryTabProps> = ({ currentUser, classes, students, cri
                         disabled={isSubmitting}
                         className="text-xs flex items-center gap-1 bg-green-100 text-green-700 px-2 py-1 rounded hover:bg-green-200 font-bold border border-green-200 disabled:opacity-50"
                     >
-                        <Upload size={14} /> Import Excel/CSV
+                        <Upload size={14} /> Import CSV
                     </button>
                 </div>
             )}
@@ -253,13 +308,13 @@ const EntryTab: React.FC<EntryTabProps> = ({ currentUser, classes, students, cri
           {isAdmin && (
             <div className="flex bg-slate-100 p-1 rounded-lg mb-4">
                <button
-                 onClick={() => setEntryMode('VIOLATION')}
+                 onClick={() => { setEntryMode('VIOLATION'); setPreviewImage(null); }}
                  className={`flex-1 py-2 rounded-md text-sm font-bold flex items-center justify-center gap-2 transition-all ${entryMode === 'VIOLATION' ? 'bg-white shadow text-red-600' : 'text-slate-500'}`}
                >
                  <AlertTriangle size={16} /> Nhập Vi Phạm
                </button>
                <button
-                 onClick={() => setEntryMode('ACHIEVEMENT')}
+                 onClick={() => { setEntryMode('ACHIEVEMENT'); setPreviewImage(null); }}
                  className={`flex-1 py-2 rounded-md text-sm font-bold flex items-center justify-center gap-2 transition-all ${entryMode === 'ACHIEVEMENT' ? 'bg-white shadow text-green-600' : 'text-slate-500'}`}
                >
                  <Star size={16} /> Nhập Thành Tích
@@ -267,16 +322,26 @@ const EntryTab: React.FC<EntryTabProps> = ({ currentUser, classes, students, cri
             </div>
           )}
           
-          {isAdmin && entryMode === 'ACHIEVEMENT' && (
+          {isAdmin && (
              <div className="bg-blue-50 p-3 rounded-lg text-xs text-blue-800 flex items-start gap-2 mb-2 border border-blue-100">
                 <Info size={16} className="shrink-0 mt-0.5" />
-                <div className="space-y-1">
-                   <strong>Cấu trúc file CSV Điểm Cộng (8 cột):</strong>
-                   <div className="font-mono bg-blue-100/50 p-1 rounded">
-                     Ngay, Ten_Lop, Loai_hoat_dong, Cap_hoat_dong, Ten_thanh_tich, So_luong_HS, Diem_cong, Ghi_chu
+                {entryMode === 'VIOLATION' ? (
+                   <div className="space-y-1">
+                      <strong>Cấu trúc CSV Vi Phạm (9 cột):</strong>
+                      <div className="font-mono bg-blue-100/50 p-1 rounded break-all">
+                        Ngay_vi_pham, Lop_vi_pham, HS_vi_pham, Loi_vi_pham, Diem_tru, Ghi_chu, Link_anh, Nguoi_ghi_loi, Role_nguoi_ghi_loi
+                      </div>
+                      <em>HS_vi_pham để trống nếu là tập thể.</em>
                    </div>
-                   <em>Lưu ý: Hệ thống sẽ xử lý lần lượt từng dòng để lưu vào Database.</em>
-                </div>
+                ) : (
+                   <div className="space-y-1">
+                      <strong>Cấu trúc CSV Thành Tích (5 cột):</strong>
+                      <div className="font-mono bg-blue-100/50 p-1 rounded break-all">
+                        Ngay, Ten_Lop, HS_dat_thanh_tich, Loai_thanh_tich, Ghi_chu
+                      </div>
+                      <em>HS_dat_thanh_tich để trống nếu là tập thể.</em>
+                   </div>
+                )}
              </div>
           )}
 
@@ -335,9 +400,9 @@ const EntryTab: React.FC<EntryTabProps> = ({ currentUser, classes, students, cri
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleImageChange} capture="environment" />
-              <button onClick={() => fileInputRef.current?.click()} className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${!previewImage ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-blue-50 text-blue-600'}`}>
+              <button onClick={() => fileInputRef.current?.click()} className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${!previewImage ? (entryMode === 'VIOLATION' ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-slate-50 text-slate-600 border border-slate-200') : 'bg-blue-50 text-blue-600'}`}>
                 <Camera size={18} />
-                <span>{previewImage ? 'Đổi ảnh khác' : 'Chụp/Tải ảnh (Bắt buộc)'}</span>
+                <span>{previewImage ? 'Đổi ảnh khác' : (entryMode === 'VIOLATION' ? 'Chụp/Tải ảnh (Bắt buộc)' : 'Chụp/Tải ảnh (Không bắt buộc)')}</span>
               </button>
               
               {entryMode === 'VIOLATION' && (

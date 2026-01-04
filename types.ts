@@ -16,6 +16,7 @@ export interface User {
   role: Role;
   className?: string;
   email?: string;
+  summaryMeetings?: number; // Số lần xuống tổng kết thi đua
 }
 
 export interface ClassEntity {
