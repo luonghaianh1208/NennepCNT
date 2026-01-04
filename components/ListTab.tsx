@@ -1,8 +1,8 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Download, Filter, Search, CheckSquare, Square, Trash2, AlertTriangle, Eye, Edit, Link2 } from 'lucide-react';
-import { Violation, ClassEntity, Student, Criteria, User, RoleConfig } from '../types';
-import { getWeekNumber, safeParseImages, formatDateDisplay } from '../utils';
+import { Violation, ClassEntity, Student, Criteria, User, RoleConfig, TimeConfig } from '../types';
+import { getWeekNumber, safeParseImages, formatDateDisplay, removeVietnameseTones } from '../utils';
 
 interface ListTabProps {
   currentUser: User;
@@ -12,20 +12,35 @@ interface ListTabProps {
   criteria: Criteria[];
   users: User[];
   roleConfigs: Record<string, RoleConfig>;
+  timeConfigs: TimeConfig[]; // Thêm timeConfigs
   handleDeleteViolation: (id: string) => void;
-  handleBulkDelete: (ids: string[]) => void; // Added Prop
+  handleBulkDelete: (ids: string[]) => void;
   setViewingViolation: (v: Violation | null) => void;
   handleEditClick: (e: React.MouseEvent, v: Violation) => void;
 }
 
-const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, students, criteria, users, roleConfigs, handleDeleteViolation, handleBulkDelete, setViewingViolation, handleEditClick }) => {
+const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, students, criteria, users, roleConfigs, timeConfigs, handleDeleteViolation, handleBulkDelete, setViewingViolation, handleEditClick }) => {
   const [filterMode, setFilterMode] = useState<'MONTH' | 'WEEK' | 'SEMESTER' | 'ALL'>('MONTH');
   const [filterCriteriaType, setFilterCriteriaType] = useState<'ALL' | 'MINUS' | 'PLUS'>('ALL');
-  const [filterMonth, setFilterMonth] = useState(new Date().toISOString().slice(0, 7));
+  
+  // State for Filters
+  const [filterConfigId, setFilterConfigId] = useState(''); // configId cho MONTH
   const [filterWeek, setFilterWeek] = useState(`${new Date().getFullYear()}-W${getWeekNumber(new Date())}`);
   const [filterSemester, setFilterSemester] = useState('1');
   const [filterClassId, setFilterClassId] = useState('ALL');
+  
   const [selectedViolationIds, setSelectedViolationIds] = useState<Set<string>>(new Set());
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Auto-select first month config if available when switching to MONTH
+  useEffect(() => {
+     if (filterMode === 'MONTH' && !filterConfigId) {
+         const months = timeConfigs.filter(c => c.type === 'MONTH');
+         if (months.length > 0) {
+             setFilterConfigId(months[0].id);
+         }
+     }
+  }, [filterMode, timeConfigs, filterConfigId]);
 
   // Check Admin permission safely based on Role Config
   const isAdmin = useMemo(() => {
@@ -35,10 +50,23 @@ const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, stu
 
   const filteredViolations = useMemo(() => {
     let list = violations;
+
+    // 1. Filter by Class
     if (filterClassId !== 'ALL') list = list.filter(v => v.classId === filterClassId);
     
-    if (filterMode === 'MONTH') list = list.filter(v => v.date.startsWith(filterMonth));
-    else if (filterMode === 'WEEK') {
+    // 2. Filter by Time Mode
+    if (filterMode === 'MONTH') {
+        // Use TimeConfigs logic
+        const config = timeConfigs.find(c => c.id === filterConfigId);
+        if (config) {
+            list = list.filter(v => v.date >= config.startDate && v.date <= config.endDate);
+        } else {
+             // If selected mode MONTH but no valid config selected/found, show empty to avoid confusion or show all? 
+             // Better show nothing or current month fallback? User requested STRICT month config.
+             // If config missing, list empty.
+             if (timeConfigs.filter(c => c.type === 'MONTH').length > 0) list = []; 
+        }
+    } else if (filterMode === 'WEEK') {
       list = list.filter(v => {
         const d = new Date(v.date);
         const w = getWeekNumber(d);
@@ -55,11 +83,33 @@ const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, stu
       });
     }
 
+    // 3. Filter by Criteria Type
     if (filterCriteriaType === 'MINUS') list = list.filter(v => v.points > 0);
     else if (filterCriteriaType === 'PLUS') list = list.filter(v => v.points < 0);
 
+    // 4. Search Filter (Client-side)
+    if (searchTerm.trim()) {
+        const term = searchTerm.toLowerCase();
+        list = list.filter(v => {
+            const studentName = v.studentId ? students.find(s => s.id === v.studentId)?.name : 'Tập thể';
+            const className = classes.find(c => c.id === v.classId)?.name;
+            const criteriaContent = criteria.find(c => c.id === v.criteriaId)?.content;
+            const note = v.note || '';
+            const reporter = users.find(u => u.id === v.reportedBy)?.name;
+            
+            // Search in: Student Name, Class Name, Criteria, Note, Reporter
+            return (
+                (studentName && studentName.toLowerCase().includes(term)) ||
+                (className && className.toLowerCase().includes(term)) ||
+                (criteriaContent && criteriaContent.toLowerCase().includes(term)) ||
+                (note && note.toLowerCase().includes(term)) ||
+                (reporter && reporter.toLowerCase().includes(term))
+            );
+        });
+    }
+
     return list.sort((a, b) => b.timestamp - a.timestamp);
-  }, [violations, filterClassId, filterMode, filterMonth, filterWeek, filterSemester, filterCriteriaType]);
+  }, [violations, filterClassId, filterMode, filterConfigId, filterWeek, filterSemester, filterCriteriaType, searchTerm, timeConfigs, classes, students, criteria, users]);
 
   const toggleSelection = (id: string) => {
     const newSet = new Set(selectedViolationIds);
@@ -108,7 +158,6 @@ const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, stu
       const reporterRoleLabel = reporterRoleConfig ? reporterRoleConfig.label : 'Không rõ';
       
       // Logic hiển thị tên người báo khi Export:
-      // Nếu là Admin hoặc chính mình thì hiện tên, không thì hiện "Ẩn danh"
       const isReporterMe = v.reportedBy === currentUser.id;
       const reporterName = (isAdmin || isReporterMe) ? (reporterUser?.name || v.reportedBy) : "Ẩn danh";
       
@@ -143,18 +192,38 @@ const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, stu
     document.body.removeChild(link);
   };
 
+  const getMonthOptions = () => {
+      return timeConfigs.filter(c => c.type === 'MONTH');
+  };
+
   return (
     <div className="space-y-4 pb-28">
-      <div className="flex flex-wrap gap-2 items-center justify-between mb-2">
-        <h2 className="text-xl font-bold text-slate-800">Tra Cứu Dữ Liệu</h2>
-        <button 
-          onClick={handleExportFilteredData} 
-          className="flex items-center gap-2 bg-green-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium shadow hover:bg-green-700 active:scale-95 transition-transform"
-        >
-          <Download size={16} /> Xuất Excel ({filteredViolations.length})
-        </button>
+      {/* Search Bar & Export */}
+      <div className="flex flex-col gap-3 mb-2">
+        <div className="flex justify-between items-center">
+            <h2 className="text-xl font-bold text-slate-800">Tra Cứu Dữ Liệu</h2>
+            <button 
+            onClick={handleExportFilteredData} 
+            className="flex items-center gap-2 bg-green-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium shadow hover:bg-green-700 active:scale-95 transition-transform"
+            >
+            <Download size={16} /> Xuất Excel
+            </button>
+        </div>
+        
+        {/* Search Input */}
+        <div className="relative w-full">
+            <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
+            <input 
+                type="text" 
+                placeholder="Tìm kiếm theo tên HS, lớp, lỗi vi phạm, ghi chú..." 
+                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+            />
+        </div>
       </div>
 
+      {/* Filter Section */}
       <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm space-y-3">
          <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-slate-700 font-bold text-sm"><Filter size={16} /> Bộ lọc dữ liệu</div>
@@ -168,7 +237,7 @@ const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, stu
             <select className="bg-slate-50 border border-slate-300 rounded-lg px-2 py-2 text-sm outline-none" value={filterMode} onChange={(e) => setFilterMode(e.target.value as any)}>
                <option value="ALL">Tất cả thời gian</option>
                <option value="WEEK">Theo Tuần</option>
-               <option value="MONTH">Theo Tháng</option>
+               <option value="MONTH">Theo Tháng (Cấu hình)</option>
                <option value="SEMESTER">Theo Học Kỳ</option>
             </select>
             <select className="bg-slate-50 border border-slate-300 rounded-lg px-2 py-2 text-sm outline-none" value={filterCriteriaType} onChange={(e) => setFilterCriteriaType(e.target.value as any)}>
@@ -176,10 +245,21 @@ const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, stu
                <option value="MINUS">Chỉ xem Vi phạm</option>
                <option value="PLUS">Chỉ xem Thành tích</option>
             </select>
+            
+            {/* Dynamic Time Filter Inputs */}
             {filterMode === 'WEEK' && <input type="week" className="bg-slate-50 border border-slate-300 rounded-lg px-2 py-2 text-sm outline-none" value={filterWeek} onChange={(e) => setFilterWeek(e.target.value)} />}
-            {filterMode === 'MONTH' && <input type="month" className="bg-slate-50 border border-slate-300 rounded-lg px-2 py-2 text-sm outline-none" value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} />}
+            
+            {filterMode === 'MONTH' && (
+                <select className="bg-slate-50 border border-slate-300 rounded-lg px-2 py-2 text-sm outline-none" value={filterConfigId} onChange={(e) => setFilterConfigId(e.target.value)}>
+                    {getMonthOptions().length === 0 && <option value="">Chưa có cấu hình tháng</option>}
+                    {getMonthOptions().map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+            )}
+            
             {filterMode === 'SEMESTER' && <select className="bg-slate-50 border border-slate-300 rounded-lg px-2 py-2 text-sm outline-none" value={filterSemester} onChange={(e) => setFilterSemester(e.target.value)}><option value="1">Học kỳ I</option><option value="2">Học kỳ II</option></select>}
+            
             {filterMode === 'ALL' && <div className="hidden md:block"></div>}
+            
             <select className="bg-slate-50 border border-slate-300 rounded-lg px-2 py-2 text-sm outline-none col-span-2 md:col-span-1" value={filterClassId} onChange={(e) => setFilterClassId(e.target.value)}>
                <option value="ALL">Tất cả các lớp</option>
                {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -196,13 +276,9 @@ const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, stu
           
           const images = safeParseImages(v.images);
 
-          // Logic hiển thị người báo
           const reporterUser = users.find(u => u.id === v.reportedBy);
           const reporterRoleConfig = reporterUser ? roleConfigs[reporterUser.role] : null;
           const reporterRoleLabel = reporterRoleConfig ? reporterRoleConfig.label : 'Không rõ';
-          
-          // Logic: Nếu là Admin hoặc Chính mình -> Thấy "Tên (Lớp) - Role"
-          // Người khác -> Chỉ thấy "Role"
           
           const isReporterMe = v.reportedBy === currentUser.id;
           const reporterColor = reporterRoleConfig ? reporterRoleConfig.color : 'gray';
@@ -217,7 +293,6 @@ const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, stu
                   </span>
                );
           } else {
-               // User thường chỉ thấy Tag Role
                reporterDisplay = (
                   <span className={`text-[10px] px-1.5 py-0.5 rounded border bg-${reporterColor}-50 border-${reporterColor}-100 text-${reporterColor}-700 font-medium`}>
                       {reporterRoleLabel}

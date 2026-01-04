@@ -40,7 +40,8 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
       setUnsavedChanges, handleSaveSettings, unsavedChanges 
   } = props;
 
-  const [activeSubTab, setActiveSubTab] = useState<'GENERAL' | 'ROLES' | 'TIME' | 'CLASSES' | 'STUDENTS' | 'CRITERIA_VIOLATION' | 'CRITERIA_ACHIEVEMENT' | 'ACCOUNTS'>('GENERAL');
+  // Đặt mặc định active tab là ROLES thay vì GENERAL
+  const [activeSubTab, setActiveSubTab] = useState<'ROLES' | 'TIME' | 'CLASSES' | 'STUDENTS' | 'CRITERIA_VIOLATION' | 'CRITERIA_ACHIEVEMENT' | 'ACCOUNTS'>('ROLES');
   
   // States
   const [newClassName, setNewClassName] = useState('');
@@ -221,8 +222,7 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
       setUnsavedChanges(true);
   };
 
-  // --- CSV Handlers Implemented ---
-
+  // --- CSV Handlers ---
   const processCSV = (e: React.ChangeEvent<HTMLInputElement>, callback: (rows: string[][]) => void) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -230,19 +230,16 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
     const reader = new FileReader();
     reader.onload = (event) => {
         const text = event.target?.result as string;
-        // Split by newline but handle different EOL
         const lines = text.split(/\r\n|\n/);
         const rows: string[][] = [];
-        // Start from 1 to skip header, but check length
         for (let i = 1; i < lines.length; i++) {
             const line = lines[i].trim();
             if (!line) continue;
-            // Use custom parseCSVLine to handle quotes
             const parts = parseCSVLine(line);
             if (parts.length > 0) rows.push(parts);
         }
         callback(rows);
-        e.target.value = ''; // Reset input
+        e.target.value = ''; 
     };
     reader.readAsText(file);
   };
@@ -252,14 +249,12 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
         const newClasses: ClassEntity[] = [];
         let count = 0;
         rows.forEach(row => {
-            // Expected: Khoi (0), Ten_lop (1), GVCN (2)
             if (row.length >= 2) {
                 const grade = parseInt(row[0]);
                 const name = row[1];
                 const teacher = row[2] || 'Chưa cập nhật';
-                const id = name.replace(/\s/g, ''); // Generate ID from name
+                const id = name.replace(/\s/g, ''); 
                 
-                // Avoid duplicates based on ID
                 if (!classes.find(c => c.id === id) && !newClasses.find(c => c.id === id)) {
                    newClasses.push({ id, name, grade, homeroomTeacher: teacher });
                    count++;
@@ -281,17 +276,12 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
         const newStudents: Student[] = [];
         let count = 0;
         let missingClassCount = 0;
-        
         rows.forEach(row => {
-            // Expected: Ten_lop (0), Ho_ten_HS (1), So_xe (2 optional)
             if (row.length >= 2) {
                 const className = row[0];
                 const studentName = row[1];
                 const bikeNumber = row[2] || '';
-                
-                // Find class ID by name
                 const cls = classes.find(c => c.name.toLowerCase() === className.toLowerCase() || c.id.toLowerCase() === className.toLowerCase());
-                
                 if (cls) {
                     newStudents.push({
                         id: `S_IMP_${Date.now()}_${Math.floor(Math.random()*1000)}`,
@@ -305,7 +295,6 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
                 }
             }
         });
-
         if (count > 0) {
             setStudents([...students, ...newStudents]);
             setUnsavedChanges(true);
@@ -319,7 +308,6 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
         const newCriteria: Criteria[] = [];
         let count = 0;
         rows.forEach(row => {
-             // Expected: Hang_muc (0) [ignored/note], Noi_dung (1), Diem_tru (2)
              if (row.length >= 3) {
                  const content = row[1];
                  const points = parseFloat(row[2]);
@@ -327,7 +315,7 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
                      newCriteria.push({
                          id: `C_IMP_${Date.now()}_${Math.random()}`,
                          content: content,
-                         points: Math.abs(points), // Always store positive point for definition, usage determines sign
+                         points: Math.abs(points),
                          type: 'MINUS'
                      });
                      count++;
@@ -347,11 +335,6 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
         const newCriteria: Criteria[] = [];
         let count = 0;
         rows.forEach(row => {
-             // Expected: Noi_dung (0), Diem_cong (1) (Simple format based on general tab expectation, ignoring the complex structure from EntryTab helper for now or mapping it)
-             // Let's assume simpler format for Criteria Definition: Noi_dung, Diem_cong
-             // Or if user uses the EntryTab format: ... Ten_thanh_tich (4), ... Diem_cong (6)
-             
-             // Let's support simple format: Content, Points
              if (row.length >= 2) {
                  const content = row[0];
                  const points = parseFloat(row[1]);
@@ -379,27 +362,19 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
           const newUsers: User[] = [];
           let count = 0;
           rows.forEach(row => {
-              // Expected: Ho_ten (0), Username/Email (1), Password (2), Lop (3), Role (4)
               if (row.length >= 4) {
                   const name = row[0];
                   const username = row[1];
                   const password = row[2];
                   const classNameStr = row[3];
                   const roleStr = row[4] ? row[4].trim().toUpperCase().replace(/\s/g, '_') : 'GUEST';
-                  
-                  // Check existing
                   if (!users.find(u => u.username === username) && !newUsers.find(u => u.username === username)) {
-                      // Validate role
                       let role = roleConfigs[roleStr] ? roleStr : 'GUEST';
-                      // Try to map friendly names
                       if (row[4]?.toLowerCase().includes('cờ đỏ')) role = 'RED_FLAG';
                       if (row[4]?.toLowerCase().includes('nền nếp')) role = 'DISCIPLINE';
                       if (row[4]?.toLowerCase().includes('giáo viên')) role = 'TEACHER';
                       if (row[4]?.toLowerCase().includes('admin')) role = 'ADMIN';
-
-                      // Resolve Class ID
                       const cls = classes.find(c => c.name === classNameStr || c.id === classNameStr);
-
                       newUsers.push({
                           id: `U_IMP_${Date.now()}_${Math.random()}`,
                           name,
@@ -483,7 +458,7 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
   const renderSubTabs = () => (
     <div className="flex bg-white p-1 rounded-xl shadow-sm border border-slate-200 mb-6 overflow-x-auto no-scrollbar">
         {[
-            { id: 'GENERAL', label: 'Chung', icon: <Settings size={16}/> },
+            // REMOVED GENERAL TAB
             { id: 'ROLES', label: 'Vai trò', icon: <Shield size={16}/> },
             { id: 'TIME', label: 'Thời gian', icon: <Calendar size={16}/> },
             { id: 'CLASSES', label: 'Lớp học', icon: <GraduationCap size={16}/> },
@@ -513,26 +488,6 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
               <Save size={20} /> Lưu Thay Đổi
            </button>
         </div>
-      )}
-
-      {/* GENERAL TAB */}
-      {activeSubTab === 'GENERAL' && (
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-             <h3 className="font-bold text-lg mb-4 text-slate-800">Cấu hình chung</h3>
-             <div className="flex justify-between items-center bg-slate-50 p-3 rounded-lg border border-slate-200">
-                <div>
-                   <div className="font-bold text-slate-800">Năm học mặc định</div>
-                   <div className="text-xs text-slate-500">Dùng cho các mốc thời gian</div>
-                </div>
-                <input 
-                  type="text" 
-                  className="border border-slate-300 rounded-lg p-2 w-32 text-center font-bold text-blue-800 outline-none focus:ring-2 focus:ring-blue-500"
-                  value={academicYear}
-                  onChange={(e) => { setAcademicYear(e.target.value); setUnsavedChanges(true); }}
-                  placeholder="VD: 2023-2024"
-                />
-             </div>
-          </div>
       )}
 
       {/* ROLES TAB */}

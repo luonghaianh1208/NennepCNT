@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Trophy } from 'lucide-react';
 import { TimeConfig, Violation, ClassEntity } from '../types';
 import { getWeekNumber, getUniqueWeeksCount, calculateScore } from '../utils';
@@ -14,7 +14,22 @@ const RankingTab: React.FC<RankingTabProps> = ({ violations, classes, timeConfig
   const [rankingGradeTab, setRankingGradeTab] = useState<'10' | '11' | '12'>('10');
   const [rankingFilterMode, setRankingFilterMode] = useState<'WEEK' | 'MONTH' | 'SEMESTER'>('WEEK');
   const [rankingFilterWeek, setRankingFilterWeek] = useState(`${new Date().getFullYear()}-W${getWeekNumber(new Date())}`);
-  const [rankingFilterConfigId, setRankingFilterConfigId] = useState<string>('M10');
+  const [rankingFilterConfigId, setRankingFilterConfigId] = useState<string>('');
+
+  // Effect: Khi timeConfigs load xong hoặc đổi filterMode, tự động chọn config đầu tiên phù hợp
+  useEffect(() => {
+     if (rankingFilterMode !== 'WEEK') {
+        // Tìm các config thuộc loại đang chọn (MONTH hoặc SEMESTER)
+        const availableConfigs = timeConfigs.filter(c => c.type === rankingFilterMode);
+        
+        // Nếu configId hiện tại không nằm trong danh sách available (do mới đổi tab), thì reset về cái đầu tiên
+        const currentIsValid = availableConfigs.find(c => c.id === rankingFilterConfigId);
+        
+        if (!currentIsValid && availableConfigs.length > 0) {
+            setRankingFilterConfigId(availableConfigs[0].id);
+        }
+     }
+  }, [rankingFilterMode, timeConfigs, rankingFilterConfigId]);
 
   const rankingData = useMemo(() => {
     const baseScore = 500;
@@ -32,11 +47,13 @@ const RankingTab: React.FC<RankingTabProps> = ({ violations, classes, timeConfig
       });
     } else {
       isRangeMode = true;
+      // Phải dùng đúng configId hiện tại để lọc
       const config = timeConfigs.find(c => c.id === rankingFilterConfigId);
       if (config) {
         relevantViolations = violations.filter(v => v.date >= config.startDate && v.date <= config.endDate);
         weeksCount = getUniqueWeeksCount(config.startDate, config.endDate);
       } else {
+        // Nếu chế độ là Month/Semester mà không có configId hợp lệ -> không hiển thị dữ liệu sai
         relevantViolations = [];
       }
     }
@@ -52,12 +69,9 @@ const RankingTab: React.FC<RankingTabProps> = ({ violations, classes, timeConfig
     const sorted = stats.sort((a, b) => b.score - a.score);
 
     // Calculate Dense Rank (1, 1, 3, 4, 4, 6...)
-    // Logic: Nếu điểm bằng người trước -> hạng bằng người trước.
-    // Nếu điểm khác -> hạng bằng (index + 1).
     return sorted.map((item, index) => {
         let rank = index + 1;
         if (index > 0 && item.score === sorted[index - 1].score) {
-            // Find the first index with this score
             let firstIndex = index;
             while(firstIndex > 0 && sorted[firstIndex - 1].score === item.score) {
                 firstIndex--;
@@ -71,13 +85,26 @@ const RankingTab: React.FC<RankingTabProps> = ({ violations, classes, timeConfig
 
   let timeLabel = '';
   if (rankingFilterMode === 'WEEK') {
-    timeLabel = `Tuần ${rankingFilterWeek.split('-W')[1]} - Năm ${rankingFilterWeek.split('-W')[0]}`;
+    const parts = rankingFilterWeek.split('-W');
+    if (parts.length === 2) {
+        timeLabel = `Tuần ${parts[1]} - Năm ${parts[0]}`;
+    } else {
+        timeLabel = 'Tuần ...';
+    }
   } else {
     const config = timeConfigs.find(c => c.id === rankingFilterConfigId);
-    timeLabel = config ? `${config.name} (${config.startDate} đến ${config.endDate})` : 'Chưa chọn thời gian';
+    timeLabel = config ? `${config.name} (${formatDateDisplay(config.startDate)} - ${formatDateDisplay(config.endDate)})` : 'Vui lòng chọn mốc thời gian';
   }
 
-  // Helper to get podium color based on Rank
+  // Helper date display for label
+  function formatDateDisplay(dateStr: string) {
+      if(!dateStr) return '';
+      try {
+          const [y, m, d] = dateStr.split('-');
+          return `${d}/${m}`;
+      } catch { return dateStr; }
+  }
+
   const getRankColor = (rank: number) => {
       if (rank === 1) return 'text-yellow-500';
       if (rank === 2) return 'text-slate-400';
@@ -89,14 +116,10 @@ const RankingTab: React.FC<RankingTabProps> = ({ violations, classes, timeConfig
       if (rank === 1) return 'border-yellow-400 bg-yellow-50 h-40';
       if (rank === 2) return 'border-slate-300 bg-slate-50 h-32';
       if (rank === 3) return 'border-orange-300 bg-orange-50 h-28';
-      return ''; // Should not happen for podium
+      return ''; 
   };
 
-  // Podium Logic: Take top 3 ITEMS (could be Rank 1, 1, 3 or 1, 2, 2 etc)
-  // Need to be careful about visual arrangement (2nd - 1st - 3rd)
   const top3 = rankingData.slice(0, 3);
-  
-  // Arrange for podium display: Left(Index 1), Center(Index 0), Right(Index 2)
   const podiumOrder = [1, 0, 2]; 
 
   return (
@@ -116,16 +139,30 @@ const RankingTab: React.FC<RankingTabProps> = ({ violations, classes, timeConfig
          ))}
       </div>
 
-      <div className="flex gap-2 bg-white p-2 rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
-         <select className="bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 text-sm outline-none font-medium" value={rankingFilterMode} onChange={(e) => setRankingFilterMode(e.target.value as any)}>
+      <div className="flex flex-col sm:flex-row gap-2 bg-white p-2 rounded-xl shadow-sm border border-slate-200">
+         <select 
+            className="bg-slate-50 border border-slate-300 rounded-lg px-2 py-2 text-sm outline-none font-medium w-full sm:w-auto" 
+            value={rankingFilterMode} 
+            onChange={(e) => {
+                const newMode = e.target.value as any;
+                setRankingFilterMode(newMode);
+                // Logic reset configId đã được xử lý ở useEffect
+            }}
+         >
            <option value="WEEK">Theo Tuần</option>
            <option value="MONTH">Theo Tháng</option>
            <option value="SEMESTER">Theo Học kỳ</option>
          </select>
+         
          {rankingFilterMode === 'WEEK' ? (
-           <input type="week" className="bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 text-sm outline-none font-medium flex-1" value={rankingFilterWeek} onChange={(e) => setRankingFilterWeek(e.target.value)} />
+           <input type="week" className="bg-slate-50 border border-slate-300 rounded-lg px-2 py-2 text-sm outline-none font-medium flex-1 w-full" value={rankingFilterWeek} onChange={(e) => setRankingFilterWeek(e.target.value)} />
          ) : (
-           <select className="bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 text-sm outline-none font-medium flex-1" value={rankingFilterConfigId} onChange={(e) => setRankingFilterConfigId(e.target.value)}>
+           <select 
+                className="bg-slate-50 border border-slate-300 rounded-lg px-2 py-2 text-sm outline-none font-medium flex-1 w-full" 
+                value={rankingFilterConfigId} 
+                onChange={(e) => setRankingFilterConfigId(e.target.value)}
+           >
+             {timeConfigs.filter(c => c.type === rankingFilterMode).length === 0 && <option value="">Chưa có cấu hình</option>}
              {timeConfigs.filter(c => c.type === rankingFilterMode).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
            </select>
          )}
@@ -137,9 +174,9 @@ const RankingTab: React.FC<RankingTabProps> = ({ violations, classes, timeConfig
               const item = top3[idx];
               if (!item) return <div key={idx} className="w-full"></div>;
               
-              const isCenter = idx === 0; // Rank 1 visual position
-              const isLeft = idx === 1;   // Rank 2 visual position
-              const isRight = idx === 2;  // Rank 3 visual position
+              const isCenter = idx === 0; 
+              const isLeft = idx === 1;   
+              const isRight = idx === 2;  
 
               return (
                 <div key={item.id} className={`${isCenter ? 'order-2' : isLeft ? 'order-1' : 'order-3'} flex flex-col items-center`}>

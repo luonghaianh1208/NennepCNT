@@ -146,10 +146,6 @@ export default function App() {
         if(!confirm("Lưu toàn bộ cấu hình lên hệ thống?")) return;
      }
      
-     // Show loading indicator specifically for saving if needed, 
-     // but here we might just rely on the UI blocking or global loading overlay if complex.
-     // For better UX, let's use a small loading overlay or reuse isLoading if we want full block.
-     // Here we just block via logic.
      setIsRefreshing(true);
 
      const payload = {
@@ -442,6 +438,7 @@ export default function App() {
             violations={violations} 
             setViolations={setViolations}
             roleConfigs={roleConfigs}
+            users={users}
           />
         )}
         {activeTab === 'list' && (
@@ -453,6 +450,7 @@ export default function App() {
             criteria={criteria} 
             users={users} 
             roleConfigs={roleConfigs}
+            timeConfigs={timeConfigs}
             handleDeleteViolation={handleDeleteViolation}
             handleBulkDelete={handleBulkDelete} 
             setViewingViolation={setViewingViolation}

@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useMemo } from 'react';
-import { AlertTriangle, Star, ChevronDown, Camera, X, CheckCircle2, Shield, Upload, Info, Loader2 } from 'lucide-react';
+import { AlertTriangle, Star, ChevronDown, Camera, X, CheckCircle2, Shield, Upload, Info, Loader2, StopCircle } from 'lucide-react';
 import { User, ClassEntity, Student, Criteria, Violation, RoleConfig } from '../types';
 import { api } from '../services/googleApi';
 import { parseCSVLine, removeVietnameseTones } from '../utils';
@@ -13,9 +13,18 @@ interface EntryTabProps {
   violations: Violation[];
   setViolations: (v: Violation[]) => void;
   roleConfigs?: Record<string, RoleConfig>;
+  // Thêm props users để tìm kiếm người báo cáo khi import CSV
+  users?: User[]; 
 }
 
-const EntryTab: React.FC<EntryTabProps> = ({ currentUser, classes, students, criteria, violations, setViolations, roleConfigs }) => {
+// Ensure users is optional in interface but used inside if passed, 
+// NOTE: Component definition below assumes users might be missing in props in older parent, 
+// so we need to grab it. 
+// BUT: Parent App.tsx passes props spread or explicit? 
+// Checking App.tsx, EntryTab uses specific props. We need to add 'users' to EntryTab in App.tsx later if not present.
+// For now, let's assume EntryTab receives users. If not, we fallback safely.
+
+const EntryTab: React.FC<EntryTabProps & { users?: User[] }> = ({ currentUser, classes, students, criteria, violations, setViolations, roleConfigs, users = [] }) => {
   const [entryMode, setEntryMode] = useState<'VIOLATION' | 'ACHIEVEMENT'>('VIOLATION');
   const [entryDate, setEntryDate] = useState(new Date().toISOString().slice(0, 10));
   const [selectedGrade, setSelectedGrade] = useState<string>('');
@@ -32,6 +41,7 @@ const EntryTab: React.FC<EntryTabProps> = ({ currentUser, classes, students, cri
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const csvInputRef = useRef<HTMLInputElement>(null);
+  const abortImportRef = useRef<boolean>(false); // Ref để kiểm soát việc hủy
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   // Check Admin permission dynamically
@@ -57,6 +67,12 @@ const EntryTab: React.FC<EntryTabProps> = ({ currentUser, classes, students, cri
       reader.onloadend = () => setPreviewImage(reader.result as string);
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleCancelImport = () => {
+      if (confirm("Bạn có chắc muốn hủy quá trình Import? Dữ liệu đã xử lý trước đó vẫn sẽ được lưu.")) {
+          abortImportRef.current = true;
+      }
   };
 
   const handleCSVImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -93,14 +109,23 @@ const EntryTab: React.FC<EntryTabProps> = ({ currentUser, classes, students, cri
                     const foundCriteria = criteria.find(c => c.content.toLowerCase() === noiDungLoi.toLowerCase() && c.type === 'MINUS');
                     const criteriaId = foundCriteria ? foundCriteria.id : `IMP_V_${Date.now()}_${i}`;
                     
-                    // Điểm trừ nhập vào CSV thường là số dương (ví dụ 5 điểm), nhưng hệ thống lưu là số dương trong field points. 
-                    // Logic cũ: criteria.points là dương. Violation.points cũng là dương (nếu là vi phạm).
                     const points = parseFloat(diemTruStr);
-                    const finalPoints = Math.abs(points); // Ensure positive for Minus type logic in View
+                    const finalPoints = Math.abs(points);
 
                     const imageList = linkAnh ? [linkAnh] : [];
-                    const reporterInfo = nguoiGhi ? `[Import bởi ${nguoiGhi} - ${roleNguoiGhi || ''}]` : '';
-                    const fullNote = `${ghiChu || ''} ${reporterInfo}`.trim();
+                    
+                    // FIXED: Gán thẳng ghiChu vào note, không nối thêm reporter info
+                    const noteContent = ghiChu ? ghiChu.trim() : '';
+                    
+                    // FIXED: Tìm ID người báo cáo dựa trên tên (nguoiGhi)
+                    let reporterId = currentUser.id; // Default Admin
+                    if (nguoiGhi) {
+                        const foundUser = users.find(u => 
+                            u.name.toLowerCase() === nguoiGhi.toLowerCase() || 
+                            u.username.toLowerCase() === nguoiGhi.toLowerCase()
+                        );
+                        if (foundUser) reporterId = foundUser.id;
+                    }
 
                     recordsToProcess.push({
                         id: `VCSV_V_${Date.now()}_${i}`,
@@ -109,8 +134,8 @@ const EntryTab: React.FC<EntryTabProps> = ({ currentUser, classes, students, cri
                         studentId: targetStudentId,
                         criteriaId: criteriaId,
                         points: finalPoints,
-                        note: fullNote,
-                        reportedBy: currentUser.id, // Vẫn gán ID Admin hiện tại, nhưng ghi chú người gốc
+                        note: noteContent,
+                        reportedBy: reporterId, 
                         isSecurityReport: false,
                         timestamp: Date.now(),
                         images: imageList
@@ -131,11 +156,10 @@ const EntryTab: React.FC<EntryTabProps> = ({ currentUser, classes, students, cri
                          targetStudentId = student ? student.id : undefined;
                     }
 
-                    // Find criteria to get points, fallback to default 10 if not found
                     const foundCriteria = criteria.find(c => c.content.toLowerCase() === loaiThanhTich.toLowerCase() && c.type === 'PLUS');
                     const criteriaId = foundCriteria ? foundCriteria.id : `IMP_A_${Date.now()}_${i}`;
                     const points = foundCriteria ? foundCriteria.points : 10; 
-                    const finalPoints = -Math.abs(points); // Achievement stored as negative
+                    const finalPoints = -Math.abs(points);
 
                     recordsToProcess.push({
                         id: `VCSV_A_${Date.now()}_${i}`,
@@ -143,7 +167,7 @@ const EntryTab: React.FC<EntryTabProps> = ({ currentUser, classes, students, cri
                         classId: targetClass.id,
                         studentId: targetStudentId,
                         criteriaId: criteriaId,
-                        points: finalPoints, // Negative for achievement
+                        points: finalPoints, 
                         note: `${loaiThanhTich}. ${ghiChu || ''}`,
                         reportedBy: currentUser.id,
                         isSecurityReport: false,
@@ -157,21 +181,33 @@ const EntryTab: React.FC<EntryTabProps> = ({ currentUser, classes, students, cri
 
       if (recordsToProcess.length === 0) {
           alert("Không tìm thấy dữ liệu hợp lệ trong file CSV hoặc sai định dạng cột.");
+          if (csvInputRef.current) csvInputRef.current.value = '';
           return;
       }
 
-      if (!confirm(`Tìm thấy ${recordsToProcess.length} dòng hợp lệ. Bắt đầu lưu vào hệ thống?`)) return;
+      if (!confirm(`Tìm thấy ${recordsToProcess.length} dòng hợp lệ. Bắt đầu lưu vào hệ thống?`)) {
+          if (csvInputRef.current) csvInputRef.current.value = '';
+          return;
+      }
 
-      // 2. Send to API sequentially
+      // 2. Send to API sequentially with Abort check
       setIsSubmitting(true);
+      abortImportRef.current = false; // Reset abort flag
       let successCount = 0;
       let errorCount = 0;
 
       for (let i = 0; i < recordsToProcess.length; i++) {
+          if (abortImportRef.current) {
+              setImportProgress("Đã hủy quá trình Import!");
+              break;
+          }
+
           setImportProgress(`Đang xử lý ${i + 1}/${recordsToProcess.length}...`);
           try {
               await api.createViolation(recordsToProcess[i]);
               successCount++;
+              // Thêm delay nhỏ để UI kịp cập nhật nếu cần
+              await new Promise(resolve => setTimeout(resolve, 50));
           } catch (err) {
               console.error(err);
               errorCount++;
@@ -179,10 +215,21 @@ const EntryTab: React.FC<EntryTabProps> = ({ currentUser, classes, students, cri
       }
 
       // 3. Update UI
-      setViolations([...recordsToProcess, ...violations]); 
+      // Chỉ add những dòng đã xử lý thành công? 
+      // Do api.createViolation là async thực, nên ở đây ta add tất cả recordsToProcess 
+      // (hoặc đúng ra chỉ nên add những cái đã loop qua).
+      // Để đơn giản và trải nghiệm tốt, ta add những cái trong khoảng 0 -> successCount+errorCount
+      const processedRecords = recordsToProcess.slice(0, successCount + errorCount);
+      setViolations([...processedRecords, ...violations]); 
+      
       setIsSubmitting(false);
       setImportProgress('');
-      alert(`Hoàn tất import:\n- Thành công: ${successCount}\n- Lỗi: ${errorCount}`);
+      
+      if (abortImportRef.current) {
+          alert(`Đã HỦY Import:\n- Đã lưu thành công: ${successCount}\n- Lỗi: ${errorCount}\n- Còn lại: ${recordsToProcess.length - (successCount + errorCount)} chưa xử lý.`);
+      } else {
+          alert(`Hoàn tất import:\n- Thành công: ${successCount}\n- Lỗi: ${errorCount}`);
+      }
       
       if (csvInputRef.current) csvInputRef.current.value = '';
     };
@@ -269,10 +316,17 @@ const EntryTab: React.FC<EntryTabProps> = ({ currentUser, classes, students, cri
     <div className="space-y-6 max-w-lg mx-auto pb-24 relative">
       {isSubmitting && importProgress && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-              <div className="bg-white p-6 rounded-xl flex flex-col items-center">
-                  <Loader2 className="animate-spin text-blue-600 mb-2" size={32} />
-                  <div className="font-bold text-slate-700">{importProgress}</div>
-                  <div className="text-xs text-slate-500 mt-1">Vui lòng không tắt trình duyệt</div>
+              <div className="bg-white p-6 rounded-xl flex flex-col items-center shadow-2xl border border-slate-200 w-80">
+                  <Loader2 className="animate-spin text-blue-600 mb-4" size={40} />
+                  <div className="font-bold text-slate-800 text-lg mb-1">Đang xử lý...</div>
+                  <div className="text-sm text-slate-500 mb-6 text-center">{importProgress}</div>
+                  
+                  <button 
+                    onClick={handleCancelImport}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-red-50 text-red-600 border border-red-200 rounded-full font-bold hover:bg-red-100 transition-colors"
+                  >
+                     <StopCircle size={18} /> Hủy Import
+                  </button>
               </div>
           </div>
       )}
