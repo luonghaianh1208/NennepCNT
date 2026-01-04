@@ -18,7 +18,8 @@ import {
   Loader2,
   Users,
   Link2,
-  RefreshCw
+  RefreshCw,
+  CheckCircle2
 } from 'lucide-react';
 import { User as UserType, Violation, ClassEntity, Student, Criteria, TimeConfig, RoleConfig } from './types';
 import { INITIAL_ROLE_DEFINITIONS, GUEST_USER, INITIAL_TIME_CONFIGS, formatDateForInput, formatDateDisplay, safeParseImages } from './utils';
@@ -50,6 +51,7 @@ export default function App() {
   const [unsavedChanges, setUnsavedChanges] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showGlobalSuccess, setShowGlobalSuccess] = useState(false); // Global Success Notification
 
   // Login State
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -79,7 +81,16 @@ export default function App() {
       if(data.Students) setStudents(data.Students);
       if(data.Criteria) setCriteria(data.Criteria);
       if(data.Violations) setViolations(data.Violations);
-      if(data.TimeConfigs && data.TimeConfigs.length > 0) setTimeConfigs(data.TimeConfigs);
+      
+      // Fix: Chuẩn hóa ngày tháng cho TimeConfigs ngay khi load về
+      if(data.TimeConfigs && data.TimeConfigs.length > 0) {
+        const normalizedTimeConfigs = data.TimeConfigs.map((tc: TimeConfig) => ({
+            ...tc,
+            startDate: formatDateForInput(tc.startDate),
+            endDate: formatDateForInput(tc.endDate)
+        }));
+        setTimeConfigs(normalizedTimeConfigs);
+      }
       // Lưu ý: Nếu có bảng Roles trong tương lai thì load ở đây
     }
     
@@ -129,9 +140,18 @@ export default function App() {
     }
   };
 
-  const handleSaveSettings = async () => {
-     if(!confirm("Lưu toàn bộ cấu hình lên hệ thống?")) return;
+  // Modified: Support skipConfirmation for TaskForce Tab and Silent Save
+  const handleSaveSettings = async (skipConfirmation = false) => {
+     if(!skipConfirmation) {
+        if(!confirm("Lưu toàn bộ cấu hình lên hệ thống?")) return;
+     }
      
+     // Show loading indicator specifically for saving if needed, 
+     // but here we might just rely on the UI blocking or global loading overlay if complex.
+     // For better UX, let's use a small loading overlay or reuse isLoading if we want full block.
+     // Here we just block via logic.
+     setIsRefreshing(true);
+
      const payload = {
         Users: users,
         Classes: classes,
@@ -140,9 +160,18 @@ export default function App() {
         TimeConfigs: timeConfigs
      };
 
-     await api.syncSettings(payload);
-     setUnsavedChanges(false);
-     alert("Đã đồng bộ cấu hình thành công!");
+     try {
+        await api.syncSettings(payload);
+        setUnsavedChanges(false);
+        
+        // Show Global Success
+        setShowGlobalSuccess(true);
+        setTimeout(() => setShowGlobalSuccess(false), 2000);
+     } catch (e) {
+        alert("Lỗi khi lưu dữ liệu. Vui lòng thử lại.");
+     } finally {
+        setIsRefreshing(false);
+     }
   };
 
   const handleUpdateUser = async (updatedUser: UserType) => {
@@ -217,7 +246,10 @@ export default function App() {
     setViolations(prev => prev.map(v => v.id === updatedV.id ? updatedV : v));
     setEditingViolation(null);
     await api.updateViolation(updatedV);
-    alert("Cập nhật thành công!");
+    
+    // Show quick success
+    setShowGlobalSuccess(true);
+    setTimeout(() => setShowGlobalSuccess(false), 1500);
   };
 
   const isCurrentUserAdmin = () => {
@@ -422,7 +454,7 @@ export default function App() {
             users={users} 
             roleConfigs={roleConfigs}
             handleDeleteViolation={handleDeleteViolation}
-            handleBulkDelete={handleBulkDelete} // Pass bulk handler
+            handleBulkDelete={handleBulkDelete} 
             setViewingViolation={setViewingViolation}
             handleEditClick={handleEditClick}
           />
@@ -441,7 +473,7 @@ export default function App() {
             violations={violations} 
             criteria={criteria} 
             students={students} 
-            setViewingViolation={setViewingViolation} // Pass handler
+            setViewingViolation={setViewingViolation} 
           />
         )}
         {activeTab === 'taskforce' && (isCurrentUserAdmin() || currentUser.role === 'BCH_PHU_TRACH') && (
@@ -454,7 +486,7 @@ export default function App() {
             roleConfigs={roleConfigs}
             onUpdateUser={handleUpdateUser}
             unsavedChanges={unsavedChanges}
-            onSave={handleSaveSettings}
+            onSave={() => handleSaveSettings(true)} // Pass true to skip confirmation
           />
         )}
         {activeTab === 'settings' && (
@@ -477,7 +509,7 @@ export default function App() {
               setUsers={setUsers}
               roleConfigs={roleConfigs}
               setRoleConfigs={setRoleConfigs}
-              handleSaveSettings={handleSaveSettings}
+              handleSaveSettings={() => handleSaveSettings(false)}
               unsavedChanges={unsavedChanges}
               setUnsavedChanges={setUnsavedChanges}
             />
@@ -486,7 +518,7 @@ export default function App() {
       </main>
 
       <nav className="bg-white border-t border-slate-200 fixed bottom-0 left-0 right-0 max-w-md md:max-w-2xl lg:max-w-4xl mx-auto z-10 pb-safe">
-        {/* Navigation Buttons ... (Keep existing) */}
+        {/* Navigation Buttons */}
         <div className="flex justify-around items-center">
           {currentUser.role !== 'GUEST' && canCurrentUserEntry() && (
             <button onClick={() => setActiveTab('entry')} className={`flex flex-col items-center py-3 px-2 flex-1 transition-colors ${activeTab === 'entry' ? 'text-blue-700' : 'text-slate-400 hover:text-slate-600'}`}>
@@ -517,6 +549,16 @@ export default function App() {
           )}
         </div>
       </nav>
+
+      {/* Global Success Notification */}
+      {showGlobalSuccess && (
+         <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[60] animate-in zoom-in fade-in duration-200">
+             <div className="bg-black/80 text-white backdrop-blur-md px-6 py-4 rounded-2xl shadow-2xl flex flex-col items-center gap-2">
+                 <CheckCircle2 size={40} className="text-green-400" />
+                 <span className="font-bold text-lg">Đã lưu thành công!</span>
+             </div>
+         </div>
+      )}
 
       {/* Login Modal */}
       {showLoginModal && (

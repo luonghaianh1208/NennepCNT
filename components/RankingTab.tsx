@@ -48,7 +48,25 @@ const RankingTab: React.FC<RankingTabProps> = ({ violations, classes, timeConfig
       return { ...cls, totalViolations: clsViolations.length, score: totalScore };
     });
 
-    return stats.sort((a, b) => b.score - a.score);
+    // Sort descending by score
+    const sorted = stats.sort((a, b) => b.score - a.score);
+
+    // Calculate Dense Rank (1, 1, 3, 4, 4, 6...)
+    // Logic: Nếu điểm bằng người trước -> hạng bằng người trước.
+    // Nếu điểm khác -> hạng bằng (index + 1).
+    return sorted.map((item, index) => {
+        let rank = index + 1;
+        if (index > 0 && item.score === sorted[index - 1].score) {
+            // Find the first index with this score
+            let firstIndex = index;
+            while(firstIndex > 0 && sorted[firstIndex - 1].score === item.score) {
+                firstIndex--;
+            }
+            rank = firstIndex + 1;
+        }
+        return { ...item, rank };
+    });
+
   }, [violations, classes, rankingGradeTab, rankingFilterMode, rankingFilterWeek, rankingFilterConfigId, timeConfigs]);
 
   let timeLabel = '';
@@ -58,6 +76,28 @@ const RankingTab: React.FC<RankingTabProps> = ({ violations, classes, timeConfig
     const config = timeConfigs.find(c => c.id === rankingFilterConfigId);
     timeLabel = config ? `${config.name} (${config.startDate} đến ${config.endDate})` : 'Chưa chọn thời gian';
   }
+
+  // Helper to get podium color based on Rank
+  const getRankColor = (rank: number) => {
+      if (rank === 1) return 'text-yellow-500';
+      if (rank === 2) return 'text-slate-400';
+      if (rank === 3) return 'text-orange-600';
+      return 'text-slate-700';
+  };
+  
+  const getPodiumBg = (rank: number) => {
+      if (rank === 1) return 'border-yellow-400 bg-yellow-50 h-40';
+      if (rank === 2) return 'border-slate-300 bg-slate-50 h-32';
+      if (rank === 3) return 'border-orange-300 bg-orange-50 h-28';
+      return ''; // Should not happen for podium
+  };
+
+  // Podium Logic: Take top 3 ITEMS (could be Rank 1, 1, 3 or 1, 2, 2 etc)
+  // Need to be careful about visual arrangement (2nd - 1st - 3rd)
+  const top3 = rankingData.slice(0, 3);
+  
+  // Arrange for podium display: Left(Index 1), Center(Index 0), Right(Index 2)
+  const podiumOrder = [1, 0, 2]; 
 
   return (
     <div className="pb-20 space-y-6">
@@ -92,26 +132,40 @@ const RankingTab: React.FC<RankingTabProps> = ({ violations, classes, timeConfig
       </div>
 
       {rankingData.length > 0 ? (
-        <div className="grid grid-cols-3 gap-2 items-end mb-6">
-          {rankingData.slice(0, 3).map((item, index) => (
-            <div key={item.id} className={`${index === 0 ? 'order-2' : index === 1 ? 'order-1' : 'order-3'} flex flex-col items-center`}>
-              <div className="mb-2 text-center"><Trophy className={`w-8 h-8 mx-auto ${index === 0 ? 'text-yellow-500' : index === 1 ? 'text-slate-400' : 'text-orange-600'} drop-shadow-sm`} fill="currentColor" /></div>
-              <div className={`w-full rounded-t-xl border-t-4 shadow-sm flex flex-col items-center justify-end pb-4 ${index === 0 ? 'h-40 border-yellow-400 bg-yellow-50' : index === 1 ? 'h-32 border-slate-300 bg-slate-50' : 'h-28 border-orange-300 bg-orange-50'}`}>
-                <span className="text-xl font-black text-slate-800">{item.name}</span>
-                <span className="text-sm font-semibold text-blue-600">{item.score}đ</span>
-              </div>
-            </div>
-          ))}
+        <div className="grid grid-cols-3 gap-2 items-end mb-6 px-2">
+          {podiumOrder.map(idx => {
+              const item = top3[idx];
+              if (!item) return <div key={idx} className="w-full"></div>;
+              
+              const isCenter = idx === 0; // Rank 1 visual position
+              const isLeft = idx === 1;   // Rank 2 visual position
+              const isRight = idx === 2;  // Rank 3 visual position
+
+              return (
+                <div key={item.id} className={`${isCenter ? 'order-2' : isLeft ? 'order-1' : 'order-3'} flex flex-col items-center`}>
+                  <div className="mb-2 text-center">
+                      <Trophy className={`w-8 h-8 mx-auto ${getRankColor(item.rank)} drop-shadow-sm`} fill="currentColor" />
+                      <div className={`text-xs font-bold mt-1 ${getRankColor(item.rank)}`}>Hạng {item.rank}</div>
+                  </div>
+                  <div className={`w-full rounded-t-xl border-t-4 shadow-sm flex flex-col items-center justify-end pb-4 ${getPodiumBg(item.rank)}`}>
+                    <span className="text-xl font-black text-slate-800">{item.name}</span>
+                    <span className="text-sm font-semibold text-blue-600">{item.score}đ</span>
+                  </div>
+                </div>
+              );
+          })}
         </div>
       ) : (
         <div className="text-center py-10 text-slate-400 italic">Chưa có dữ liệu xếp hạng</div>
       )}
 
       <div className="space-y-2">
-        {rankingData.slice(3).map((item, index) => (
+        {rankingData.slice(3).map((item) => (
           <div key={item.id} className="bg-white p-4 rounded-lg shadow-sm border border-slate-100 flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <span className="w-6 h-6 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-xs font-bold">{index + 4}</span>
+              <span className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center text-sm font-bold border border-slate-200">
+                  {item.rank}
+              </span>
               <span className="font-bold text-slate-700">{item.name}</span>
             </div>
             <div className="flex items-center gap-6">

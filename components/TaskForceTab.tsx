@@ -96,7 +96,8 @@ const TaskForceTab: React.FC<TaskForceTabProps> = ({ currentUser, users, violati
   const handleSaveEdit = (u: any) => {
       const newCount = parseInt(editSummaryCount);
       if (!isNaN(newCount) && newCount >= 0) {
-          onUpdateUser({ ...u, summaryMeetings: newCount });
+          const updatedUser = { ...u, summaryMeetings: newCount };
+          onUpdateUser(updatedUser);
       }
       setEditingUserId(null);
   };
@@ -128,19 +129,24 @@ const TaskForceTab: React.FC<TaskForceTabProps> = ({ currentUser, users, violati
 
   const handleBulkSave = () => {
      // Apply all edits to global state
+     let hasChanges = false;
      stats.forEach(u => {
        if (bulkEdits[u.id] !== undefined && bulkEdits[u.id] !== u.summaryMeetings) {
           onUpdateUser({ ...u, summaryMeetings: bulkEdits[u.id] });
+          hasChanges = true;
        }
      });
      
      setIsBulkEditMode(false);
      setBulkEdits({});
-     // Trigger API Save Immediately if desired, or let user click Floating Button
-     // User request: "Thêm chức năng lưu hàng loạt" -> Assuming save to server
-     setTimeout(() => {
-        onSave();
-     }, 100);
+     
+     // Gọi Save ngay lập tức nếu có thay đổi (trigger sync database)
+     if (hasChanges) {
+        // Use timeout 0 to allow state to settle
+        setTimeout(() => {
+             onSave();
+        }, 0);
+     }
   };
 
   return (
