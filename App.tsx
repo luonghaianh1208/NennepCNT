@@ -148,13 +148,7 @@ export default function App() {
   const handleUpdateUser = async (updatedUser: UserType) => {
       // Optimistic Update
       setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
-      
-      // Auto save to DB (Assume API supports or user will click Save Settings later. 
-      // Ideally we trigger syncSettings but that saves everything.
-      // For now, let's mark unsaved changes so user is reminded to save)
       setUnsavedChanges(true); 
-      
-      // If needed, we could call a specific API like api.updateUser(updatedUser) here
   };
 
   // --- Xử lý Xóa Đơn Lẻ ---
@@ -459,6 +453,8 @@ export default function App() {
             students={students}
             roleConfigs={roleConfigs}
             onUpdateUser={handleUpdateUser}
+            unsavedChanges={unsavedChanges}
+            onSave={handleSaveSettings}
           />
         )}
         {activeTab === 'settings' && (
