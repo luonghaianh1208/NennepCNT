@@ -175,16 +175,21 @@ export const isDateInRange = (targetDateStr: string, startStr: string, endStr: s
 
 export const calculateScore = (violations: Violation[], base = 500, weeksCount = 1, isRangeMode = false) => {
   // Logic chuẩn toán học theo yêu cầu:
-  // Công thức: (500 * Số_tuần - Tổng_trừ + Tổng_cộng) / Số_tuần
+  // Công thức: (500 * Số_tuần - Tổng_trừ + Tổng_cộng)
+  // Lưu ý: v.points > 0 là Điểm Trừ, v.points < 0 là Điểm Cộng (đã lưu số âm)
+  // Do đó reduce sẽ tự động thực hiện: Tổng - Trừ + Cộng
   
   const totalDelta = violations.reduce((sum, v) => sum + v.points, 0);
   const safeWeeks = Math.max(1, weeksCount);
 
   if (isRangeMode) {
-      const averageDeltaPerWeek = totalDelta / safeWeeks;
-      const score = base - averageDeltaPerWeek;
+      // CẬP NHẬT: Tính TỔNG ĐIỂM TÍCH LŨY thay vì Điểm Trung Bình
+      // Ví dụ: 5 tuần, mỗi tuần 500đ -> Tổng max = 2500đ
+      const totalBase = base * safeWeeks;
+      const score = totalBase - totalDelta;
       return parseFloat(score.toFixed(2));
   } else {
+      // Tính cho 1 tuần đơn lẻ hoặc mặc định
       return parseFloat((base - totalDelta).toFixed(2));
   }
 };

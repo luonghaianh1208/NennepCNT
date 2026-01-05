@@ -181,7 +181,8 @@ const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ currentUser, classes, v
         </div>
         
         <div className="bg-white border-l-4 border-l-green-500 rounded-xl shadow-sm p-4">
-           <div className="text-slate-500 text-xs font-bold uppercase mb-1 flex items-center gap-1"><TrendingUp size={14} /> Điểm TB (Tổng)</div>
+           {/* CẬP NHẬT LABEL: Điểm TB -> Tổng Điểm */}
+           <div className="text-slate-500 text-xs font-bold uppercase mb-1 flex items-center gap-1"><TrendingUp size={14} /> Tổng Điểm</div>
            <div className="text-3xl font-black text-slate-800">{myStats?.avgScore?.toFixed(2)}</div>
            <div className="text-xs text-slate-400 mt-1">Trên tổng {totalWeeksCount} tuần cấu hình</div>
         </div>
@@ -194,6 +195,7 @@ const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ currentUser, classes, v
              <LineChart data={chartData}>
                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b'}} interval="preserveStartEnd" minTickGap={20} />
+               {/* YAxis domain có thể cần điều chỉnh nếu muốn hiển thị động, nhưng chartData vẫn là theo tuần đơn lẻ nên giữ nguyên domain 520 là hợp lý cho chart */}
                <YAxis domain={[0, 520]} hide />
                <Tooltip 
                  labelStyle={{ fontWeight: 'bold', color: '#1e293b' }}
