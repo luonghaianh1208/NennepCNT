@@ -17,13 +17,6 @@ interface EntryTabProps {
   users?: User[]; 
 }
 
-// Ensure users is optional in interface but used inside if passed, 
-// NOTE: Component definition below assumes users might be missing in props in older parent, 
-// so we need to grab it. 
-// BUT: Parent App.tsx passes props spread or explicit? 
-// Checking App.tsx, EntryTab uses specific props. We need to add 'users' to EntryTab in App.tsx later if not present.
-// For now, let's assume EntryTab receives users. If not, we fallback safely.
-
 const EntryTab: React.FC<EntryTabProps & { users?: User[] }> = ({ currentUser, classes, students, criteria, violations, setViolations, roleConfigs, users = [] }) => {
   const [entryMode, setEntryMode] = useState<'VIOLATION' | 'ACHIEVEMENT'>('VIOLATION');
   const [entryDate, setEntryDate] = useState(new Date().toISOString().slice(0, 10));
@@ -95,7 +88,7 @@ const EntryTab: React.FC<EntryTabProps & { users?: User[] }> = ({ currentUser, c
         if (entryMode === 'VIOLATION') {
              // Columns: Ngay_vi_pham, Lop_vi_pham, HS_vi_pham, Loi_vi_pham, Diem_tru, Ghi_chu, Link_anh, Nguoi_ghi_loi, Role_nguoi_ghi_loi
              if (parts.length >= 5) {
-                const [ngay, tenLop, tenHS, noiDungLoi, diemTruStr, ghiChu, linkAnh, nguoiGhi, roleNguoiGhi] = parts;
+                const [ngay, tenLop, tenHS, noiDungLoi, diemTruStr, ghiChu, linkAnh, nguoiGhi] = parts;
                 const targetClass = classes.find(c => c.name.toLowerCase() === tenLop.toLowerCase() || c.id.toLowerCase() === tenLop.toLowerCase());
                 
                 if (targetClass) {
@@ -113,11 +106,8 @@ const EntryTab: React.FC<EntryTabProps & { users?: User[] }> = ({ currentUser, c
                     const finalPoints = Math.abs(points);
 
                     const imageList = linkAnh ? [linkAnh] : [];
-                    
-                    // FIXED: Gán thẳng ghiChu vào note, không nối thêm reporter info
                     const noteContent = ghiChu ? ghiChu.trim() : '';
                     
-                    // FIXED: Tìm ID người báo cáo dựa trên tên (nguoiGhi)
                     let reporterId = currentUser.id; // Default Admin
                     if (nguoiGhi) {
                         const foundUser = users.find(u => 
@@ -143,10 +133,12 @@ const EntryTab: React.FC<EntryTabProps & { users?: User[] }> = ({ currentUser, c
                 }
              }
         } else {
-             // ACHIEVEMENT MODE
-             // Columns: Ngay, Ten_Lop, HS_dat_thanh_tich, Loai_thanh_tich, Ghi_chu
-             if (parts.length >= 4) {
-                 const [ngay, tenLop, tenHS, loaiThanhTich, ghiChu] = parts;
+             // ACHIEVEMENT MODE - CẬP NHẬT THEO YÊU CẦU 6 CỘT
+             // Columns: Ngay, Ten_Lop, HS_dat_thanh_tich, Loai_thanh_tich, Diem_cong, Ghi_chu
+             // Index:   0     1        2                  3                4          5
+             if (parts.length >= 5) { // Ghi chú (cột 6) có thể trống
+                 const [ngay, tenLop, tenHS, loaiThanhTich, diemCongStr, ghiChu] = parts;
+                 
                  const targetClass = classes.find(c => c.name.toLowerCase() === tenLop.toLowerCase() || c.id.toLowerCase() === tenLop.toLowerCase());
 
                  if (targetClass) {
@@ -158,8 +150,19 @@ const EntryTab: React.FC<EntryTabProps & { users?: User[] }> = ({ currentUser, c
 
                     const foundCriteria = criteria.find(c => c.content.toLowerCase() === loaiThanhTich.toLowerCase() && c.type === 'PLUS');
                     const criteriaId = foundCriteria ? foundCriteria.id : `IMP_A_${Date.now()}_${i}`;
-                    const points = foundCriteria ? foundCriteria.points : 10; 
-                    const finalPoints = -Math.abs(points);
+                    
+                    // Xử lý điểm cộng: Đảm bảo là số âm trong hệ thống (vì hệ thống quy định Điểm = Số trừ, nên điểm cộng là số âm của số trừ)
+                    // Tuy nhiên trong code này mình đang dùng convention: 
+                    // points > 0 là Vi phạm (Trừ điểm).
+                    // points < 0 là Thành tích (Cộng điểm).
+                    // File CSV nhập vào cột "Điểm cộng" (VD: 10), thì phải chuyển thành -10.
+                    let points = 0;
+                    if (diemCongStr) {
+                         points = parseFloat(diemCongStr);
+                    } else if (foundCriteria) {
+                         points = foundCriteria.points;
+                    }
+                    const finalPoints = -Math.abs(points); // Luôn là số âm
 
                     recordsToProcess.push({
                         id: `VCSV_A_${Date.now()}_${i}`,
@@ -168,7 +171,7 @@ const EntryTab: React.FC<EntryTabProps & { users?: User[] }> = ({ currentUser, c
                         studentId: targetStudentId,
                         criteriaId: criteriaId,
                         points: finalPoints, 
-                        note: `${loaiThanhTich}. ${ghiChu || ''}`,
+                        note: ghiChu ? ghiChu.trim() : '',
                         reportedBy: currentUser.id,
                         isSecurityReport: false,
                         timestamp: Date.now(),
@@ -215,10 +218,6 @@ const EntryTab: React.FC<EntryTabProps & { users?: User[] }> = ({ currentUser, c
       }
 
       // 3. Update UI
-      // Chỉ add những dòng đã xử lý thành công? 
-      // Do api.createViolation là async thực, nên ở đây ta add tất cả recordsToProcess 
-      // (hoặc đúng ra chỉ nên add những cái đã loop qua).
-      // Để đơn giản và trải nghiệm tốt, ta add những cái trong khoảng 0 -> successCount+errorCount
       const processedRecords = recordsToProcess.slice(0, successCount + errorCount);
       setViolations([...processedRecords, ...violations]); 
       
@@ -389,9 +388,9 @@ const EntryTab: React.FC<EntryTabProps & { users?: User[] }> = ({ currentUser, c
                    </div>
                 ) : (
                    <div className="space-y-1">
-                      <strong>Cấu trúc CSV Thành Tích (5 cột):</strong>
+                      <strong>Cấu trúc CSV Thành Tích (6 cột):</strong>
                       <div className="font-mono bg-blue-100/50 p-1 rounded break-all">
-                        Ngay, Ten_Lop, HS_dat_thanh_tich, Loai_thanh_tich, Ghi_chu
+                        Ngay, Ten_Lop, HS_dat_thanh_tich, Loai_thanh_tich, Diem_cong, Ghi_chu
                       </div>
                       <em>HS_dat_thanh_tich để trống nếu là tập thể.</em>
                    </div>
