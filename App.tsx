@@ -533,7 +533,7 @@ export default function App() {
             timeConfigs={timeConfigs}
           />
         )}
-        {activeTab === 'taskforce' && (isCurrentUserAdmin() || currentUser.role === 'BCH_PHU_TRACH') && (
+        {activeTab === 'taskforce' && (isCurrentUserAdmin() || ['BCH_PHU_TRACH', 'BCH', 'RED_FLAG', 'DISCIPLINE'].includes(currentUser.role)) && (
           <TaskForceTab 
             currentUser={currentUser}
             users={users}
@@ -594,7 +594,7 @@ export default function App() {
             <BarChart2 size={24} strokeWidth={activeTab === 'detail' ? 2.5 : 2} /><span className="text-[10px] font-bold mt-1">Lớp</span>
           </button>
           
-          {(isCurrentUserAdmin() || currentUser.role === 'BCH_PHU_TRACH') && (
+          {(isCurrentUserAdmin() || ['BCH_PHU_TRACH', 'BCH', 'RED_FLAG', 'DISCIPLINE'].includes(currentUser.role)) && (
              <button onClick={() => setActiveTab('taskforce')} className={`flex flex-col items-center py-3 px-2 flex-1 transition-colors ${activeTab === 'taskforce' ? 'text-blue-700' : 'text-slate-400 hover:text-slate-600'}`}>
                <Users size={24} strokeWidth={activeTab === 'taskforce' ? 2.5 : 2} /><span className="text-[10px] font-bold mt-1">Ban Nền Nếp</span>
              </button>
