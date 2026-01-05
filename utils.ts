@@ -261,23 +261,35 @@ export const formatDateDisplay = (dateStr: string): string => {
     }
 };
 
-export const formatDateForInput = (dateStr: string | Date): string => {
+/**
+ * FIXED: Chuyển đổi mọi định dạng ngày tháng về chuỗi YYYY-MM-DD theo giờ địa phương (Local Time).
+ * Khắc phục lỗi lệch ngày do Timezone khi Google trả về chuỗi ISO (VD: 2023-09-04T17:00:00Z -> 2023-09-05).
+ */
+export const formatDateForInput = (dateStr: string | Date | undefined): string => {
     if (!dateStr) return '';
-    
-    if (typeof dateStr === 'string') {
-        const isoDateRegex = /^\d{4}-\d{2}-\d{2}$/;
-        if (isoDateRegex.test(dateStr)) return dateStr;
-        if (dateStr.includes('T')) return dateStr.split('T')[0];
+
+    // Nếu đã là Date object
+    if (dateStr instanceof Date) {
+        const y = dateStr.getFullYear();
+        const m = (dateStr.getMonth() + 1).toString().padStart(2, '0');
+        const d = dateStr.getDate().toString().padStart(2, '0');
+        return `${y}-${m}-${d}`;
     }
 
-    try {
+    // Nếu là string
+    if (typeof dateStr === 'string') {
+        // Nếu đã chuẩn YYYY-MM-DD thì giữ nguyên (tin tưởng dữ liệu người dùng nhập)
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+
+        // Nếu là ISO string (có chứa T), parse ra Date rồi lấy Local Time
         const d = new Date(dateStr);
-        if (isNaN(d.getTime())) return '';
-        const year = d.getFullYear();
-        const month = (d.getMonth() + 1).toString().padStart(2, '0');
-        const day = d.getDate().toString().padStart(2, '0');
-        return `${year}-${month}-${day}`;
-    } catch (e) {
-        return '';
+        if (!isNaN(d.getTime())) {
+            const y = d.getFullYear();
+            const m = (d.getMonth() + 1).toString().padStart(2, '0');
+            const day = d.getDate().toString().padStart(2, '0');
+            return `${y}-${m}-${day}`;
+        }
     }
+
+    return '';
 };
