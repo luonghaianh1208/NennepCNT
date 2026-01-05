@@ -57,7 +57,7 @@ export interface Violation {
 export interface TimeConfig {
   id: string;
   name: string;
-  type: 'MONTH' | 'SEMESTER';
+  type: 'WEEK' | 'MONTH' | 'SEMESTER'; // Thêm WEEK vào type
   startDate: string;
   endDate: string;
 }

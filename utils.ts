@@ -40,12 +40,23 @@ export const GUEST_USER: User = {
 };
 
 export const INITIAL_TIME_CONFIGS: TimeConfig[] = [
+  { id: 'W01', name: 'Tuần 1', type: 'WEEK', startDate: '2023-09-05', endDate: '2023-09-10' },
+  { id: 'W02', name: 'Tuần 2', type: 'WEEK', startDate: '2023-09-11', endDate: '2023-09-17' },
   { id: 'M09', name: 'Tháng 09', type: 'MONTH', startDate: '2023-09-05', endDate: '2023-09-30' },
   { id: 'M10', name: 'Tháng 10', type: 'MONTH', startDate: '2023-10-01', endDate: '2023-10-31' },
   { id: 'HK1', name: 'Học kỳ I', type: 'SEMESTER', startDate: '2023-09-05', endDate: '2024-01-15' },
 ];
 
 export const INITIAL_VIOLATIONS: Violation[] = [];
+
+// Helper lấy ngày khai giảng (05/09) của năm học hiện tại
+export const getSchoolYearStart = (): Date => {
+  const now = new Date();
+  const currentMonth = now.getMonth(); // 0-11
+  // Nếu đang là tháng 1-8 thì năm học bắt đầu từ tháng 9 năm ngoái
+  const startYear = currentMonth < 8 ? now.getFullYear() - 1 : now.getFullYear();
+  return new Date(startYear, 8, 5); // 05/09
+};
 
 export const getWeekNumber = (d: Date) => {
   d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
@@ -55,27 +66,69 @@ export const getWeekNumber = (d: Date) => {
   return weekNo;
 };
 
-export const getUniqueWeeksCount = (startDateStr: string, endDateStr: string): number => {
+// Helper để lấy định dạng YYYY-Www (VD: 2023-W35)
+export const getYearWeekKey = (d: Date) => {
+    const w = getWeekNumber(d);
+    const y = d.getFullYear();
+    return `${y}-W${w.toString().padStart(2, '0')}`;
+};
+
+// Đếm số tuần duy nhất giữa 2 mốc thời gian (Bao gồm cả tuần bắt đầu và kết thúc)
+export const getUniqueWeeksCount = (startDateStr: string | Date, endDateStr: string | Date): number => {
     if (!startDateStr || !endDateStr) return 1;
     const start = new Date(startDateStr);
     const end = new Date(endDateStr);
+    
+    // Đảm bảo so sánh chính xác bằng cách reset giờ
+    start.setHours(0,0,0,0);
+    end.setHours(23,59,59,999); // End date lấy cuối ngày
+
+    if (start > end) return 1;
+
     const uniqueWeeks = new Set<string>();
-    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        const weekNum = getWeekNumber(new Date(d));
-        const year = d.getFullYear();
-        uniqueWeeks.add(`${year}-W${weekNum}`);
+    const current = new Date(start);
+    
+    // Loop qua từng ngày để add week key
+    // Cách này chậm nhưng an toàn tuyệt đối, đảm bảo đếm đúng số tuần lịch
+    while (current <= end) {
+        uniqueWeeks.add(getYearWeekKey(new Date(current)));
+        current.setDate(current.getDate() + 1);
     }
+    
+    // Đảm bảo ít nhất là 1 tuần
     return Math.max(1, uniqueWeeks.size);
 };
 
+// Kiểm tra xem một ngày có nằm trong khoảng không (So sánh String YYYY-MM-DD cho an toàn)
+export const isDateInRange = (targetDateStr: string, startStr: string, endStr: string): boolean => {
+    if (!targetDateStr || !startStr || !endStr) return false;
+    // So sánh chuỗi trực tiếp: "2023-09-01" >= "2023-09-01"
+    return targetDateStr >= startStr && targetDateStr <= endStr;
+};
+
 export const calculateScore = (violations: Violation[], base = 500, weeksCount = 1, isRangeMode = false) => {
-  const totalPoints = violations.reduce((sum, v) => sum + v.points, 0);
+  // Logic chuẩn toán học theo yêu cầu:
+  // Công thức: (500 * Số_tuần - Tổng_trừ + Tổng_cộng) / Số_tuần
+  
+  // Tổng điểm vi phạm/thành tích (Points > 0 là trừ, < 0 là cộng)
+  // Tổng_trừ - Tổng_cộng = totalDelta
+  const totalDelta = violations.reduce((sum, v) => sum + v.points, 0);
+
+  // Mẫu số an toàn
+  const safeWeeks = Math.max(1, weeksCount);
+
   if (isRangeMode) {
-      const averagePenaltyPerWeek = totalPoints / weeksCount;
-      const score = base - averagePenaltyPerWeek;
+      // Ví dụ: 5 tuần. 
+      // Tổng quỹ điểm: 2500.
+      // Tổng lỗi: 90.
+      // (2500 - 90) / 5 = 2410 / 5 = 482.
+      // Tương đương: 500 - (90/5) = 500 - 18 = 482.
+      const averageDeltaPerWeek = totalDelta / safeWeeks;
+      const score = base - averageDeltaPerWeek;
       return parseFloat(score.toFixed(2));
   } else {
-      return parseFloat((base - totalPoints).toFixed(2));
+      // Chế độ tuần đơn: 500 - Lỗi trong tuần đó
+      return parseFloat((base - totalDelta).toFixed(2));
   }
 };
 
@@ -99,9 +152,6 @@ export const parseCSVLine = (text: string): string[] => {
     return a;
 };
 
-/**
- * Xóa dấu tiếng Việt và ký tự đặc biệt để tạo filename an toàn
- */
 export const removeVietnameseTones = (str: string) => {
     str = str.replace(/à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ/g, "a");
     str = str.replace(/è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ/g, "e");
@@ -117,28 +167,20 @@ export const removeVietnameseTones = (str: string) => {
     str = str.replace(/Ù|Ú|Ụ|Ủ|Ũ|Ư|Ừ|Ứ|Ự|Ử|Ữ/g, "U");
     str = str.replace(/Ỳ|Ý|Ỵ|Ỷ|Ỹ/g, "Y");
     str = str.replace(/Đ/g, "D");
-    // Some system encode vietnamese combining accent as individual utf-8 characters
-    // \u0300, \u0301, \u0303, \u0309, \u0323
-    str = str.replace(/\u0300|\u0301|\u0303|\u0309|\u0323/g, ""); // ̀ ́ ̃ ̉ ̣  huyền, sắc, ngã, hỏi, nặng
-    str = str.replace(/\u02C6|\u0306|\u031B/g, ""); // ˆ ̆ ̛  Â, Ê, Ă, Ơ, Ư
-    // Remove extra spaces and special characters
+    str = str.replace(/\u0300|\u0301|\u0303|\u0309|\u0323/g, ""); 
+    str = str.replace(/\u02C6|\u0306|\u031B/g, ""); 
     str = str.replace(/[^a-zA-Z0-9 ]/g, "");
     str = str.replace(/\s+/g, "_");
     return str;
 };
 
-/**
- * Parse image field safely from DB which might be a JSON string or Array
- */
 export const safeParseImages = (imgField: string[] | string | undefined): string[] => {
     if (!imgField) return [];
     if (Array.isArray(imgField)) return imgField;
     try {
-        // If it's a string looking like JSON array
         if (typeof imgField === 'string' && imgField.startsWith('[')) {
             return JSON.parse(imgField);
         }
-        // If it's just a single string url
         if (typeof imgField === 'string') return [imgField];
     } catch (e) {
         console.error("Error parsing images", e);
@@ -147,13 +189,9 @@ export const safeParseImages = (imgField: string[] | string | undefined): string
     return [];
 };
 
-/**
- * Chuyển ngày (ISO/Date string) thành DD/MM/YYYY để hiển thị đẹp
- */
 export const formatDateDisplay = (dateStr: string): string => {
     if (!dateStr) return '';
     try {
-        // Handle ISO string like 2026-01-02T17:00:00.000Z or just YYYY-MM-DD
         const d = new Date(dateStr);
         if (isNaN(d.getTime())) return dateStr;
         
@@ -166,17 +204,11 @@ export const formatDateDisplay = (dateStr: string): string => {
     }
 };
 
-/**
- * Chuyển ngày bất kỳ về YYYY-MM-DD (Local Time) để đưa vào input[type="date"]
- * Fix lỗi: 2026-01-02T17:00:00.000Z (UTC) -> 2026-01-03 (VN) thay vì bị cắt thành 2026-01-02
- */
-export const formatDateForInput = (dateStr: string): string => {
+export const formatDateForInput = (dateStr: string | Date): string => {
     if (!dateStr) return '';
     try {
         const d = new Date(dateStr);
-        if (isNaN(d.getTime())) return dateStr;
-
-        // Sử dụng local time để lấy ngày tháng năm chính xác theo múi giờ người dùng
+        if (isNaN(d.getTime())) return '';
         const year = d.getFullYear();
         const month = (d.getMonth() + 1).toString().padStart(2, '0');
         const day = d.getDate().toString().padStart(2, '0');

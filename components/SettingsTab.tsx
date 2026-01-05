@@ -40,7 +40,6 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
       setUnsavedChanges, handleSaveSettings, unsavedChanges 
   } = props;
 
-  // Đặt mặc định active tab là ROLES thay vì GENERAL
   const [activeSubTab, setActiveSubTab] = useState<'ROLES' | 'TIME' | 'CLASSES' | 'STUDENTS' | 'CRITERIA_VIOLATION' | 'CRITERIA_ACHIEVEMENT' | 'ACCOUNTS'>('ROLES');
   
   // States
@@ -67,13 +66,16 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
   const [newRoleLabel, setNewRoleLabel] = useState('');
   const [newRoleColor, setNewRoleColor] = useState('gray');
 
+  // New Time Config State
+  const [newTimeType, setNewTimeType] = useState<'WEEK' | 'MONTH' | 'SEMESTER'>('WEEK');
+
   const csvClassInputRef = useRef<HTMLInputElement>(null);
   const csvStudentInputRef = useRef<HTMLInputElement>(null);
   const csvViolationInputRef = useRef<HTMLInputElement>(null);
   const csvAchievementInputRef = useRef<HTMLInputElement>(null);
   const csvAccountInputRef = useRef<HTMLInputElement>(null);
 
-  const handleUpdateTimeConfig = (id: string, field: 'startDate' | 'endDate' | 'name', value: string) => {
+  const handleUpdateTimeConfig = (id: string, field: 'startDate' | 'endDate' | 'name' | 'type', value: string) => {
     setUnsavedChanges(true);
     setTimeConfigs(timeConfigs.map(c => c.id === id ? { ...c, [field]: value } : c));
   };
@@ -458,7 +460,6 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
   const renderSubTabs = () => (
     <div className="flex bg-white p-1 rounded-xl shadow-sm border border-slate-200 mb-6 overflow-x-auto no-scrollbar">
         {[
-            // REMOVED GENERAL TAB
             { id: 'ROLES', label: 'Vai trò', icon: <Shield size={16}/> },
             { id: 'TIME', label: 'Thời gian', icon: <Calendar size={16}/> },
             { id: 'CLASSES', label: 'Lớp học', icon: <GraduationCap size={16}/> },
@@ -549,40 +550,63 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
       {/* TIME TAB */}
       {activeSubTab === 'TIME' && (
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-            <div className="flex justify-between items-center mb-4">
-                <h3 className="font-bold text-lg text-slate-800">Quản lý Thời gian</h3>
-                <button onClick={() => { 
-                    const newId = `TM${Date.now()}`;
-                    setTimeConfigs([...timeConfigs, { id: newId, name: 'Tháng Mới', type: 'MONTH', startDate: new Date().toISOString().slice(0, 10), endDate: new Date().toISOString().slice(0, 10) }]);
-                    setUnsavedChanges(true);
-                }} className="text-blue-600 hover:bg-blue-50 p-1.5 rounded-full transition-colors">
-                    <PlusCircle size={24} />
-                </button>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {timeConfigs.map((config) => (
-                <div key={config.id} className="bg-slate-50 p-3 rounded-lg border border-slate-200 relative group hover:border-blue-300 transition-colors">
-                    <div className="absolute top-2 right-2">
-                        <button onClick={() => { if(confirm("Xóa?")) { setTimeConfigs(timeConfigs.filter(c => c.id !== config.id)); setUnsavedChanges(true); }}} className="text-slate-400 hover:text-red-500 transition-colors p-1">
-                            <Trash2 size={16} />
-                        </button>
-                    </div>
-                    <div className="mb-2 pr-6">
-                        <label className="text-[10px] text-slate-500 uppercase font-bold block mb-1">Tên hiển thị</label>
-                        <input type="text" className="w-full text-sm font-bold bg-transparent border-b border-transparent focus:border-blue-500 outline-none pb-0.5 text-slate-800" value={config.name} onChange={(e) => handleUpdateTimeConfig(config.id, 'name', e.target.value)} />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                        <div>
-                            <label className="text-[10px] text-slate-500 uppercase font-bold block mb-1">Bắt đầu</label>
-                            <input type="date" className="w-full text-xs p-1.5 rounded border border-slate-300 bg-white" value={config.startDate} onChange={(e) => handleUpdateTimeConfig(config.id, 'startDate', e.target.value)} />
-                        </div>
-                        <div>
-                            <label className="text-[10px] text-slate-500 uppercase font-bold block mb-1">Kết thúc</label>
-                            <input type="date" className="w-full text-xs p-1.5 rounded border border-slate-300 bg-white" value={config.endDate} onChange={(e) => handleUpdateTimeConfig(config.id, 'endDate', e.target.value)} />
-                        </div>
-                    </div>
+            <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-2">
+                <h3 className="font-bold text-lg text-slate-800">Quản lý Thời gian (Tuần/Tháng/Kỳ)</h3>
+                <div className="flex gap-2">
+                    <select className="border border-slate-300 rounded-lg p-1.5 text-sm outline-none" value={newTimeType} onChange={(e) => setNewTimeType(e.target.value as any)}>
+                        <option value="WEEK">Thêm Tuần</option>
+                        <option value="MONTH">Thêm Tháng</option>
+                        <option value="SEMESTER">Thêm Học Kỳ</option>
+                    </select>
+                    <button onClick={() => { 
+                        const newId = `${newTimeType.charAt(0)}${Date.now()}`;
+                        const name = newTimeType === 'WEEK' ? 'Tuần Mới' : (newTimeType === 'MONTH' ? 'Tháng Mới' : 'Học Kỳ Mới');
+                        setTimeConfigs([...timeConfigs, { id: newId, name: name, type: newTimeType, startDate: new Date().toISOString().slice(0, 10), endDate: new Date().toISOString().slice(0, 10) }]);
+                        setUnsavedChanges(true);
+                    }} className="bg-blue-600 hover:bg-blue-700 text-white p-1.5 rounded-lg transition-colors flex items-center gap-1 text-sm px-3 font-bold">
+                        <PlusCircle size={16} /> Thêm
+                    </button>
                 </div>
-                ))}
+            </div>
+            
+            <div className="space-y-4">
+                {/* Group by Types */}
+                {['WEEK', 'MONTH', 'SEMESTER'].map(type => {
+                    const configs = timeConfigs.filter(c => c.type === type);
+                    if (configs.length === 0) return null;
+                    return (
+                        <div key={type}>
+                             <div className="text-xs font-bold text-slate-500 uppercase mb-2 border-b border-slate-100 pb-1">
+                                {type === 'WEEK' ? 'Danh sách Tuần' : (type === 'MONTH' ? 'Danh sách Tháng' : 'Danh sách Học Kỳ')}
+                             </div>
+                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                {configs.map((config) => (
+                                    <div key={config.id} className="bg-slate-50 p-3 rounded-lg border border-slate-200 relative group hover:border-blue-300 transition-colors">
+                                        <div className="absolute top-2 right-2">
+                                            <button onClick={() => { if(confirm("Xóa mốc thời gian này?")) { setTimeConfigs(timeConfigs.filter(c => c.id !== config.id)); setUnsavedChanges(true); }}} className="text-slate-400 hover:text-red-500 transition-colors p-1">
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
+                                        <div className="mb-2 pr-6">
+                                            <label className="text-[10px] text-slate-500 uppercase font-bold block mb-1">Tên hiển thị</label>
+                                            <input type="text" className="w-full text-sm font-bold bg-transparent border-b border-transparent focus:border-blue-500 outline-none pb-0.5 text-slate-800" value={config.name} onChange={(e) => handleUpdateTimeConfig(config.id, 'name', e.target.value)} />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <label className="text-[10px] text-slate-500 uppercase font-bold block mb-1">Bắt đầu</label>
+                                                <input type="date" className="w-full text-xs p-1.5 rounded border border-slate-300 bg-white" value={config.startDate} onChange={(e) => handleUpdateTimeConfig(config.id, 'startDate', e.target.value)} />
+                                            </div>
+                                            <div>
+                                                <label className="text-[10px] text-slate-500 uppercase font-bold block mb-1">Kết thúc</label>
+                                                <input type="date" className="w-full text-xs p-1.5 rounded border border-slate-300 bg-white" value={config.endDate} onChange={(e) => handleUpdateTimeConfig(config.id, 'endDate', e.target.value)} />
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                             </div>
+                        </div>
+                    );
+                })}
             </div>
           </div>
       )}

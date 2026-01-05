@@ -58,6 +58,7 @@ export default function App() {
   const [loginUsername, setLoginUsername] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
 
   // Modal States
   const [editingViolation, setEditingViolation] = useState<Violation | null>(null);
@@ -91,17 +92,54 @@ export default function App() {
         }));
         setTimeConfigs(normalizedTimeConfigs);
       }
-      // Lưu ý: Nếu có bảng Roles trong tương lai thì load ở đây
     }
     
     if (showLoading) setIsLoading(false);
     else setIsRefreshing(false);
   }, []);
 
-  // Initial Fetch
+  // Initial Fetch & Auto Login
   useEffect(() => {
-    fetchData(true);
+    const init = async () => {
+        await fetchData(true);
+        
+        // Auto Login Check
+        const savedUserJson = localStorage.getItem('nnp_user_creds');
+        if (savedUserJson) {
+            try {
+                const creds = JSON.parse(savedUserJson);
+                // Cần wait users state được set từ fetchData
+                // Do fetchData async, ta thực hiện check lại trong một effect khác hoặc check ngay đây nếu có data
+                // Tuy nhiên users state chưa update ngay lập tức ở đây.
+                // Giải pháp: Lưu creds vào state tạm và check trong useEffect khác khi users thay đổi.
+                setLoginUsername(creds.username);
+                setLoginPassword(creds.password);
+                setRememberMe(true);
+            } catch (e) {
+                localStorage.removeItem('nnp_user_creds');
+            }
+        }
+    };
+    init();
   }, [fetchData]);
+
+  // Effect để Auto Login khi users data đã load và có thông tin đăng nhập lưu sẵn
+  useEffect(() => {
+     if (users.length > 0 && currentUser.role === 'GUEST' && loginUsername && loginPassword && rememberMe) {
+         const user = users.find(u => u.username === loginUsername && u.password === loginPassword);
+         if (user) {
+             setCurrentUser(user);
+             // Redirect logic
+             const userRoleKey = user.role.toUpperCase();
+             // Assuming roleConfigs is populated or default
+             const roleConfig = roleConfigs[userRoleKey] || roleConfigs['GUEST'] || INITIAL_ROLE_DEFINITIONS[userRoleKey];
+             
+             if (roleConfig?.canEntry) setActiveTab('entry');
+             else if (roleConfig?.isAdmin) setActiveTab('settings');
+             else setActiveTab('list');
+         }
+     }
+  }, [users, loginUsername, loginPassword, rememberMe]); // Run when users load
 
   const handleRefresh = () => {
     fetchData(false); // Silent refresh (show small spinner)
@@ -114,9 +152,17 @@ export default function App() {
     if (user) {
       setCurrentUser(user);
       setShowLoginModal(false);
+      setLoginError('');
+      
+      if (rememberMe) {
+          localStorage.setItem('nnp_user_creds', JSON.stringify({ username: loginUsername, password: loginPassword }));
+      } else {
+          localStorage.removeItem('nnp_user_creds');
+      }
+      
+      // Clear sensitive inputs from state
       setLoginUsername('');
       setLoginPassword('');
-      setLoginError('');
       
       const userRoleKey = user.role.toUpperCase();
       const roleConfig = roleConfigs[userRoleKey] || roleConfigs['GUEST'];
@@ -137,6 +183,7 @@ export default function App() {
     if(confirm("Bạn có chắc muốn đăng xuất?")) {
         setCurrentUser(GUEST_USER);
         setActiveTab('list');
+        localStorage.removeItem('nnp_user_creds');
     }
   };
 
@@ -592,6 +639,21 @@ export default function App() {
                         placeholder="••••••"
                     />
                  </div>
+                 
+                 {/* Remember Me Checkbox */}
+                 <div className="flex items-center gap-2">
+                    <input 
+                        type="checkbox" 
+                        id="rememberMe"
+                        checked={rememberMe}
+                        onChange={e => setRememberMe(e.target.checked)}
+                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <label htmlFor="rememberMe" className="text-sm text-slate-600 cursor-pointer select-none">
+                        Ghi nhớ đăng nhập
+                    </label>
+                 </div>
+
                  {loginError && <div className="text-red-500 text-sm font-medium text-center">{loginError}</div>}
                  <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-blue-200 transition-all active:scale-95">
                     Đăng Nhập

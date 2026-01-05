@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Download, Filter, Search, CheckSquare, Square, Trash2, AlertTriangle, Eye, Edit, Link2 } from 'lucide-react';
 import { Violation, ClassEntity, Student, Criteria, User, RoleConfig, TimeConfig } from '../types';
-import { getWeekNumber, safeParseImages, formatDateDisplay, removeVietnameseTones } from '../utils';
+import { getWeekNumber, safeParseImages, formatDateDisplay, removeVietnameseTones, isDateInRange } from '../utils';
 
 interface ListTabProps {
   currentUser: User;
@@ -12,7 +12,7 @@ interface ListTabProps {
   criteria: Criteria[];
   users: User[];
   roleConfigs: Record<string, RoleConfig>;
-  timeConfigs: TimeConfig[]; // Thêm timeConfigs
+  timeConfigs: TimeConfig[]; 
   handleDeleteViolation: (id: string) => void;
   handleBulkDelete: (ids: string[]) => void;
   setViewingViolation: (v: Violation | null) => void;
@@ -24,20 +24,20 @@ const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, stu
   const [filterCriteriaType, setFilterCriteriaType] = useState<'ALL' | 'MINUS' | 'PLUS'>('ALL');
   
   // State for Filters
-  const [filterConfigId, setFilterConfigId] = useState(''); // configId cho MONTH
-  const [filterWeek, setFilterWeek] = useState(`${new Date().getFullYear()}-W${getWeekNumber(new Date())}`);
-  const [filterSemester, setFilterSemester] = useState('1');
+  const [filterConfigId, setFilterConfigId] = useState(''); // Dùng chung ID cho cả WEEK, MONTH, SEMESTER
   const [filterClassId, setFilterClassId] = useState('ALL');
   
   const [selectedViolationIds, setSelectedViolationIds] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Auto-select first month config if available when switching to MONTH
+  // Auto-select first config if available when switching Mode
   useEffect(() => {
-     if (filterMode === 'MONTH' && !filterConfigId) {
-         const months = timeConfigs.filter(c => c.type === 'MONTH');
-         if (months.length > 0) {
-             setFilterConfigId(months[0].id);
+     if (filterMode !== 'ALL') {
+         const configs = timeConfigs.filter(c => c.type === filterMode);
+         // Nếu chưa chọn hoặc config hiện tại không thuộc mode mới, chọn cái đầu tiên
+         const currentIsValid = configs.find(c => c.id === filterConfigId);
+         if (!currentIsValid && configs.length > 0) {
+             setFilterConfigId(configs[0].id);
          }
      }
   }, [filterMode, timeConfigs, filterConfigId]);
@@ -54,33 +54,16 @@ const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, stu
     // 1. Filter by Class
     if (filterClassId !== 'ALL') list = list.filter(v => v.classId === filterClassId);
     
-    // 2. Filter by Time Mode
-    if (filterMode === 'MONTH') {
-        // Use TimeConfigs logic
+    // 2. Filter by Time Mode (WEEK/MONTH/SEMESTER dùng chung logic lấy config từ ID)
+    if (filterMode !== 'ALL') {
         const config = timeConfigs.find(c => c.id === filterConfigId);
         if (config) {
-            list = list.filter(v => v.date >= config.startDate && v.date <= config.endDate);
+            // SỬ DỤNG HÀM isDateInRange ĐỂ ĐẢM BẢO CHÍNH XÁC (bao gồm cả ngày start và end)
+            list = list.filter(v => isDateInRange(v.date, config.startDate, config.endDate));
         } else {
-             // If selected mode MONTH but no valid config selected/found, show empty to avoid confusion or show all? 
-             // Better show nothing or current month fallback? User requested STRICT month config.
-             // If config missing, list empty.
-             if (timeConfigs.filter(c => c.type === 'MONTH').length > 0) list = []; 
+             // Nếu chọn mode mà không có config, list rỗng
+             if (timeConfigs.filter(c => c.type === filterMode).length > 0) list = []; 
         }
-    } else if (filterMode === 'WEEK') {
-      list = list.filter(v => {
-        const d = new Date(v.date);
-        const w = getWeekNumber(d);
-        const y = d.getFullYear();
-        const [fY, fW] = filterWeek.split('-W');
-        return parseInt(fY) === y && parseInt(fW) === w;
-      });
-    } else if (filterMode === 'SEMESTER') {
-      list = list.filter(v => {
-        const d = new Date(v.date);
-        const m = d.getMonth() + 1;
-        if (filterSemester === '1') return [8, 9, 10, 11, 12, 1].includes(m);
-        else return [2, 3, 4, 5, 6, 7].includes(m);
-      });
     }
 
     // 3. Filter by Criteria Type
@@ -109,7 +92,7 @@ const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, stu
     }
 
     return list.sort((a, b) => b.timestamp - a.timestamp);
-  }, [violations, filterClassId, filterMode, filterConfigId, filterWeek, filterSemester, filterCriteriaType, searchTerm, timeConfigs, classes, students, criteria, users]);
+  }, [violations, filterClassId, filterMode, filterConfigId, filterCriteriaType, searchTerm, timeConfigs, classes, students, criteria, users]);
 
   const toggleSelection = (id: string) => {
     const newSet = new Set(selectedViolationIds);
@@ -192,8 +175,8 @@ const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, stu
     document.body.removeChild(link);
   };
 
-  const getMonthOptions = () => {
-      return timeConfigs.filter(c => c.type === 'MONTH');
+  const getTimeOptions = () => {
+      return timeConfigs.filter(c => c.type === filterMode);
   };
 
   return (
@@ -236,9 +219,9 @@ const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, stu
          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             <select className="bg-slate-50 border border-slate-300 rounded-lg px-2 py-2 text-sm outline-none" value={filterMode} onChange={(e) => setFilterMode(e.target.value as any)}>
                <option value="ALL">Tất cả thời gian</option>
-               <option value="WEEK">Theo Tuần</option>
+               <option value="WEEK">Theo Tuần (Cấu hình)</option>
                <option value="MONTH">Theo Tháng (Cấu hình)</option>
-               <option value="SEMESTER">Theo Học Kỳ</option>
+               <option value="SEMESTER">Theo Học Kỳ (Cấu hình)</option>
             </select>
             <select className="bg-slate-50 border border-slate-300 rounded-lg px-2 py-2 text-sm outline-none" value={filterCriteriaType} onChange={(e) => setFilterCriteriaType(e.target.value as any)}>
                <option value="ALL">Tất cả loại</option>
@@ -247,16 +230,12 @@ const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, stu
             </select>
             
             {/* Dynamic Time Filter Inputs */}
-            {filterMode === 'WEEK' && <input type="week" className="bg-slate-50 border border-slate-300 rounded-lg px-2 py-2 text-sm outline-none" value={filterWeek} onChange={(e) => setFilterWeek(e.target.value)} />}
-            
-            {filterMode === 'MONTH' && (
+            {filterMode !== 'ALL' && (
                 <select className="bg-slate-50 border border-slate-300 rounded-lg px-2 py-2 text-sm outline-none" value={filterConfigId} onChange={(e) => setFilterConfigId(e.target.value)}>
-                    {getMonthOptions().length === 0 && <option value="">Chưa có cấu hình tháng</option>}
-                    {getMonthOptions().map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    {getTimeOptions().length === 0 && <option value="">Chưa có cấu hình</option>}
+                    {getTimeOptions().map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
             )}
-            
-            {filterMode === 'SEMESTER' && <select className="bg-slate-50 border border-slate-300 rounded-lg px-2 py-2 text-sm outline-none" value={filterSemester} onChange={(e) => setFilterSemester(e.target.value)}><option value="1">Học kỳ I</option><option value="2">Học kỳ II</option></select>}
             
             {filterMode === 'ALL' && <div className="hidden md:block"></div>}
             
