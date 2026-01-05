@@ -519,6 +519,7 @@ export default function App() {
             criteria={criteria} 
             students={students} 
             setViewingViolation={setViewingViolation} 
+            timeConfigs={timeConfigs}
           />
         )}
         {activeTab === 'taskforce' && (isCurrentUserAdmin() || currentUser.role === 'BCH_PHU_TRACH') && (
