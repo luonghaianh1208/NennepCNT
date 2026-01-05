@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { Award, TrendingUp, ThumbsDown, ThumbsUp, AlertCircle, Link2, Users } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { User, ClassEntity, Violation, Student, Criteria } from '../types';
-import { calculateScore, getWeekNumber, safeParseImages, formatDateDisplay, getYearWeekKey, getUniqueWeeksCount, getSchoolYearStart, formatDateForInput, isDateInRange } from '../utils';
+import { calculateScore, getWeekNumber, safeParseImages, formatDateDisplay, getYearWeekKey, getUniqueWeeksCount, getEarliestViolationDate, getLatestViolationDate } from '../utils';
 
 interface ClassDetailTabProps {
   currentUser: User;
@@ -25,24 +25,30 @@ const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ currentUser, classes, v
 
   const cls = classes.find(c => c.id === targetClassId);
 
-  // 2. TÍNH TOÁN THỜI GIAN TOÀN HỆ THỐNG
+  // 1. FILTER VIOLATIONS: Get ALL violations for this class, NO DATE RESTRICTION.
+  // This satisfies "lấy toàn bộ dữ liệu từ database".
+  const clsViolations = useMemo(() => {
+     if (!targetClassId) return [];
+     return violations
+        .filter(v => v.classId === targetClassId)
+        .sort((a,b) => b.timestamp - a.timestamp);
+  }, [violations, targetClassId]);
+
+  // 2. DYNAMIC TIMELINE FOR CHART & RANKING
+  // Calculate total timeline based on ALL violations in the system to ensure correct average
   const { allWeeksKeys, totalWeeksCount } = useMemo(() => {
-      const now = new Date();
-      // Luôn bắt đầu từ 05/09 để đồng bộ
-      const schoolStartDate = getSchoolYearStart();
-      const max = now; 
+      // Find range of all data in system
+      const minDate = getEarliestViolationDate(violations);
+      const maxDate = getLatestViolationDate(violations);
+      
+      const weeksCount = getUniqueWeeksCount(minDate, maxDate);
 
-      // Tính tổng số tuần thực tế (để làm mẫu số tính điểm trung bình)
-      const weeksCount = getUniqueWeeksCount(schoolStartDate, max);
-
-      // Tạo keys để vẽ biểu đồ
+      // Keys for Chart
       const keys: string[] = [];
-      const current = new Date(schoolStartDate);
-      // Lùi về thứ 2 đầu tuần của ngày Start
+      const current = new Date(minDate);
       const day = current.getDay() || 7; 
-      current.setDate(current.getDate() - day + 1);
-
-      const endDate = new Date(max);
+      current.setDate(current.getDate() - day + 1); // Monday
+      const endDate = new Date(maxDate);
       
       while (current <= endDate || getYearWeekKey(current) === getYearWeekKey(endDate)) {
           keys.push(getYearWeekKey(new Date(current)));
@@ -61,21 +67,12 @@ const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ currentUser, classes, v
       );
   }
 
+  // 3. RANKING LOGIC (GLOBAL / ALL TIME)
+  // Calculate ranking based on ALL data
   const gradeClasses = classes.filter(c => c.grade === cls.grade);
-  const clsViolations = violations.filter(v => v.classId === targetClassId).sort((a,b) => b.timestamp - a.timestamp);
-
-  // 3. TÍNH ĐIỂM TRUNG BÌNH & XẾP HẠNG (TOÀN THỜI GIAN)
   const gradeRankings = gradeClasses.map(c => {
-      // Lọc violations của lớp này trong khoảng thời gian toàn năm học
-      const startDate = getSchoolYearStart();
-      const endDate = new Date();
-      const startDateStr = formatDateForInput(startDate);
-      const endDateStr = formatDateForInput(endDate);
-
-      const cViolations = violations.filter(v => {
-          return v.classId === c.id && isDateInRange(v.date, startDateStr, endDateStr);
-      });
-
+      // Get all violations for class c
+      const cViolations = violations.filter(v => v.classId === c.id);
       const score = calculateScore(cViolations, 500, totalWeeksCount, true);
       return { id: c.id, avgScore: score };
   }).sort((a, b) => b.avgScore - a.avgScore);
@@ -86,13 +83,15 @@ const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ currentUser, classes, v
   const minusViolations = clsViolations.filter(v => v.points > 0);
   const plusViolations = clsViolations.filter(v => v.points < 0);
 
-  // THỐNG KÊ HỌC SINH VI PHẠM
+  // 4. STUDENT STATISTICS (STRICT MATCHING)
+  // Fix "Lẫn học sinh": Only iterate students who are strictly in this class.
   const studentViolationStats = useMemo(() => {
-      // 1. Lọc học sinh trong lớp
+      // 1. Get List of Students officially in this class
       const classStudents = students.filter(s => s.classId === targetClassId);
       
-      // 2. Map dữ liệu
+      // 2. Map data - Strictly check studentId matches
       const stats = classStudents.map(s => {
+          // Count only violations that reference this specific student ID
           const studentMinus = minusViolations.filter(v => v.studentId === s.id);
           const totalMinusPoints = studentMinus.reduce((acc, v) => acc + v.points, 0);
           return {
@@ -102,16 +101,16 @@ const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ currentUser, classes, v
           };
       });
 
-      // 3. Lọc những em có vi phạm > 0 và sort giảm dần theo số lỗi
+      // 3. Filter only those with violations
       return stats.filter(s => s.count > 0).sort((a, b) => b.count - a.count);
   }, [students, targetClassId, minusViolations]);
 
-  // 4. DỮ LIỆU BIỂU ĐỒ (VẼ ĐẦY ĐỦ CÁC TUẦN)
+  // 5. CHART DATA
   const chartData = useMemo(() => {
     return allWeeksKeys.map(weekKey => {
         const weekNum = parseInt(weekKey.split('-W')[1]);
         const violationsInWeek = clsViolations.filter(v => getYearWeekKey(new Date(v.date)) === weekKey);
-        // Tính điểm tuần đơn lẻ (weeksCount = 1)
+        // Single week score (weeksCount = 1)
         const score = calculateScore(violationsInWeek, 500, 1, false);
 
         return {
@@ -141,14 +140,14 @@ const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ currentUser, classes, v
            <div className="relative z-10">
              <div className="text-blue-100 text-xs font-bold uppercase mb-1">Thứ hạng (Khối {cls.grade})</div>
              <div className="text-4xl font-black flex items-end gap-2">#{myRank}<span className="text-base font-normal text-blue-200 mb-1">/ {gradeClasses.length}</span></div>
-             <div className="text-[10px] text-blue-200 mt-1">Tính theo ĐTB toàn thời gian</div>
+             <div className="text-[10px] text-blue-200 mt-1">Tính theo ĐTB toàn bộ dữ liệu</div>
            </div>
         </div>
         
         <div className="bg-white border-l-4 border-l-green-500 rounded-xl shadow-sm p-4">
-           <div className="text-slate-500 text-xs font-bold uppercase mb-1 flex items-center gap-1"><TrendingUp size={14} /> Điểm TB (Toàn thời gian)</div>
+           <div className="text-slate-500 text-xs font-bold uppercase mb-1 flex items-center gap-1"><TrendingUp size={14} /> Điểm TB (Tổng)</div>
            <div className="text-3xl font-black text-slate-800">{myStats?.avgScore?.toFixed(2)}</div>
-           <div className="text-xs text-slate-400 mt-1">Trên tổng {totalWeeksCount} tuần học (từ 05/09)</div>
+           <div className="text-xs text-slate-400 mt-1">Trên tổng {totalWeeksCount} tuần dữ liệu</div>
         </div>
       </div>
 

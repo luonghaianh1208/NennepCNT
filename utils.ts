@@ -58,7 +58,67 @@ export const getSchoolYearStart = (): Date => {
   return new Date(startYear, 8, 5); // 05/09
 };
 
+// --- START: DATE HANDLING HELPERS (LOCAL TIMEZONE STRICT) ---
+
+// Chuyển string YYYY-MM-DD thành Date object vào lúc 00:00:00 giờ địa phương
+const parseLocalStartOfDay = (dateStr: string): Date => {
+    if (!dateStr) return new Date();
+    // Xử lý chuỗi ISO full nếu có
+    const cleanStr = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
+    const parts = cleanStr.split('-');
+    if (parts.length === 3) {
+        // new Date(y, m, d) tạo date theo giờ địa phương
+        return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), 0, 0, 0, 0);
+    }
+    return new Date(dateStr); // Fallback
+};
+
+// Chuyển string YYYY-MM-DD thành Date object vào lúc 23:59:59.999 giờ địa phương
+const parseLocalEndOfDay = (dateStr: string): Date => {
+    if (!dateStr) return new Date();
+    const cleanStr = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
+    const parts = cleanStr.split('-');
+    if (parts.length === 3) {
+        return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), 23, 59, 59, 999);
+    }
+    const d = new Date(dateStr);
+    d.setHours(23, 59, 59, 999);
+    return d;
+};
+// --- END: DATE HANDLING HELPERS ---
+
+
+// Tìm ngày sớm nhất trong danh sách vi phạm
+export const getEarliestViolationDate = (violations: Violation[]): Date => {
+    if (!violations || violations.length === 0) return getSchoolYearStart();
+    
+    // Khởi tạo minDate bằng ngày của vi phạm đầu tiên
+    let minDate = parseLocalStartOfDay(violations[0].date);
+
+    for (const v of violations) {
+        const d = parseLocalStartOfDay(v.date);
+        if (d < minDate) minDate = d;
+    }
+    return minDate;
+};
+
+// Tìm ngày muộn nhất
+export const getLatestViolationDate = (violations: Violation[]): Date => {
+    if (!violations || violations.length === 0) return new Date();
+    
+    let maxDate = parseLocalEndOfDay(violations[0].date);
+
+    for (const v of violations) {
+        const d = parseLocalEndOfDay(v.date);
+        if (d > maxDate) maxDate = d;
+    }
+    
+    const now = new Date();
+    return maxDate > now ? maxDate : now;
+};
+
 export const getWeekNumber = (d: Date) => {
+  // Copy date để không ảnh hưởng biến gốc, chuyển về UTC để tính toán chuẩn ISO
   d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
   d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
   const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
@@ -66,74 +126,71 @@ export const getWeekNumber = (d: Date) => {
   return weekNo;
 };
 
-// Helper để lấy định dạng YYYY-Www (VD: 2023-W35)
+// Helper để lấy định dạng YYYY-Www
 export const getYearWeekKey = (d: Date) => {
     const w = getWeekNumber(d);
     const y = d.getFullYear();
+    // Xử lý trường hợp tuần 1 rơi vào cuối năm trước hoặc tuần 52 rơi vào đầu năm sau
+    // Tuy nhiên với mục đích thống kê đơn giản, ta dùng year của date gốc
     return `${y}-W${w.toString().padStart(2, '0')}`;
 };
 
 // Đếm số tuần duy nhất giữa 2 mốc thời gian (Bao gồm cả tuần bắt đầu và kết thúc)
 export const getUniqueWeeksCount = (startDateStr: string | Date, endDateStr: string | Date): number => {
     if (!startDateStr || !endDateStr) return 1;
-    const start = new Date(startDateStr);
-    const end = new Date(endDateStr);
-    
-    // Đảm bảo so sánh chính xác bằng cách reset giờ
-    start.setHours(0,0,0,0);
-    end.setHours(23,59,59,999); // End date lấy cuối ngày
 
+    // Chuyển đổi input về Date object chuẩn (Local Time)
+    const start = typeof startDateStr === 'string' ? parseLocalStartOfDay(startDateStr) : startDateStr;
+    const end = typeof endDateStr === 'string' ? parseLocalEndOfDay(endDateStr) : endDateStr;
+
+    // Đảm bảo start <= end
     if (start > end) return 1;
 
     const uniqueWeeks = new Set<string>();
-    const current = new Date(start);
+    const current = new Date(start); // Clone start để loop
     
     // Loop qua từng ngày để add week key
-    // Cách này chậm nhưng an toàn tuyệt đối, đảm bảo đếm đúng số tuần lịch
+    // Vì end đã được set là 23:59:59 nên loop này sẽ bao gồm cả ngày cuối cùng
     while (current <= end) {
-        uniqueWeeks.add(getYearWeekKey(new Date(current)));
-        current.setDate(current.getDate() + 1);
+        uniqueWeeks.add(getYearWeekKey(current));
+        current.setDate(current.getDate() + 1); // Tăng 1 ngày
     }
     
-    // Đảm bảo ít nhất là 1 tuần
     return Math.max(1, uniqueWeeks.size);
 };
 
-// Kiểm tra xem một ngày có nằm trong khoảng không (So sánh String YYYY-MM-DD cho an toàn)
+// Kiểm tra xem một ngày có nằm trong khoảng không (Chính xác tuyệt đối theo Local Time)
 export const isDateInRange = (targetDateStr: string, startStr: string, endStr: string): boolean => {
     if (!targetDateStr || !startStr || !endStr) return false;
-    // So sánh chuỗi trực tiếp: "2023-09-01" >= "2023-09-01"
-    return targetDateStr >= startStr && targetDateStr <= endStr;
+    
+    // Chuyển target về giữa ngày để so sánh an toàn, hoặc đầu ngày
+    const target = parseLocalStartOfDay(targetDateStr).getTime();
+    
+    const start = parseLocalStartOfDay(startStr).getTime(); // 00:00:00 ngày bắt đầu
+    const end = parseLocalEndOfDay(endStr).getTime();       // 23:59:59 ngày kết thúc
+
+    // So sánh timestamp
+    return target >= start && target <= end;
 };
 
 export const calculateScore = (violations: Violation[], base = 500, weeksCount = 1, isRangeMode = false) => {
   // Logic chuẩn toán học theo yêu cầu:
   // Công thức: (500 * Số_tuần - Tổng_trừ + Tổng_cộng) / Số_tuần
   
-  // Tổng điểm vi phạm/thành tích (Points > 0 là trừ, < 0 là cộng)
-  // Tổng_trừ - Tổng_cộng = totalDelta
   const totalDelta = violations.reduce((sum, v) => sum + v.points, 0);
-
-  // Mẫu số an toàn
   const safeWeeks = Math.max(1, weeksCount);
 
   if (isRangeMode) {
-      // Ví dụ: 5 tuần. 
-      // Tổng quỹ điểm: 2500.
-      // Tổng lỗi: 90.
-      // (2500 - 90) / 5 = 2410 / 5 = 482.
-      // Tương đương: 500 - (90/5) = 500 - 18 = 482.
       const averageDeltaPerWeek = totalDelta / safeWeeks;
       const score = base - averageDeltaPerWeek;
       return parseFloat(score.toFixed(2));
   } else {
-      // Chế độ tuần đơn: 500 - Lỗi trong tuần đó
       return parseFloat((base - totalDelta).toFixed(2));
   }
 };
 
 /**
- * Hàm phân tích dòng CSV, xử lý trường hợp có dấu phẩy trong ngoặc kép
+ * Hàm phân tích dòng CSV
  */
 export const parseCSVLine = (text: string): string[] => {
     const re_valid = /^\s*(?:'[^'\\]*(?:\\[\S\s][^'\\]*)*'|"[^"\\]*(?:\\[\S\s][^"\\]*)*"|[^,'"\s\\]*(?:\s+[^,'"\s\\]+)*)\s*(?:,\s*(?:'[^'\\]*(?:\\[\S\s][^'\\]*)*'|"[^"\\]*(?:\\[\S\s][^"\\]*)*"|[^,'"\s\\]*(?:\s+[^,'"\s\\]+)*)\s*)*$/;
@@ -206,6 +263,13 @@ export const formatDateDisplay = (dateStr: string): string => {
 
 export const formatDateForInput = (dateStr: string | Date): string => {
     if (!dateStr) return '';
+    
+    if (typeof dateStr === 'string') {
+        const isoDateRegex = /^\d{4}-\d{2}-\d{2}$/;
+        if (isoDateRegex.test(dateStr)) return dateStr;
+        if (dateStr.includes('T')) return dateStr.split('T')[0];
+    }
+
     try {
         const d = new Date(dateStr);
         if (isNaN(d.getTime())) return '';

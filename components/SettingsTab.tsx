@@ -423,7 +423,7 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
                       <div>
                           <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Vai trò & Màu sắc</label>
                           <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto">
-                             {Object.entries(roleConfigs).map(([key, config]) => (
+                             {Object.entries(roleConfigs).map(([key, config]: [string, RoleConfig]) => (
                                  <button 
                                     key={key} 
                                     onClick={() => setEditingUser({...editingUser, role: key as string})}
@@ -497,7 +497,7 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
              <h3 className="font-bold text-lg mb-4 text-slate-800">Quản lý Vai trò</h3>
              
              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
-                 {Object.entries(roleConfigs).map(([key, config]) => (
+                 {Object.entries(roleConfigs).map(([key, config]: [string, RoleConfig]) => (
                      <div key={key} className="border p-3 rounded-lg flex flex-col gap-2 relative group hover:border-blue-300 bg-slate-50/50">
                          {key !== 'ADMIN' && key !== 'GUEST' && (
                              <button onClick={() => handleDeleteRole(key)} className="absolute top-2 right-2 text-slate-400 hover:text-red-500"><Trash2 size={16}/></button>
@@ -865,7 +865,7 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
                  <input className="p-2 border rounded text-sm" placeholder="Username/Email" value={newUserUsername} onChange={e=>setNewUserUsername(e.target.value)} />
                  <input className="p-2 border rounded text-sm" type="password" placeholder="Mật khẩu" value={newUserPassword} onChange={e=>setNewUserPassword(e.target.value)} />
                  <select className="p-2 border rounded text-sm bg-white" value={newUserRole} onChange={e=>setNewUserRole(e.target.value)}>
-                     {Object.entries(roleConfigs).map(([key, config]) => (
+                     {Object.entries(roleConfigs).map(([key, config]: [string, RoleConfig]) => (
                          <option key={key} value={key}>{config.label}</option>
                      ))}
                  </select>

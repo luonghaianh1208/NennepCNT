@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Download, Filter, Search, CheckSquare, Square, Trash2, AlertTriangle, Eye, Edit, Link2 } from 'lucide-react';
+import { Download, Filter, Search, CheckSquare, Square, Trash2, AlertTriangle, Eye, Edit, Link2, ListChecks } from 'lucide-react';
 import { Violation, ClassEntity, Student, Criteria, User, RoleConfig, TimeConfig } from '../types';
 import { getWeekNumber, safeParseImages, formatDateDisplay, removeVietnameseTones, isDateInRange } from '../utils';
 
@@ -20,7 +20,8 @@ interface ListTabProps {
 }
 
 const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, students, criteria, users, roleConfigs, timeConfigs, handleDeleteViolation, handleBulkDelete, setViewingViolation, handleEditClick }) => {
-  const [filterMode, setFilterMode] = useState<'MONTH' | 'WEEK' | 'SEMESTER' | 'ALL'>('MONTH');
+  // Default to ALL to show everything by default as requested
+  const [filterMode, setFilterMode] = useState<'MONTH' | 'WEEK' | 'SEMESTER' | 'ALL'>('ALL');
   const [filterCriteriaType, setFilterCriteriaType] = useState<'ALL' | 'MINUS' | 'PLUS'>('ALL');
   
   // State for Filters
@@ -203,6 +204,12 @@ const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, stu
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
             />
+        </div>
+
+        {/* --- KẾT QUẢ BỘ LỌC (New Feature) --- */}
+        <div className="flex items-center gap-2 text-sm text-slate-500 italic pl-1">
+            <ListChecks size={16} className="text-blue-500" />
+            <span>Hiển thị <strong>{filteredViolations.length}</strong> kết quả phù hợp.</span>
         </div>
       </div>
 

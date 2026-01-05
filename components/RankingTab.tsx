@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Trophy } from 'lucide-react';
 import { TimeConfig, Violation, ClassEntity } from '../types';
-import { getWeekNumber, getUniqueWeeksCount, calculateScore, getSchoolYearStart, formatDateForInput, formatDateDisplay, isDateInRange } from '../utils';
+import { calculateScore, getUniqueWeeksCount, getEarliestViolationDate, getLatestViolationDate, isDateInRange, formatDateDisplay } from '../utils';
 
 interface RankingTabProps {
   violations: Violation[];
@@ -37,14 +37,13 @@ const RankingTab: React.FC<RankingTabProps> = ({ violations, classes, timeConfig
 
     // 1. XÁC ĐỊNH MẪU SỐ (Số tuần) và LỌC VI PHẠM
     if (rankingFilterMode === 'ALL') {
-        // TOÀN THỜI GIAN: Tính từ 05/09 -> Hiện tại
-        const startDate = getSchoolYearStart();
-        const endDate = new Date();
-        const startDateStr = formatDateForInput(startDate);
-        const endDateStr = formatDateForInput(endDate);
-
-        relevantViolations = violations.filter(v => isDateInRange(v.date, startDateStr, endDateStr));
-        weeksCount = getUniqueWeeksCount(startDate, endDate);
+        // TOÀN THỜI GIAN: Dùng tất cả dữ liệu từ DB, không lọc ngày tháng
+        relevantViolations = violations;
+        
+        // Tính weeks count dựa trên dải dữ liệu thực tế (Min -> Max)
+        const minDate = getEarliestViolationDate(violations);
+        const maxDate = getLatestViolationDate(violations);
+        weeksCount = getUniqueWeeksCount(minDate, maxDate);
         isRangeMode = true;
 
     } else if (rankingFilterMode === 'WEEK') {
@@ -121,8 +120,8 @@ const RankingTab: React.FC<RankingTabProps> = ({ violations, classes, timeConfig
   // Label hiển thị thời gian
   let timeLabel = '';
   if (rankingFilterMode === 'ALL') {
-      const start = getSchoolYearStart();
-      timeLabel = `Toàn thời gian (${formatDateDisplay(start.toISOString())} - Nay)`;
+      const min = getEarliestViolationDate(violations);
+      timeLabel = `Toàn bộ dữ liệu (${formatDateDisplay(min.toISOString())} - Nay)`;
   } else {
     const config = timeConfigs.find(c => c.id === rankingFilterConfigId);
     timeLabel = config ? `${config.name} (${formatDateDisplay(config.startDate)} - ${formatDateDisplay(config.endDate)})` : 'Vui lòng chọn mốc thời gian';
@@ -171,14 +170,14 @@ const RankingTab: React.FC<RankingTabProps> = ({ violations, classes, timeConfig
                 setRankingFilterMode(newMode);
             }}
          >
-           <option value="ALL">Toàn thời gian (Năm học)</option>
+           <option value="ALL">Toàn thời gian (Tất cả)</option>
            <option value="WEEK">Theo Tuần (Cấu hình)</option>
            <option value="MONTH">Theo Tháng</option>
            <option value="SEMESTER">Theo Học kỳ</option>
          </select>
          
          {rankingFilterMode === 'ALL' ? (
-             <div className="flex-1 px-2 py-2 text-sm text-slate-500 italic bg-slate-50 border border-slate-300 rounded-lg">Tính từ 05/09 đến hiện tại</div>
+             <div className="flex-1 px-2 py-2 text-sm text-slate-500 italic bg-slate-50 border border-slate-300 rounded-lg">Dữ liệu tổng hợp từ toàn bộ Database</div>
          ) : (
            <select 
                 className="bg-slate-50 border border-slate-300 rounded-lg px-2 py-2 text-sm outline-none font-medium flex-1 w-full" 

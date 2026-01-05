@@ -34,7 +34,7 @@ const TaskForceTab: React.FC<TaskForceTabProps> = ({ currentUser, users, violati
 
   // 1. Lấy danh sách các vai trò "làm nhiệm vụ" (canEntry = true, nhưng không phải Admin)
   const taskForceRoles = useMemo(() => {
-    return Object.entries(roleConfigs)
+    return (Object.entries(roleConfigs) as [string, RoleConfig][])
         .filter(([key, config]) => config.canEntry && !config.isAdmin)
         .map(([key, config]) => ({ key, label: config.label }));
   }, [roleConfigs]);
