@@ -433,15 +433,26 @@ export default function App() {
     <div className="min-h-screen bg-slate-50 font-sans mx-auto max-w-md md:max-w-2xl lg:max-w-4xl shadow-2xl overflow-hidden flex flex-col relative">
       <header className="bg-blue-900 text-white p-4 pt-8 pb-6 sticky top-0 z-20 shadow-lg rounded-b-[2rem]">
         <div className="flex justify-between items-start">
-           <div>
-              <div className="flex items-center gap-2 mb-1">
-                 <Shield className="fill-blue-400 text-blue-900" size={28} />
-                 <h1 className="text-2xl font-black tracking-tight">NỀN NẾP PRO</h1>
+           <div className="flex flex-col">
+              <div className="flex items-center gap-3 mb-2">
+                 <div className="flex -space-x-2"> 
+                     <img src="https://upload.wikimedia.org/wikipedia/commons/7/70/THPT_Chuyen_Nguyen_Trai.png" alt="CNT" className="w-10 h-10 object-contain bg-white rounded-full p-0.5 shadow-md z-10" />
+                     <img src="https://upload.wikimedia.org/wikipedia/vi/0/09/Huy_Hi%E1%BB%87u_%C4%90o%C3%A0n.png" alt="Doan" className="w-10 h-10 object-contain drop-shadow-md z-0" />
+                 </div>
+                 
+                 <div>
+                     <h1 className="text-2xl font-black tracking-tight leading-none">NỀN NẾP CNT</h1>
+                     <div className="text-[10px] text-blue-200 font-bold uppercase tracking-widest mt-0.5">THPT Chuyên Nguyễn Trãi</div>
+                 </div>
               </div>
-              <p className="text-blue-200 text-xs opacity-80 pl-9">Hệ thống quản lý thi đua trường học</p>
+              
+              <div className="pl-1 space-y-0.5">
+                  <p className="text-blue-100 text-xs opacity-90">Hệ thống quản lí thi đua trường THPT Chuyên Nguyễn Trãi</p>
+                  <p className="text-blue-400 text-[10px] font-mono">Developed by Lương Hải Anh © 2026</p>
+              </div>
            </div>
            
-           <div className="flex items-center gap-2">
+           <div className="flex items-center gap-2 pt-1">
               {/* Refresh Button */}
               <button 
                 onClick={handleRefresh} 
@@ -561,6 +572,7 @@ export default function App() {
             />
           ) : (activeTab === 'settings' && <div className="text-center py-20 text-slate-400">Bạn không có quyền truy cập.</div>)
         )}
+        
       </main>
 
       <nav className="bg-white border-t border-slate-200 fixed bottom-0 left-0 right-0 max-w-md md:max-w-2xl lg:max-w-4xl mx-auto z-10 pb-safe">
