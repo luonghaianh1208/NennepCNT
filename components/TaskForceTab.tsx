@@ -61,17 +61,26 @@ const TaskForceTab: React.FC<TaskForceTabProps> = ({ currentUser, users, violati
           const summaryMeetings = u.summaryMeetings || 0;
 
           // C. Số lỗi chính họ vi phạm (Trùng tên + Trùng Lớp với Student)
-          // Tìm Student Profile tương ứng với User
+          // UPDATE: Thắt chặt điều kiện lọc để tránh đếm sai
           let personalViolationsCount = 0;
           if (u.className) {
-              // Tìm học sinh trong lớp đó có tên giống tên User
+              const targetClassName = u.className.trim();
+              const targetUserName = u.name.trim().toLowerCase();
+
+              // Bước 1: Tìm Student Profile khớp chính xác Tên và Lớp
               const matchedStudent = students.find(s => 
-                  s.classId === u.className && s.name.toLowerCase() === u.name.toLowerCase()
+                  s.classId === targetClassName && 
+                  s.name.trim().toLowerCase() === targetUserName
               );
 
               if (matchedStudent) {
-                  // Đếm lỗi của Student ID này (Points > 0 là lỗi)
-                  personalViolationsCount = violations.filter(v => v.studentId === matchedStudent.id && v.points > 0).length;
+                  // Bước 2: Đếm lỗi trong database
+                  // Điều kiện: Khớp StudentID AND Khớp ClassID AND Points > 0
+                  personalViolationsCount = violations.filter(v => 
+                      v.studentId === matchedStudent.id && 
+                      v.classId === targetClassName && // Đảm bảo lỗi thuộc đúng lớp hiện tại
+                      v.points > 0
+                  ).length;
               }
           }
 

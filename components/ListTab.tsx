@@ -78,7 +78,10 @@ const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, stu
             const studentName = v.studentId ? students.find(s => s.id === v.studentId)?.name : 'Tập thể';
             const className = classes.find(c => c.id === v.classId)?.name;
             const criteriaContent = criteria.find(c => c.id === v.criteriaId)?.content;
-            const note = v.note || '';
+            
+            // Fix: Chuyển đổi v.note sang string trước khi tìm kiếm để tránh lỗi nếu là number
+            const note = v.note ? String(v.note) : '';
+            
             const reporter = users.find(u => u.id === v.reportedBy)?.name;
             
             // Search in: Student Name, Class Name, Criteria, Note, Reporter
