@@ -1,5 +1,6 @@
 
 import { RoleConfig, ClassEntity, Student, Criteria, User, Violation, TimeConfig } from './types';
+import * as XLSX from 'xlsx';
 
 // Đổi tên thành INITIAL_... để làm giá trị khởi tạo cho State
 export const INITIAL_ROLE_DEFINITIONS: Record<string, RoleConfig> = {
@@ -297,4 +298,17 @@ export const formatDateForInput = (dateStr: string | Date | undefined): string =
     }
 
     return '';
+};
+
+// --- EXCEL EXPORT FUNCTION ---
+export const exportToExcel = (data: any[][], fileName: string) => {
+    try {
+        const workbook = XLSX.utils.book_new();
+        const worksheet = XLSX.utils.aoa_to_sheet(data);
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
+        XLSX.writeFile(workbook, `${fileName}.xlsx`);
+    } catch (error) {
+        console.error("Lỗi xuất Excel:", error);
+        alert("Có lỗi xảy ra khi xuất file Excel.");
+    }
 };

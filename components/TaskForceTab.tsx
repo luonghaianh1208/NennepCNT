@@ -1,7 +1,8 @@
 
 import React, { useMemo, useState } from 'react';
 import { User, Violation, ClassEntity, RoleConfig, Student } from '../types';
-import { Shield, Save, Edit, Zap, X, Check, EyeOff } from 'lucide-react';
+import { Shield, Save, Edit, Zap, X, Check, Download } from 'lucide-react';
+import { exportToExcel } from '../utils';
 
 interface TaskForceTabProps {
   currentUser: User;
@@ -26,7 +27,7 @@ const TaskForceTab: React.FC<TaskForceTabProps> = ({ currentUser, users, violati
   const [isBulkEditMode, setIsBulkEditMode] = useState(false);
   const [bulkEdits, setBulkEdits] = useState<Record<string, number>>({});
 
-  // Quyền Quản lý (Xem tất cả + Chỉnh sửa): Admin hoặc BCH_PHU_TRACH
+  // Quyền Quản lý (Xem tất cả, Sửa, Xuất Excel): Admin hoặc BCH_PHU_TRACH
   const isManager = useMemo(() => {
      const role = currentUser.role.toUpperCase();
      return role === 'ADMIN' || role === 'BCH_PHU_TRACH';
@@ -39,47 +40,48 @@ const TaskForceTab: React.FC<TaskForceTabProps> = ({ currentUser, users, violati
         .map(([key, config]) => ({ key, label: config.label }));
   }, [roleConfigs]);
 
-  // 2. Lọc User thuộc các vai trò trên
+  // 2. Lọc User hiển thị
   const taskForceUsers = useMemo(() => {
+      // Nếu không phải Quản lý, chỉ trả về chính mình (nếu mình thuộc nhóm làm nhiệm vụ)
+      if (!isManager) {
+          return users.filter(u => u.id === currentUser.id);
+      }
+
+      // Nếu là Quản lý, lọc theo bộ lọc Role
       return users.filter(u => {
           const config = roleConfigs[u.role] || roleConfigs['GUEST'];
           const isTaskForce = config.canEntry && !config.isAdmin;
           if (!isTaskForce) return false;
-          // Nếu là Manager thì mới áp dụng bộ lọc Role, nếu không thì lấy hết để tính xếp hạng ngầm
-          if (isManager && filterRole !== 'ALL' && u.role !== filterRole) return false;
+          if (filterRole !== 'ALL' && u.role !== filterRole) return false;
           return true;
       });
-  }, [users, roleConfigs, filterRole, isManager]);
+  }, [users, roleConfigs, filterRole, isManager, currentUser.id]);
 
-  // 3. Tính toán thống kê cho từng User và Xếp hạng
+  // 3. Tính toán thống kê cho từng User
   const stats = useMemo(() => {
-      const calculatedStats = taskForceUsers.map(u => {
+      return taskForceUsers.map(u => {
           // A. Số lỗi họ đã báo cáo
           const reportedCount = violations.filter(v => v.reportedBy === u.id).length;
           
           // B. Số lần xuống tổng kết thi đua (Từ User Data)
           const summaryMeetings = u.summaryMeetings || 0;
 
-          // C. Số lỗi chính họ vi phạm (Trùng tên + Trùng Lớp với Student)
-          // UPDATE: Thắt chặt điều kiện lọc để tránh đếm sai
+          // C. Số lỗi chính họ vi phạm (Strict Matching)
           let personalViolationsCount = 0;
           if (u.className) {
-              const targetClassName = u.className.trim();
-              const targetUserName = u.name.trim().toLowerCase();
-
-              // Bước 1: Tìm Student Profile khớp chính xác Tên và Lớp
+              // Tìm học sinh trong lớp đó có tên giống tên User (Normalize: Trim + Lowercase)
+              const normalizedUserName = u.name.trim().toLowerCase();
               const matchedStudent = students.find(s => 
-                  s.classId === targetClassName && 
-                  s.name.trim().toLowerCase() === targetUserName
+                  s.classId === u.className && s.name.trim().toLowerCase() === normalizedUserName
               );
 
               if (matchedStudent) {
-                  // Bước 2: Đếm lỗi trong database
-                  // Điều kiện: Khớp StudentID AND Khớp ClassID AND Points > 0
+                  // Đếm lỗi của Student ID này (Points > 0 là lỗi)
+                  // QUAN TRỌNG: Kiểm tra thêm v.classId phải trùng với u.className để đảm bảo đúng người đúng lớp tại thời điểm vi phạm
                   personalViolationsCount = violations.filter(v => 
-                      v.studentId === matchedStudent.id && 
-                      v.classId === targetClassName && // Đảm bảo lỗi thuộc đúng lớp hiện tại
-                      v.points > 0
+                    v.studentId === matchedStudent.id && 
+                    v.classId === u.className && 
+                    v.points > 0
                   ).length;
               }
           }
@@ -96,17 +98,7 @@ const TaskForceTab: React.FC<TaskForceTabProps> = ({ currentUser, users, violati
               score
           };
       }).sort((a, b) => b.score - a.score); // Xếp theo điểm thi đua
-
-      // Thêm thuộc tính rank vào object để hiển thị đúng thứ hạng ngay cả khi filter
-      return calculatedStats.map((item, index) => ({ ...item, rank: index + 1 }));
   }, [taskForceUsers, violations, students]);
-
-  // 4. Lọc danh sách hiển thị dựa trên quyền hạn
-  const visibleStats = useMemo(() => {
-      if (isManager) return stats;
-      // Nếu không phải quản lý, chỉ xem của chính mình
-      return stats.filter(u => u.id === currentUser.id);
-  }, [stats, isManager, currentUser.id]);
 
   const handleStartEdit = (u: any) => {
       setEditingUserId(u.id);
@@ -169,6 +161,27 @@ const TaskForceTab: React.FC<TaskForceTabProps> = ({ currentUser, users, violati
      }
   };
 
+  const handleExportExcel = () => {
+      if (stats.length === 0) {
+          alert("Không có dữ liệu để xuất.");
+          return;
+      }
+      
+      const header = ["STT", "Họ tên", "Lớp", "Vai trò", "Báo lỗi (x2)", "Vi phạm (x-5)", "Tổng kết (x5)", "Tổng điểm"];
+      const data = stats.map((u, idx) => [
+          idx + 1,
+          u.name,
+          u.className || "",
+          roleConfigs[u.role]?.label || u.role,
+          u.reportedCount,
+          u.personalViolationsCount,
+          u.summaryMeetings,
+          u.score
+      ]);
+      
+      exportToExcel([header, ...data], `Thong_ke_Ban_Nen_Nep_${new Date().toISOString().slice(0,10)}`);
+  };
+
   return (
     <div className="space-y-4 pb-20 relative">
       <div className="bg-gradient-to-r from-slate-800 to-slate-900 text-white rounded-xl p-4 shadow-sm flex items-center justify-between">
@@ -178,55 +191,64 @@ const TaskForceTab: React.FC<TaskForceTabProps> = ({ currentUser, users, violati
          </div>
       </div>
 
-      {/* Chỉ hiển thị thanh bộ lọc và công cụ cho Manager */}
-      {isManager && (
-        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-3 justify-between items-center">
-           <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar w-full md:w-auto">
-               <button 
-                  onClick={() => setFilterRole('ALL')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors ${filterRole === 'ALL' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-               >
-                  Tất cả
-               </button>
-               {taskForceRoles.map(r => (
-                   <button 
-                      key={r.key}
-                      onClick={() => setFilterRole(r.key)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors ${filterRole === r.key ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}`}
-                   >
-                      {r.label}
-                   </button>
-               ))}
-           </div>
+      <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-3 justify-between items-center">
+         {/* Chỉ hiển thị bộ lọc nếu là Manager */}
+         {isManager ? (
+             <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar w-full md:w-auto">
+                 <button 
+                    onClick={() => setFilterRole('ALL')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors ${filterRole === 'ALL' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                 >
+                    Tất cả
+                 </button>
+                 {taskForceRoles.map(r => (
+                     <button 
+                        key={r.key}
+                        onClick={() => setFilterRole(r.key)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors ${filterRole === r.key ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}`}
+                     >
+                        {r.label}
+                     </button>
+                 ))}
+             </div>
+         ) : (
+             <div className="text-sm font-bold text-slate-600">Thông tin cá nhân: {currentUser.name}</div>
+         )}
 
-           <div className="flex gap-2">
-              {isBulkEditMode ? (
-                <>
-                  <button onClick={toggleBulkEditMode} className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 font-bold text-xs flex items-center gap-1">
-                     <X size={14}/> Hủy
-                  </button>
-                  <button onClick={handleBulkSave} className="px-3 py-1.5 rounded-lg bg-green-600 text-white font-bold text-xs flex items-center gap-1 shadow-lg shadow-green-200 animate-in zoom-in">
-                     <Save size={14}/> Lưu tất cả
-                  </button>
-                </>
-              ) : (
-                <button onClick={toggleBulkEditMode} className="px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100 font-bold text-xs flex items-center gap-1 hover:bg-indigo-100">
-                   <Zap size={14}/> Nhập nhanh
+         <div className="flex gap-2">
+            {/* Chỉ hiển thị nút Xuất Excel nếu là Manager */}
+            {isManager && (
+                <button 
+                    onClick={handleExportExcel}
+                    className="px-3 py-1.5 rounded-lg bg-green-600 text-white font-bold text-xs flex items-center gap-1 shadow hover:bg-green-700"
+                >
+                    <Download size={14}/> Excel
                 </button>
-              )}
-           </div>
-        </div>
-      )}
-
-      {!isManager && (
-         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800 flex items-center gap-2">
-             <EyeOff size={16} />
-             <span>Bạn đang xem thống kê cá nhân của mình.</span>
+            )}
+            
+            {isManager && (
+                 <>
+                    {isBulkEditMode ? (
+                      <>
+                        <button onClick={toggleBulkEditMode} className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 font-bold text-xs flex items-center gap-1">
+                           <X size={14}/> Hủy
+                        </button>
+                        <button onClick={handleBulkSave} className="px-3 py-1.5 rounded-lg bg-green-600 text-white font-bold text-xs flex items-center gap-1 shadow-lg shadow-green-200 animate-in zoom-in">
+                           <Save size={14}/> Lưu
+                        </button>
+                      </>
+                    ) : (
+                      <button onClick={toggleBulkEditMode} className="px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100 font-bold text-xs flex items-center gap-1 hover:bg-indigo-100">
+                         <Zap size={14}/> Nhập nhanh
+                      </button>
+                    )}
+                 </>
+             )}
          </div>
-      )}
+      </div>
 
       <div className="space-y-3">
-          {visibleStats.map((u) => {
+          {stats.map((u, idx) => {
               const roleInfo = roleConfigs[u.role];
               const isEditing = editingUserId === u.id;
               // Nếu đang Bulk Mode -> dùng giá trị trong state bulkEdits, fallback về giá trị gốc
@@ -236,8 +258,8 @@ const TaskForceTab: React.FC<TaskForceTabProps> = ({ currentUser, users, violati
                   <div key={u.id} className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
                       <div className="flex items-start justify-between mb-3 border-b border-slate-100 pb-3">
                         <div className="flex items-center gap-3">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm bg-${roleInfo?.color || 'gray'}-100 text-${roleInfo?.color || 'gray'}-700 border border-${roleInfo?.color || 'gray'}-200`}>
-                                {u.rank}
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm bg-${roleInfo?.color || 'gray'}-100 text-${roleInfo?.color || 'gray'}-700`}>
+                                {idx + 1}
                             </div>
                             <div>
                                 <div className="font-bold text-slate-800">{u.name}</div>
@@ -307,10 +329,8 @@ const TaskForceTab: React.FC<TaskForceTabProps> = ({ currentUser, users, violati
               );
           })}
           
-          {visibleStats.length === 0 && (
-              <div className="text-center py-10 text-slate-400">
-                  {isManager ? "Không tìm thấy thành viên nào." : "Tài khoản của bạn không nằm trong danh sách Ban Nền Nếp."}
-              </div>
+          {stats.length === 0 && (
+              <div className="text-center py-10 text-slate-400">Không tìm thấy dữ liệu.</div>
           )}
       </div>
 

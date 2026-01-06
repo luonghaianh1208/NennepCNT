@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Shield,
   PlusCircle,
@@ -31,105 +31,6 @@ import RankingTab from './components/RankingTab';
 import ClassDetailTab from './components/ClassDetailTab';
 import SettingsTab from './components/SettingsTab';
 import TaskForceTab from './components/TaskForceTab';
-
-// --- Winter Effect Component ---
-const WinterHeaderEffect = () => {
-  // Generate static random values for snow and stars to prevent re-render flickering
-  const snowflakes = useMemo(() => [...Array(30)].map((_, i) => ({
-    id: i,
-    left: Math.random() * 100 + '%',
-    animationDuration: Math.random() * 5 + 5 + 's', // 5-10s
-    animationDelay: Math.random() * 5 + 's',
-    opacity: Math.random() * 0.5 + 0.3,
-    size: Math.random() * 3 + 2 + 'px'
-  })), []);
-
-  const stars = useMemo(() => [...Array(15)].map((_, i) => ({
-     id: i,
-     top: Math.random() * 70 + '%', 
-     left: Math.random() * 100 + '%',
-     animationDelay: Math.random() * 3 + 's',
-     size: Math.random() * 2 + 1 + 'px',
-     opacity: Math.random() * 0.7 + 0.3
-  })), []);
-
-  return (
-    <div className="absolute inset-0 overflow-hidden rounded-b-[2rem] pointer-events-none select-none z-0">
-       <style>{`
-         @keyframes snow-fall {
-           0% { transform: translateY(-10px) translateX(0); opacity: 0; }
-           10% { opacity: 1; }
-           100% { transform: translateY(150px) translateX(20px); opacity: 0; }
-         }
-         @keyframes star-twinkle {
-           0%, 100% { opacity: 0.3; transform: scale(0.8); }
-           50% { opacity: 1; transform: scale(1.2); box-shadow: 0 0 4px white; }
-         }
-         .snowflake {
-           position: absolute;
-           top: -10px;
-           background: white;
-           border-radius: 50%;
-           animation-name: snow-fall;
-           animation-timing-function: linear;
-           animation-iteration-count: infinite;
-         }
-         .star-twinkle {
-           position: absolute;
-           background: white;
-           border-radius: 50%;
-           animation: star-twinkle 4s ease-in-out infinite;
-         }
-       `}</style>
-
-       {/* Stars */}
-       {stars.map(s => (
-         <div 
-            key={`star-${s.id}`} 
-            className="star-twinkle"
-            style={{
-              top: s.top,
-              left: s.left,
-              width: s.size,
-              height: s.size,
-              animationDelay: s.animationDelay,
-            }}
-         />
-       ))}
-
-       {/* Snowflakes */}
-       {snowflakes.map(s => (
-         <div 
-            key={`snow-${s.id}`} 
-            className="snowflake"
-            style={{
-              left: s.left,
-              width: s.size,
-              height: s.size,
-              opacity: s.opacity,
-              animationDuration: s.animationDuration,
-              animationDelay: s.animationDelay,
-            }}
-         />
-       ))}
-
-       {/* Snow Piles (Decorations) */}
-       {/* Bottom Left Pile */}
-       <div className="absolute bottom-0 left-0 w-32 h-12 opacity-90 z-10">
-          <svg viewBox="0 0 100 40" preserveAspectRatio="none" className="w-full h-full fill-blue-100/20">
-             <path d="M0,40 L0,15 Q30,0 60,25 T100,40 Z" />
-          </svg>
-       </div>
-       
-       {/* Bottom Right Pile */}
-       <div className="absolute bottom-0 right-0 w-40 h-16 opacity-90 z-10">
-          <svg viewBox="0 0 120 50" preserveAspectRatio="none" className="w-full h-full fill-blue-100/20">
-             <path d="M120,50 L120,10 Q80,-10 40,25 T0,50 Z" />
-          </svg>
-       </div>
-    </div>
-  );
-};
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>('list');
@@ -530,9 +431,91 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans mx-auto max-w-md md:max-w-2xl lg:max-w-4xl shadow-2xl overflow-hidden flex flex-col relative">
-      <header className="bg-blue-900 text-white p-4 pt-8 pb-6 sticky top-0 z-20 shadow-lg rounded-b-[2rem] relative">
-        {/* Winter/Snow Effect Background */}
-        <WinterHeaderEffect />
+      <style>{`
+          @keyframes snowfall {
+            0% { transform: translateY(-10px) translateX(0px); opacity: 0; }
+            20% { opacity: 0.9; }
+            100% { transform: translateY(300px) translateX(20px); opacity: 0; }
+          }
+          @keyframes twinkle {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.3; transform: scale(0.6); }
+          }
+          .snowflake {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            pointer-events: none;
+            animation: snowfall linear infinite;
+          }
+          .star-twinkle {
+            position: absolute;
+            width: 3px;
+            height: 3px;
+            background: white;
+            border-radius: 50%;
+            animation: twinkle 3s ease-in-out infinite;
+            box-shadow: 0 0 4px 1px rgba(255, 255, 255, 0.4);
+          }
+      `}</style>
+      
+      <header className="bg-blue-900 text-white p-4 pt-8 pb-6 sticky top-0 z-20 shadow-lg rounded-b-[2rem] relative overflow-hidden">
+        {/* --- HIỆU ỨNG TUYẾT RƠI & SAO --- */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+             {/* Tuyết rơi */}
+             {[...Array(15)].map((_, i) => (
+               <div 
+                 key={`snow-${i}`} 
+                 className="snowflake"
+                 style={{
+                    width: `${Math.random() * 4 + 2}px`,
+                    height: `${Math.random() * 4 + 2}px`,
+                    left: `${Math.random() * 100}%`,
+                    top: `-${Math.random() * 20}px`,
+                    animationDuration: `${Math.random() * 5 + 3}s`,
+                    animationDelay: `${Math.random() * 5}s`,
+                    opacity: Math.random() * 0.5 + 0.3
+                 }}
+               ></div>
+             ))}
+
+             {/* Sao lấp lánh */}
+             {[...Array(8)].map((_, i) => (
+                <div 
+                  key={`star-${i}`}
+                  className="star-twinkle"
+                  style={{
+                      left: `${Math.random() * 90 + 5}%`,
+                      top: `${Math.random() * 60}%`,
+                      animationDelay: `${Math.random() * 2}s`
+                  }}
+                ></div>
+             ))}
+
+             {/* --- TUYẾT ĐỌNG Ở CHÂN (NEW) --- */}
+             <div className="absolute bottom-0 left-0 right-0 h-16 pointer-events-none z-0">
+                 {/* Lớp nền mờ */}
+                 <div className="absolute bottom-0 w-full h-full bg-gradient-to-t from-white/30 to-transparent"></div>
+                 
+                 {/* Sóng tuyết 1 (Xa) */}
+                 <svg className="absolute bottom-0 w-full h-12 text-white/20 fill-current" viewBox="0 0 1440 320" preserveAspectRatio="none">
+                     <path d="M0,224L48,234.7C96,245,192,267,288,266.7C384,267,480,245,576,213.3C672,181,768,139,864,138.7C960,139,1056,181,1152,197.3C1248,213,1344,203,1392,197.3L1440,192L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path>
+                 </svg>
+                 
+                 {/* Sóng tuyết 2 (Gần) */}
+                 <svg className="absolute bottom-0 w-full h-8 text-white/40 fill-current" viewBox="0 0 1440 320" preserveAspectRatio="none">
+                     <path d="M0,128L48,144C96,160,192,192,288,186.7C384,181,480,139,576,144C672,149,768,203,864,208C960,213,1056,171,1152,149.3C1248,128,1344,128,1392,128L1440,128L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path>
+                 </svg>
+                 
+                 {/* Tuyết đọng góc trái (Blob) */}
+                 <div className="absolute -bottom-6 -left-6 w-32 h-24 bg-white/60 blur-xl rounded-full"></div>
+                 <div className="absolute -bottom-2 -left-2 w-20 h-12 bg-white/80 blur-md rounded-full"></div>
+                 
+                 {/* Tuyết đọng góc phải (Blob) */}
+                 <div className="absolute -bottom-8 -right-4 w-40 h-28 bg-white/50 blur-xl rounded-full"></div>
+                 <div className="absolute -bottom-2 -right-2 w-24 h-16 bg-white/70 blur-md rounded-full"></div>
+             </div>
+        </div>
 
         <div className="flex justify-between items-start relative z-10">
            <div className="flex flex-col">
@@ -734,7 +717,9 @@ export default function App() {
               </div>
               <form onSubmit={handleLogin} className="space-y-4">
                  <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-1">Tên đăng nhập</label>
+                    <label className="block text-sm font-bold text-slate-700 mb-1">
+                        Tên đăng nhập <span className="text-xs font-normal text-slate-500 italic ml-1">(nhập email đã đăng kí)</span>
+                    </label>
                     <input 
                         type="text" 
                         className="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" 
@@ -745,7 +730,9 @@ export default function App() {
                     />
                  </div>
                  <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-1">Mật khẩu</label>
+                    <label className="block text-sm font-bold text-slate-700 mb-1">
+                        Mật khẩu <span className="text-xs font-normal text-slate-500 italic ml-1">(nhập pass đã được cấp dạng CNT@xxxx)</span>
+                    </label>
                     <input 
                         type="password" 
                         className="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" 

@@ -1,9 +1,9 @@
 
 import React, { useState, useMemo } from 'react';
-import { Award, TrendingUp, ThumbsDown, ThumbsUp, AlertCircle, Link2, Users } from 'lucide-react';
+import { Award, TrendingUp, ThumbsDown, ThumbsUp, AlertCircle, Link2, Users, Download } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { User, ClassEntity, Violation, Student, Criteria, TimeConfig } from '../types';
-import { calculateScore, safeParseImages, formatDateDisplay, getUniqueWeeksCount, getEarliestViolationDate, getLatestViolationDate, isDateInRange, formatDateForInput, getYearWeekKey } from '../utils';
+import { calculateScore, safeParseImages, formatDateDisplay, getUniqueWeeksCount, getEarliestViolationDate, getLatestViolationDate, isDateInRange, formatDateForInput, getYearWeekKey, exportToExcel } from '../utils';
 
 interface ClassDetailTabProps {
   currentUser: User;
@@ -109,28 +109,18 @@ const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ currentUser, classes, v
   }
 
   // 3. RANKING LOGIC (GLOBAL / ALL TIME)
-  // Cập nhật lại cách tính xếp hạng để dùng chung totalWeeksCount (đã chuẩn hóa theo config)
   const gradeClasses = classes.filter(c => c.grade === cls.grade);
   const gradeRankings = gradeClasses.map(c => {
       const cViolations = violations.filter(v => v.classId === c.id);
       
-      // Nếu có dùng config tuần, ta phải lọc violation của các lớp khác cho khớp với các tuần đó
-      // Tuy nhiên để tối ưu hiệu năng và đơn giản (theo logic "toàn bộ dữ liệu"), 
-      // ta vẫn lấy tổng lỗi chia cho tổng tuần cấu hình.
-      // Nếu muốn chính xác tuyệt đối: Cần filter cViolations theo range của tất cả configuredWeeks.
-      // Ở đây ta dùng cách tính tương đối: Tổng lỗi / Số tuần cấu hình.
-      
       let score = 0;
-      // Nếu có config tuần, ta chỉ tính điểm dựa trên các vi phạm nằm trong các tuần đó (để công bằng)
       const configuredWeeks = timeConfigs.filter(tc => tc.type === 'WEEK');
       if (configuredWeeks.length > 0) {
-          // Lọc vi phạm hợp lệ (nằm trong bất kỳ tuần cấu hình nào)
           const validViolations = cViolations.filter(v => 
               configuredWeeks.some(week => isDateInRange(v.date, week.startDate, week.endDate))
           );
           score = calculateScore(validViolations, 500, totalWeeksCount, true);
       } else {
-          // Fallback cũ
           score = calculateScore(cViolations, 500, totalWeeksCount, true);
       }
 
@@ -158,6 +148,22 @@ const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ currentUser, classes, v
       return stats.filter(s => s.count > 0).sort((a, b) => b.count - a.count);
   }, [students, targetClassId, minusViolations]);
 
+  const handleExportTopStudents = () => {
+    if (studentViolationStats.length === 0) {
+        alert("Không có dữ liệu học sinh vi phạm để xuất.");
+        return;
+    }
+    const header = ["STT", "Học sinh", "Lớp", "Số lượt vi phạm", "Tổng điểm trừ"];
+    const data = studentViolationStats.map((stat, idx) => [
+        idx + 1,
+        stat.student.name,
+        cls.name,
+        stat.count,
+        stat.totalPoints
+    ]);
+    exportToExcel([header, ...data], `Top_VP_${cls.name}_${new Date().toISOString().slice(0,10)}`);
+  };
+
   return (
     <div className="space-y-6 pb-20">
       <div className="flex items-center justify-between">
@@ -176,7 +182,7 @@ const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ currentUser, classes, v
            <div className="relative z-10">
              <div className="text-blue-100 text-xs font-bold uppercase mb-1">Thứ hạng (Khối {cls.grade})</div>
              <div className="text-4xl font-black flex items-end gap-2">#{myRank}<span className="text-base font-normal text-blue-200 mb-1">/ {gradeClasses.length}</span></div>
-             <div className="text-[10px] text-blue-200 mt-1">Tính theo cấu hình tuần</div>
+             <div className="text--[10px] text-blue-200 mt-1">Tính theo cấu hình tuần</div>
            </div>
         </div>
         
@@ -217,9 +223,16 @@ const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ currentUser, classes, v
       
       {/* THỐNG KÊ HỌC SINH VI PHẠM */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-         <div className="flex items-center gap-2 mb-4 text-slate-800 font-bold border-b border-slate-100 pb-2">
-             <Users size={20} className="text-red-500"/> 
-             <h3>Học sinh vi phạm nhiều (Dành cho GVCN)</h3>
+         <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-2">
+             <div className="flex items-center gap-2 text-slate-800 font-bold">
+                <Users size={20} className="text-red-500"/> 
+                <h3>Học sinh vi phạm nhiều</h3>
+             </div>
+             {studentViolationStats.length > 0 && (
+                <button onClick={handleExportTopStudents} className="flex items-center gap-1 text-green-700 bg-green-50 hover:bg-green-100 border border-green-200 px-3 py-1.5 rounded-lg transition-colors text-xs font-bold" title="Xuất file Excel">
+                    <Download size={14} /> Xuất Excel
+                </button>
+             )}
          </div>
          {studentViolationStats.length > 0 ? (
              <div className="max-h-60 overflow-y-auto pr-1">

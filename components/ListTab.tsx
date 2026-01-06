@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Download, Filter, Search, CheckSquare, Square, Trash2, AlertTriangle, Eye, Edit, Link2, ListChecks } from 'lucide-react';
 import { Violation, ClassEntity, Student, Criteria, User, RoleConfig, TimeConfig } from '../types';
-import { getWeekNumber, safeParseImages, formatDateDisplay, removeVietnameseTones, isDateInRange } from '../utils';
+import { getWeekNumber, safeParseImages, formatDateDisplay, removeVietnameseTones, isDateInRange, exportToExcel } from '../utils';
 
 interface ListTabProps {
   currentUser: User;
@@ -78,10 +78,7 @@ const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, stu
             const studentName = v.studentId ? students.find(s => s.id === v.studentId)?.name : 'Tập thể';
             const className = classes.find(c => c.id === v.classId)?.name;
             const criteriaContent = criteria.find(c => c.id === v.criteriaId)?.content;
-            
-            // Fix: Chuyển đổi v.note sang string trước khi tìm kiếm để tránh lỗi nếu là number
-            const note = v.note ? String(v.note) : '';
-            
+            const note = v.note || '';
             const reporter = users.find(u => u.id === v.reportedBy)?.name;
             
             // Search in: Student Name, Class Name, Criteria, Note, Reporter
@@ -120,8 +117,8 @@ const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, stu
       return;
     }
 
-    // 1. Định nghĩa Header CSV
-    const headers = [
+    // 1. Định nghĩa Header
+    const headerRow = [
       "Mã ID",
       "Ngày",
       "Lớp",
@@ -135,7 +132,7 @@ const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, stu
     ];
 
     // 2. Map dữ liệu
-    const csvRows = filteredViolations.map(v => {
+    const dataRows = filteredViolations.map(v => {
       const clsName = classes.find(c => c.id === v.classId)?.name || v.classId;
       const stuName = v.studentId ? (students.find(s => s.id === v.studentId)?.name || v.studentId) : "Tập thể";
       const criContent = criteria.find(c => c.id === v.criteriaId)?.content || v.criteriaId;
@@ -144,39 +141,28 @@ const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, stu
       const reporterRoleConfig = reporterUser ? roleConfigs[reporterUser.role] : null;
       const reporterRoleLabel = reporterRoleConfig ? reporterRoleConfig.label : 'Không rõ';
       
-      // Logic hiển thị tên người báo khi Export:
       const isReporterMe = v.reportedBy === currentUser.id;
       const reporterName = (isAdmin || isReporterMe) ? (reporterUser?.name || v.reportedBy) : "Ẩn danh";
       
-      const displayPoint = v.points > 0 ? `-${v.points}` : `+${Math.abs(v.points)}`;
+      const displayPoint = v.points > 0 ? -v.points : Math.abs(v.points);
       const typeLabel = v.points > 0 ? "Vi phạm" : "Thành tích";
-
-      const escape = (str: string | undefined) => `"${String(str || '').replace(/"/g, '""')}"`;
 
       return [
         v.id,
         formatDateDisplay(v.date),
-        escape(clsName),
-        escape(stuName),
-        escape(criContent),
+        clsName,
+        stuName,
+        criContent,
         displayPoint,
-        escape(reporterName),
-        escape(reporterRoleLabel),
-        escape(v.note),
+        reporterName,
+        reporterRoleLabel,
+        v.note || '',
         typeLabel
-      ].join(",");
+      ];
     });
 
-    const csvString = "\uFEFF" + [headers.join(","), ...csvRows].join("\n");
-
-    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `bao_cao_thi_dua_${new Date().toISOString().slice(0,10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const fullData = [headerRow, ...dataRows];
+    exportToExcel(fullData, `Du_lieu_thi_dua_${new Date().toISOString().slice(0,10)}`);
   };
 
   const getTimeOptions = () => {
