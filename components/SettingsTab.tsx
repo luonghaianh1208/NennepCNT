@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
-import { Save, Clock, PlusCircle, Trash2, Plus, LogOut, Info, Upload, Users, GraduationCap, Calendar, X, Settings, AlertTriangle, Star, UserPlus, Edit, Check, Shield } from 'lucide-react';
-import { TimeConfig, ClassEntity, Student, Criteria, User, RoleConfig } from '../types';
+import { Save, Clock, PlusCircle, Trash2, Plus, LogOut, Info, Upload, Users, GraduationCap, Calendar, X, Settings, AlertTriangle, Star, UserPlus, Edit, Check, Shield, LayoutTemplate } from 'lucide-react';
+import { TimeConfig, ClassEntity, Student, Criteria, User, RoleConfig, AppTheme } from '../types';
 import { parseCSVLine, removeVietnameseTones } from '../utils';
 
 interface SettingsTabProps {
@@ -25,6 +25,8 @@ interface SettingsTabProps {
   handleSaveSettings: () => void;
   unsavedChanges: boolean;
   setUnsavedChanges: (b: boolean) => void;
+  appTheme?: AppTheme;
+  setAppTheme?: (t: AppTheme) => void;
 }
 
 const SettingsTab: React.FC<SettingsTabProps> = (props) => {
@@ -37,7 +39,8 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
       users, setUsers, 
       roleConfigs, setRoleConfigs,
       currentUser, setCurrentUser,
-      setUnsavedChanges, handleSaveSettings, unsavedChanges 
+      setUnsavedChanges, handleSaveSettings, unsavedChanges,
+      appTheme, setAppTheme
   } = props;
 
   const [activeSubTab, setActiveSubTab] = useState<'ROLES' | 'TIME' | 'CLASSES' | 'STUDENTS' | 'CRITERIA_VIOLATION' | 'CRITERIA_ACHIEVEMENT' | 'ACCOUNTS'>('ROLES');
@@ -474,7 +477,7 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
   const renderSubTabs = () => (
     <div className="flex bg-white p-1 rounded-xl shadow-sm border border-slate-200 mb-6 overflow-x-auto no-scrollbar">
         {[
-            { id: 'ROLES', label: 'Vai trò', icon: <Shield size={16}/> },
+            { id: 'ROLES', label: 'Quản lý chung', icon: <Settings size={16}/> },
             { id: 'TIME', label: 'Thời gian', icon: <Calendar size={16}/> },
             { id: 'CLASSES', label: 'Lớp học', icon: <GraduationCap size={16}/> },
             { id: 'STUDENTS', label: 'Học sinh', icon: <Users size={16}/> },
@@ -505,10 +508,33 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
         </div>
       )}
 
-      {/* ROLES TAB */}
+      {/* ROLES / GENERAL MANAGEMENT TAB */}
       {activeSubTab === 'ROLES' && (
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-             <h3 className="font-bold text-lg mb-4 text-slate-800">Quản lý Vai trò</h3>
+             {/* SECTION: GIAO DIỆN HỆ THỐNG */}
+             {setAppTheme && appTheme && (
+                 <div className="mb-6 border-b border-slate-100 pb-6">
+                     <h3 className="font-bold text-lg mb-3 text-slate-800 flex items-center gap-2"><LayoutTemplate size={20}/> Giao diện hệ thống</h3>
+                     <div className="flex gap-4">
+                         <button 
+                             onClick={() => setAppTheme('WINTER')}
+                             className={`flex-1 p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition-all ${appTheme === 'WINTER' ? 'border-blue-500 bg-blue-50 shadow-md' : 'border-slate-200 hover:border-blue-200 bg-white'}`}
+                         >
+                             <div className="w-10 h-10 rounded-full bg-blue-100 text-2xl flex items-center justify-center">❄️</div>
+                             <span className="font-bold text-slate-700">Mùa Đông (Mặc định)</span>
+                         </button>
+                         <button 
+                             onClick={() => setAppTheme('TET')}
+                             className={`flex-1 p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition-all ${appTheme === 'TET' ? 'border-red-500 bg-red-50 shadow-md' : 'border-slate-200 hover:border-red-200 bg-white'}`}
+                         >
+                             <div className="w-10 h-10 rounded-full bg-red-100 text-2xl flex items-center justify-center">🌸</div>
+                             <span className="font-bold text-slate-700">Tết Nguyên Đán 2026</span>
+                         </button>
+                     </div>
+                 </div>
+             )}
+
+             <h3 className="font-bold text-lg mb-4 text-slate-800 flex items-center gap-2"><Shield size={20}/> Quản lý Vai trò</h3>
              
              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
                  {Object.entries(roleConfigs).map(([key, config]: [string, RoleConfig]) => (

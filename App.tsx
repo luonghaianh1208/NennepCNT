@@ -19,9 +19,11 @@ import {
   Users,
   Link2,
   RefreshCw,
-  CheckCircle2
+  CheckCircle2,
+  Snowflake,
+  Flower2
 } from 'lucide-react';
-import { User as UserType, Violation, ClassEntity, Student, Criteria, TimeConfig, RoleConfig } from './types';
+import { User as UserType, Violation, ClassEntity, Student, Criteria, TimeConfig, RoleConfig, AppTheme } from './types';
 import { INITIAL_ROLE_DEFINITIONS, GUEST_USER, INITIAL_TIME_CONFIGS, formatDateForInput, formatDateDisplay, safeParseImages } from './utils';
 import { api } from './services/googleApi';
 
@@ -36,6 +38,16 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<string>('list');
   const [currentUser, setCurrentUser] = useState<UserType>(GUEST_USER);
   
+  // App Config State: Initialize from LocalStorage OR Default to 'TET'
+  const [appTheme, setAppTheme] = useState<AppTheme>(() => {
+      if (typeof window !== 'undefined') {
+          const saved = localStorage.getItem('nnp_app_theme');
+          // Nếu đã lưu là WINTER hoặc TET thì lấy, nếu không thì mặc định là TET
+          return (saved === 'WINTER' || saved === 'TET') ? saved : 'TET';
+      }
+      return 'TET';
+  });
+
   // Data States
   const [users, setUsers] = useState<UserType[]>([]);
   const [violations, setViolations] = useState<Violation[]>([]);
@@ -108,10 +120,6 @@ export default function App() {
         if (savedUserJson) {
             try {
                 const creds = JSON.parse(savedUserJson);
-                // Cần wait users state được set từ fetchData
-                // Do fetchData async, ta thực hiện check lại trong một effect khác hoặc check ngay đây nếu có data
-                // Tuy nhiên users state chưa update ngay lập tức ở đây.
-                // Giải pháp: Lưu creds vào state tạm và check trong useEffect khác khi users thay đổi.
                 setLoginUsername(creds.username);
                 setLoginPassword(creds.password);
                 setRememberMe(true);
@@ -140,6 +148,15 @@ export default function App() {
          }
      }
   }, [users, loginUsername, loginPassword, rememberMe]); // Run when users load
+
+  // Effect to save Theme whenever it changes
+  useEffect(() => {
+      localStorage.setItem('nnp_app_theme', appTheme);
+  }, [appTheme]);
+
+  const toggleTheme = () => {
+      setAppTheme(prev => prev === 'TET' ? 'WINTER' : 'TET');
+  };
 
   const handleRefresh = () => {
     fetchData(false); // Silent refresh (show small spinner)
@@ -432,6 +449,11 @@ export default function App() {
       );
   }
 
+  // --- Theme Colors Helper ---
+  const headerBgClass = appTheme === 'TET' ? 'bg-gradient-to-b from-red-800 to-red-900' : 'bg-blue-900';
+  const headerTextClass = appTheme === 'TET' ? 'text-yellow-100' : 'text-blue-100';
+  const primaryTitleColor = appTheme === 'TET' ? 'text-yellow-400' : 'text-white';
+  
   return (
     <div className="min-h-screen bg-slate-50 font-sans mx-auto max-w-md md:max-w-2xl lg:max-w-4xl shadow-2xl overflow-hidden flex flex-col relative">
       <style>{`
@@ -439,6 +461,12 @@ export default function App() {
             0% { transform: translateY(-10px) translateX(0px); opacity: 0; }
             20% { opacity: 0.9; }
             100% { transform: translateY(300px) translateX(20px); opacity: 0; }
+          }
+          @keyframes petal-fall {
+            0% { transform: translateY(-10px) translateX(0px) rotate(0deg); opacity: 0; }
+            20% { opacity: 0.9; }
+            50% { transform: translateY(150px) translateX(20px) rotate(180deg); opacity: 0.8; }
+            100% { transform: translateY(300px) translateX(-20px) rotate(360deg); opacity: 0; }
           }
           @keyframes twinkle {
             0%, 100% { opacity: 1; transform: scale(1); }
@@ -451,6 +479,16 @@ export default function App() {
             pointer-events: none;
             animation: snowfall linear infinite;
           }
+          .petal {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background: #fbcfe8; /* pink-200 */
+            border-radius: 60% 40% 40% 60% / 60% 40% 60% 40%;
+            pointer-events: none;
+            animation: petal-fall linear infinite;
+            box-shadow: 0 0 2px #f9a8d4;
+          }
           .star-twinkle {
             position: absolute;
             width: 3px;
@@ -462,62 +500,95 @@ export default function App() {
           }
       `}</style>
       
-      <header className="bg-blue-900 text-white p-4 pt-8 pb-6 sticky top-0 z-20 shadow-lg rounded-b-[2rem] relative overflow-hidden">
-        {/* --- HIỆU ỨNG TUYẾT RƠI & SAO --- */}
+      <header className={`${headerBgClass} text-white p-4 pt-8 pb-6 sticky top-0 z-20 shadow-lg rounded-b-[2rem] relative overflow-hidden transition-colors duration-500`}>
+        {/* --- HIỆU ỨNG NỀN (TÙY THEME) --- */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-             {/* Tuyết rơi */}
-             {[...Array(15)].map((_, i) => (
-               <div 
-                 key={`snow-${i}`} 
-                 className="snowflake"
-                 style={{
-                    width: `${Math.random() * 4 + 2}px`,
-                    height: `${Math.random() * 4 + 2}px`,
-                    left: `${Math.random() * 100}%`,
-                    top: `-${Math.random() * 20}px`,
-                    animationDuration: `${Math.random() * 5 + 3}s`,
-                    animationDelay: `${Math.random() * 5}s`,
-                    opacity: Math.random() * 0.5 + 0.3
-                 }}
-               ></div>
-             ))}
+             {appTheme === 'WINTER' ? (
+                 <>
+                     {/* Tuyết rơi */}
+                     {[...Array(15)].map((_, i) => (
+                       <div 
+                         key={`snow-${i}`} 
+                         className="snowflake"
+                         style={{
+                            width: `${Math.random() * 4 + 2}px`,
+                            height: `${Math.random() * 4 + 2}px`,
+                            left: `${Math.random() * 100}%`,
+                            top: `-${Math.random() * 20}px`,
+                            animationDuration: `${Math.random() * 5 + 3}s`,
+                            animationDelay: `${Math.random() * 5}s`,
+                            opacity: Math.random() * 0.5 + 0.3
+                         }}
+                       ></div>
+                     ))}
+                     {/* Sao lấp lánh */}
+                     {[...Array(8)].map((_, i) => (
+                        <div 
+                          key={`star-${i}`}
+                          className="star-twinkle"
+                          style={{
+                              left: `${Math.random() * 90 + 5}%`,
+                              top: `${Math.random() * 60}%`,
+                              animationDelay: `${Math.random() * 2}s`
+                          }}
+                        ></div>
+                     ))}
+                     {/* Tuyết đọng chân */}
+                     <div className="absolute bottom-0 left-0 right-0 h-16 pointer-events-none z-0">
+                         <div className="absolute bottom-0 w-full h-full bg-gradient-to-t from-white/30 to-transparent"></div>
+                         <svg className="absolute bottom-0 w-full h-12 text-white/20 fill-current" viewBox="0 0 1440 320" preserveAspectRatio="none"><path d="M0,224L48,234.7C96,245,192,267,288,266.7C384,267,480,245,576,213.3C672,181,768,139,864,138.7C960,139,1056,181,1152,197.3C1248,213,1344,203,1392,197.3L1440,192L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path></svg>
+                         <svg className="absolute bottom-0 w-full h-8 text-white/40 fill-current" viewBox="0 0 1440 320" preserveAspectRatio="none"><path d="M0,128L48,144C96,160,192,192,288,186.7C384,181,480,139,576,144C672,149,768,203,864,208C960,213,1056,171,1152,149.3C1248,128,1344,128,1392,128L1440,128L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path></svg>
+                         <div className="absolute -bottom-6 -left-6 w-32 h-24 bg-white/60 blur-xl rounded-full"></div>
+                         <div className="absolute -bottom-8 -right-4 w-40 h-28 bg-white/50 blur-xl rounded-full"></div>
+                     </div>
+                 </>
+             ) : (
+                 <>
+                     {/* Hoa đào rơi (Hồng) */}
+                     {[...Array(20)].map((_, i) => (
+                       <div 
+                         key={`petal-${i}`} 
+                         className="petal"
+                         style={{
+                            left: `${Math.random() * 100}%`,
+                            top: `-${Math.random() * 20}px`,
+                            animationDuration: `${Math.random() * 4 + 4}s`,
+                            animationDelay: `${Math.random() * 5}s`,
+                            backgroundColor: Math.random() > 0.5 ? '#fbcfe8' : '#f9a8d4', // Pink variations
+                            opacity: Math.random() * 0.4 + 0.6
+                         }}
+                       ></div>
+                     ))}
+                     
+                     {/* Đám mây cách điệu (Vàng/Đỏ nhạt) ở chân */}
+                     <div className="absolute bottom-0 left-0 right-0 h-20 pointer-events-none z-0">
+                          <svg className="absolute bottom-0 w-full h-16 text-yellow-500/20 fill-current" viewBox="0 0 1440 320" preserveAspectRatio="none"><path d="M0,192L48,197.3C96,203,192,213,288,229.3C384,245,480,267,576,250.7C672,235,768,181,864,181.3C960,181,1056,235,1152,234.7C1248,235,1344,181,1392,154.7L1440,128L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path></svg>
+                          <svg className="absolute bottom-0 w-full h-10 text-yellow-400/30 fill-current" viewBox="0 0 1440 320" preserveAspectRatio="none"><path d="M0,96L48,112C96,128,192,160,288,160C384,160,480,128,576,112C672,96,768,96,864,112C960,128,1056,160,1152,160C1248,160,1344,128,1392,112L1440,96L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path></svg>
+                     </div>
 
-             {/* Sao lấp lánh */}
-             {[...Array(8)].map((_, i) => (
-                <div 
-                  key={`star-${i}`}
-                  className="star-twinkle"
-                  style={{
-                      left: `${Math.random() * 90 + 5}%`,
-                      top: `${Math.random() * 60}%`,
-                      animationDelay: `${Math.random() * 2}s`
-                  }}
-                ></div>
-             ))}
+                     {/* Cành đào góc TRÁI (Lật ngược để đối xứng) */}
+                     <img 
+                        src="https://doantruong.chuyennguyentrai.edu.vn/wp-content/uploads/2026/01/Canh-dao.png" 
+                        className="absolute -top-4 -left-6 w-36 md:w-56 z-0 pointer-events-none opacity-90"
+                        style={{ transform: 'scaleX(-1) rotate(15deg)' }}
+                        alt="Dao Left"
+                     />
 
-             {/* --- TUYẾT ĐỌNG Ở CHÂN (NEW) --- */}
-             <div className="absolute bottom-0 left-0 right-0 h-16 pointer-events-none z-0">
-                 {/* Lớp nền mờ */}
-                 <div className="absolute bottom-0 w-full h-full bg-gradient-to-t from-white/30 to-transparent"></div>
-                 
-                 {/* Sóng tuyết 1 (Xa) */}
-                 <svg className="absolute bottom-0 w-full h-12 text-white/20 fill-current" viewBox="0 0 1440 320" preserveAspectRatio="none">
-                     <path d="M0,224L48,234.7C96,245,192,267,288,266.7C384,267,480,245,576,213.3C672,181,768,139,864,138.7C960,139,1056,181,1152,197.3C1248,213,1344,203,1392,197.3L1440,192L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path>
-                 </svg>
-                 
-                 {/* Sóng tuyết 2 (Gần) */}
-                 <svg className="absolute bottom-0 w-full h-8 text-white/40 fill-current" viewBox="0 0 1440 320" preserveAspectRatio="none">
-                     <path d="M0,128L48,144C96,160,192,192,288,186.7C384,181,480,139,576,144C672,149,768,203,864,208C960,213,1056,171,1152,149.3C1248,128,1344,128,1392,128L1440,128L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path>
-                 </svg>
-                 
-                 {/* Tuyết đọng góc trái (Blob) */}
-                 <div className="absolute -bottom-6 -left-6 w-32 h-24 bg-white/60 blur-xl rounded-full"></div>
-                 <div className="absolute -bottom-2 -left-2 w-20 h-12 bg-white/80 blur-md rounded-full"></div>
-                 
-                 {/* Tuyết đọng góc phải (Blob) */}
-                 <div className="absolute -bottom-8 -right-4 w-40 h-28 bg-white/50 blur-xl rounded-full"></div>
-                 <div className="absolute -bottom-2 -right-2 w-24 h-16 bg-white/70 blur-md rounded-full"></div>
-             </div>
+                     {/* Chữ 2026 treo - Sáng hơn, Cao hơn nữa */}
+                     <img 
+                        src="https://doantruong.chuyennguyentrai.edu.vn/wp-content/uploads/2026/01/Chu-2026.png" 
+                        className="absolute -top-1 right-12 md:right-24 w-16 md:w-24 z-0 pointer-events-none opacity-100 brightness-125 drop-shadow-sm"
+                        alt="2026"
+                     />
+
+                     {/* Linh vật Ngựa - Nhỏ lại hơn nữa */}
+                     <img 
+                        src="https://doantruong.chuyennguyentrai.edu.vn/wp-content/uploads/2026/01/Thiet-ke-chua-co-ten.png" 
+                        className="absolute bottom-0 right-0 w-12 md:w-16 z-0 pointer-events-none drop-shadow-md"
+                        alt="Horse"
+                     />
+                 </>
+             )}
         </div>
 
         <div className="flex justify-between items-start relative z-10">
@@ -525,27 +596,45 @@ export default function App() {
               <div className="flex items-center gap-3 mb-2">
                  <div className="flex -space-x-2"> 
                      <img src="https://upload.wikimedia.org/wikipedia/commons/7/70/THPT_Chuyen_Nguyen_Trai.png" alt="CNT" className="w-10 h-10 object-contain bg-white rounded-full p-0.5 shadow-md z-10" />
+                     {/* Logo Đoàn: Luôn hiển thị */}
                      <img src="https://upload.wikimedia.org/wikipedia/vi/0/09/Huy_Hi%E1%BB%87u_%C4%90o%C3%A0n.png" alt="Doan" className="w-10 h-10 object-contain drop-shadow-md z-0" />
                  </div>
                  
                  <div>
-                     <h1 className="text-2xl font-black tracking-tight leading-none">NỀN NẾP CNT</h1>
-                     <div className="text-[10px] text-blue-200 font-bold uppercase tracking-widest mt-0.5">THPT Chuyên Nguyễn Trãi</div>
+                     <h1 className={`text-2xl font-black tracking-tight leading-none ${primaryTitleColor}`}>NỀN NẾP CNT</h1>
+                     {appTheme === 'TET' ? (
+                         <div className="text-[10px] text-yellow-300 font-bold uppercase tracking-widest mt-0.5 flex items-center gap-1">
+                            <span>✨ Chúc Mừng Năm Mới</span>
+                         </div>
+                     ) : (
+                         <div className="text-[10px] text-blue-200 font-bold uppercase tracking-widest mt-0.5">THPT Chuyên Nguyễn Trãi</div>
+                     )}
                  </div>
               </div>
               
               <div className="pl-1 space-y-0.5">
-                  <p className="text-blue-100 text-xs opacity-90">Hệ thống quản lí thi đua trường THPT Chuyên Nguyễn Trãi</p>
-                  <p className="text-blue-400 text-[10px] font-mono">Developed by Lương Hải Anh © 2026</p>
+                  <p className={`${headerTextClass} text-xs opacity-90`}>
+                      {appTheme === 'TET' ? 'Xuân Bính Ngọ 2026 - An Khang Thịnh Vượng' : 'Hệ thống quản lí thi đua trường THPT Chuyên Nguyễn Trãi'}
+                  </p>
+                  <p className={`${appTheme === 'TET' ? 'text-yellow-500/80' : 'text-blue-400'} text-[10px] font-mono`}>Developed by Lương Hải Anh © 2026</p>
               </div>
            </div>
            
            <div className="flex items-center gap-2 pt-1">
+              {/* Theme Toggle Button */}
+              <button
+                onClick={toggleTheme}
+                className={`p-2 rounded-full transition-all shadow-sm ${appTheme === 'TET' ? 'bg-red-800 text-yellow-200 hover:bg-red-700' : 'bg-blue-800 text-blue-200 hover:bg-blue-700'}`}
+                title="Đổi giao diện"
+              >
+                  {appTheme === 'TET' ? <Snowflake size={18} /> : <Flower2 size={18} />}
+              </button>
+
               {/* Refresh Button */}
               <button 
                 onClick={handleRefresh} 
                 disabled={isRefreshing}
-                className="p-2 rounded-full bg-blue-800 text-blue-200 hover:bg-blue-700 hover:text-white transition-colors disabled:opacity-50"
+                className={`p-2 rounded-full transition-colors disabled:opacity-50 ${appTheme === 'TET' ? 'bg-red-800 text-yellow-400 hover:bg-red-700 hover:text-white' : 'bg-blue-800 text-blue-200 hover:bg-blue-700 hover:text-white'}`}
                 title="Làm mới dữ liệu từ Database"
               >
                   <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} />
@@ -555,16 +644,16 @@ export default function App() {
                   {currentUser.role !== 'GUEST' ? (
                     <button 
                         onClick={handleLogout}
-                        className="flex items-center gap-2 bg-blue-800/50 hover:bg-blue-800 pl-3 pr-2 py-1.5 rounded-full text-xs font-medium transition-colors border border-blue-700"
+                        className={`flex items-center gap-2 pl-3 pr-2 py-1.5 rounded-full text-xs font-medium transition-colors border ${appTheme === 'TET' ? 'bg-red-800/50 hover:bg-red-800 border-red-700 text-white' : 'bg-blue-800/50 hover:bg-blue-800 border-blue-700 text-white'}`}
                     >
-                        <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold bg-white text-blue-900`}>{currentUser.name.charAt(0)}</div>
+                        <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold bg-white ${appTheme === 'TET' ? 'text-red-900' : 'text-blue-900'}`}>{currentUser.name.charAt(0)}</div>
                         <span className="max-w-[80px] truncate">{currentUser.name}</span>
                         <LogOut size={14} className="ml-1 opacity-70"/>
                     </button>
                   ) : (
                     <button 
                         onClick={() => setShowLoginModal(true)}
-                        className="flex items-center gap-2 bg-white text-blue-900 hover:bg-blue-50 px-4 py-2 rounded-full text-sm font-bold transition-colors shadow-md"
+                        className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-colors shadow-md ${appTheme === 'TET' ? 'bg-yellow-400 text-red-900 hover:bg-yellow-300' : 'bg-white text-blue-900 hover:bg-blue-50'}`}
                     >
                         <LogIn size={16} /> Đăng nhập
                     </button>
@@ -657,6 +746,8 @@ export default function App() {
               handleSaveSettings={() => handleSaveSettings(false)}
               unsavedChanges={unsavedChanges}
               setUnsavedChanges={setUnsavedChanges}
+              appTheme={appTheme}
+              setAppTheme={setAppTheme}
             />
           ) : (activeTab === 'settings' && <div className="text-center py-20 text-slate-400">Bạn không có quyền truy cập.</div>)
         )}

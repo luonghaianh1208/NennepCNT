@@ -1,6 +1,8 @@
 
 export type Role = string; // Chuyển từ Union Type sang string để hỗ trợ role động
 
+export type AppTheme = 'WINTER' | 'TET';
+
 export interface RoleConfig {
   label: string;
   color: string;
