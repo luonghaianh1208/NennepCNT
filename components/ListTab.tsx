@@ -75,7 +75,8 @@ const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, stu
     if (searchTerm.trim()) {
         const term = searchTerm.toLowerCase();
         list = list.filter(v => {
-            const studentName = v.studentId ? students.find(s => s.id === v.studentId)?.name : 'Tập thể';
+            // STRICT MATCHING HERE TOO
+            const studentName = v.studentId ? students.find(s => s.id === v.studentId && s.classId === v.classId)?.name : 'Tập thể';
             const className = classes.find(c => c.id === v.classId)?.name;
             const criteriaContent = criteria.find(c => c.id === v.criteriaId)?.content;
             const note = v.note || '';
@@ -134,7 +135,8 @@ const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, stu
     // 2. Map dữ liệu
     const dataRows = filteredViolations.map(v => {
       const clsName = classes.find(c => c.id === v.classId)?.name || v.classId;
-      const stuName = v.studentId ? (students.find(s => s.id === v.studentId)?.name || v.studentId) : "Tập thể";
+      // STRICT MATCHING
+      const stuName = v.studentId ? (students.find(s => s.id === v.studentId && s.classId === v.classId)?.name || v.studentId) : "Tập thể";
       const criContent = criteria.find(c => c.id === v.criteriaId)?.content || v.criteriaId;
       
       const reporterUser = users.find(u => u.id === v.reportedBy);
@@ -245,7 +247,8 @@ const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, stu
       <div className="space-y-3">
         {filteredViolations.map((v) => {
           const cls = classes.find(c => c.id === v.classId);
-          const stu = students.find(s => s.id === v.studentId);
+          // STRICT MATCHING
+          const stu = students.find(s => s.id === v.studentId && s.classId === v.classId);
           const cri = criteria.find(c => c.id === v.criteriaId);
           const isSelected = selectedViolationIds.has(v.id);
           

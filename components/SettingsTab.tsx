@@ -2,7 +2,7 @@
 import React, { useState, useRef } from 'react';
 import { Save, Clock, PlusCircle, Trash2, Plus, LogOut, Info, Upload, Users, GraduationCap, Calendar, X, Settings, AlertTriangle, Star, UserPlus, Edit, Check, Shield } from 'lucide-react';
 import { TimeConfig, ClassEntity, Student, Criteria, User, RoleConfig } from '../types';
-import { parseCSVLine } from '../utils';
+import { parseCSVLine, removeVietnameseTones } from '../utils';
 
 interface SettingsTabProps {
   currentUserRole: string;
@@ -98,8 +98,15 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
 
   const handleAddStudent = () => {
     if(!newStudentName || !selectedClassForStudent) return;
-    const newId = `S${Date.now()}`;
-    setStudents([...students, { id: newId, name: newStudentName, classId: selectedClassForStudent }]);
+    // Generate Deterministic ID for manual add as well
+    const safeId = `S_${selectedClassForStudent}_${removeVietnameseTones(newStudentName).replace(/\s+/g, '')}`.toUpperCase();
+    
+    if (students.find(s => s.id === safeId)) {
+        alert("Học sinh này đã tồn tại trong lớp (trùng ID)");
+        return;
+    }
+
+    setStudents([...students, { id: safeId, name: newStudentName, classId: selectedClassForStudent }]);
     setNewStudentName(''); setUnsavedChanges(true);
   };
 
@@ -278,20 +285,27 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
         const newStudents: Student[] = [];
         let count = 0;
         let missingClassCount = 0;
+        
         rows.forEach(row => {
             if (row.length >= 2) {
                 const className = row[0];
                 const studentName = row[1];
                 const bikeNumber = row[2] || '';
                 const cls = classes.find(c => c.name.toLowerCase() === className.toLowerCase() || c.id.toLowerCase() === className.toLowerCase());
+                
                 if (cls) {
-                    newStudents.push({
-                        id: `S_IMP_${Date.now()}_${Math.floor(Math.random()*1000)}`,
-                        name: studentName,
-                        classId: cls.id,
-                        bikeNumber
-                    });
-                    count++;
+                    // ID = CLS_ID + NORMALIZED_NAME (Guarantees uniqueness per class/student)
+                    const safeId = `S_${cls.id}_${removeVietnameseTones(studentName).replace(/\s+/g, '')}`.toUpperCase();
+                    
+                    if (!students.find(s => s.id === safeId) && !newStudents.find(s => s.id === safeId)) {
+                        newStudents.push({
+                            id: safeId,
+                            name: studentName,
+                            classId: cls.id,
+                            bikeNumber
+                        });
+                        count++;
+                    }
                 } else {
                     missingClassCount++;
                 }

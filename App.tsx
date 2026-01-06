@@ -309,7 +309,10 @@ export default function App() {
     if (!viewingViolation) return null;
     const v = viewingViolation;
     const cls = classes.find(c => c.id === v.classId);
-    const stu = students.find(s => s.id === v.studentId);
+    
+    // STRICT FIX: Tìm học sinh phải khớp cả ID và ClassID để tránh trùng ID
+    const stu = students.find(s => s.id === v.studentId && s.classId === v.classId);
+    
     const cri = criteria.find(c => c.id === v.criteriaId);
     const reporter = users.find(u => u.id === v.reportedBy);
     
