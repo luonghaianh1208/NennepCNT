@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Shield,
   PlusCircle,
@@ -31,6 +31,105 @@ import RankingTab from './components/RankingTab';
 import ClassDetailTab from './components/ClassDetailTab';
 import SettingsTab from './components/SettingsTab';
 import TaskForceTab from './components/TaskForceTab';
+
+// --- Winter Effect Component ---
+const WinterHeaderEffect = () => {
+  // Generate static random values for snow and stars to prevent re-render flickering
+  const snowflakes = useMemo(() => [...Array(30)].map((_, i) => ({
+    id: i,
+    left: Math.random() * 100 + '%',
+    animationDuration: Math.random() * 5 + 5 + 's', // 5-10s
+    animationDelay: Math.random() * 5 + 's',
+    opacity: Math.random() * 0.5 + 0.3,
+    size: Math.random() * 3 + 2 + 'px'
+  })), []);
+
+  const stars = useMemo(() => [...Array(15)].map((_, i) => ({
+     id: i,
+     top: Math.random() * 70 + '%', 
+     left: Math.random() * 100 + '%',
+     animationDelay: Math.random() * 3 + 's',
+     size: Math.random() * 2 + 1 + 'px',
+     opacity: Math.random() * 0.7 + 0.3
+  })), []);
+
+  return (
+    <div className="absolute inset-0 overflow-hidden rounded-b-[2rem] pointer-events-none select-none z-0">
+       <style>{`
+         @keyframes snow-fall {
+           0% { transform: translateY(-10px) translateX(0); opacity: 0; }
+           10% { opacity: 1; }
+           100% { transform: translateY(150px) translateX(20px); opacity: 0; }
+         }
+         @keyframes star-twinkle {
+           0%, 100% { opacity: 0.3; transform: scale(0.8); }
+           50% { opacity: 1; transform: scale(1.2); box-shadow: 0 0 4px white; }
+         }
+         .snowflake {
+           position: absolute;
+           top: -10px;
+           background: white;
+           border-radius: 50%;
+           animation-name: snow-fall;
+           animation-timing-function: linear;
+           animation-iteration-count: infinite;
+         }
+         .star-twinkle {
+           position: absolute;
+           background: white;
+           border-radius: 50%;
+           animation: star-twinkle 4s ease-in-out infinite;
+         }
+       `}</style>
+
+       {/* Stars */}
+       {stars.map(s => (
+         <div 
+            key={`star-${s.id}`} 
+            className="star-twinkle"
+            style={{
+              top: s.top,
+              left: s.left,
+              width: s.size,
+              height: s.size,
+              animationDelay: s.animationDelay,
+            }}
+         />
+       ))}
+
+       {/* Snowflakes */}
+       {snowflakes.map(s => (
+         <div 
+            key={`snow-${s.id}`} 
+            className="snowflake"
+            style={{
+              left: s.left,
+              width: s.size,
+              height: s.size,
+              opacity: s.opacity,
+              animationDuration: s.animationDuration,
+              animationDelay: s.animationDelay,
+            }}
+         />
+       ))}
+
+       {/* Snow Piles (Decorations) */}
+       {/* Bottom Left Pile */}
+       <div className="absolute bottom-0 left-0 w-32 h-12 opacity-90 z-10">
+          <svg viewBox="0 0 100 40" preserveAspectRatio="none" className="w-full h-full fill-blue-100/20">
+             <path d="M0,40 L0,15 Q30,0 60,25 T100,40 Z" />
+          </svg>
+       </div>
+       
+       {/* Bottom Right Pile */}
+       <div className="absolute bottom-0 right-0 w-40 h-16 opacity-90 z-10">
+          <svg viewBox="0 0 120 50" preserveAspectRatio="none" className="w-full h-full fill-blue-100/20">
+             <path d="M120,50 L120,10 Q80,-10 40,25 T0,50 Z" />
+          </svg>
+       </div>
+    </div>
+  );
+};
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>('list');
@@ -431,8 +530,11 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans mx-auto max-w-md md:max-w-2xl lg:max-w-4xl shadow-2xl overflow-hidden flex flex-col relative">
-      <header className="bg-blue-900 text-white p-4 pt-8 pb-6 sticky top-0 z-20 shadow-lg rounded-b-[2rem]">
-        <div className="flex justify-between items-start">
+      <header className="bg-blue-900 text-white p-4 pt-8 pb-6 sticky top-0 z-20 shadow-lg rounded-b-[2rem] relative">
+        {/* Winter/Snow Effect Background */}
+        <WinterHeaderEffect />
+
+        <div className="flex justify-between items-start relative z-10">
            <div className="flex flex-col">
               <div className="flex items-center gap-3 mb-2">
                  <div className="flex -space-x-2"> 
