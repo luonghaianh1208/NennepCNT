@@ -1,7 +1,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { User, Violation, ClassEntity, RoleConfig, Student } from '../types';
-import { Shield, Save, Edit, Zap, X, Check } from 'lucide-react';
+import { Shield, Save, Edit, Zap, X, Check, EyeOff } from 'lucide-react';
 
 interface TaskForceTabProps {
   currentUser: User;
@@ -26,8 +26,8 @@ const TaskForceTab: React.FC<TaskForceTabProps> = ({ currentUser, users, violati
   const [isBulkEditMode, setIsBulkEditMode] = useState(false);
   const [bulkEdits, setBulkEdits] = useState<Record<string, number>>({});
 
-  // Quyền chỉnh sửa số liệu tổng kết: Admin hoặc BCH_PHU_TRACH
-  const canEditSummary = useMemo(() => {
+  // Quyền Quản lý (Xem tất cả + Chỉnh sửa): Admin hoặc BCH_PHU_TRACH
+  const isManager = useMemo(() => {
      const role = currentUser.role.toUpperCase();
      return role === 'ADMIN' || role === 'BCH_PHU_TRACH';
   }, [currentUser]);
@@ -45,14 +45,15 @@ const TaskForceTab: React.FC<TaskForceTabProps> = ({ currentUser, users, violati
           const config = roleConfigs[u.role] || roleConfigs['GUEST'];
           const isTaskForce = config.canEntry && !config.isAdmin;
           if (!isTaskForce) return false;
-          if (filterRole !== 'ALL' && u.role !== filterRole) return false;
+          // Nếu là Manager thì mới áp dụng bộ lọc Role, nếu không thì lấy hết để tính xếp hạng ngầm
+          if (isManager && filterRole !== 'ALL' && u.role !== filterRole) return false;
           return true;
       });
-  }, [users, roleConfigs, filterRole]);
+  }, [users, roleConfigs, filterRole, isManager]);
 
-  // 3. Tính toán thống kê cho từng User
+  // 3. Tính toán thống kê cho từng User và Xếp hạng
   const stats = useMemo(() => {
-      return taskForceUsers.map(u => {
+      const calculatedStats = taskForceUsers.map(u => {
           // A. Số lỗi họ đã báo cáo
           const reportedCount = violations.filter(v => v.reportedBy === u.id).length;
           
@@ -86,7 +87,17 @@ const TaskForceTab: React.FC<TaskForceTabProps> = ({ currentUser, users, violati
               score
           };
       }).sort((a, b) => b.score - a.score); // Xếp theo điểm thi đua
+
+      // Thêm thuộc tính rank vào object để hiển thị đúng thứ hạng ngay cả khi filter
+      return calculatedStats.map((item, index) => ({ ...item, rank: index + 1 }));
   }, [taskForceUsers, violations, students]);
+
+  // 4. Lọc danh sách hiển thị dựa trên quyền hạn
+  const visibleStats = useMemo(() => {
+      if (isManager) return stats;
+      // Nếu không phải quản lý, chỉ xem của chính mình
+      return stats.filter(u => u.id === currentUser.id);
+  }, [stats, isManager, currentUser.id]);
 
   const handleStartEdit = (u: any) => {
       setEditingUserId(u.id);
@@ -158,47 +169,55 @@ const TaskForceTab: React.FC<TaskForceTabProps> = ({ currentUser, users, violati
          </div>
       </div>
 
-      <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-3 justify-between items-center">
-         <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar w-full md:w-auto">
-             <button 
-                onClick={() => setFilterRole('ALL')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors ${filterRole === 'ALL' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-             >
-                Tất cả
-             </button>
-             {taskForceRoles.map(r => (
-                 <button 
-                    key={r.key}
-                    onClick={() => setFilterRole(r.key)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors ${filterRole === r.key ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}`}
-                 >
-                    {r.label}
-                 </button>
-             ))}
-         </div>
+      {/* Chỉ hiển thị thanh bộ lọc và công cụ cho Manager */}
+      {isManager && (
+        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-3 justify-between items-center">
+           <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar w-full md:w-auto">
+               <button 
+                  onClick={() => setFilterRole('ALL')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors ${filterRole === 'ALL' ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+               >
+                  Tất cả
+               </button>
+               {taskForceRoles.map(r => (
+                   <button 
+                      key={r.key}
+                      onClick={() => setFilterRole(r.key)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors ${filterRole === r.key ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}`}
+                   >
+                      {r.label}
+                   </button>
+               ))}
+           </div>
 
-         {canEditSummary && (
-             <div className="flex gap-2">
-                {isBulkEditMode ? (
-                  <>
-                    <button onClick={toggleBulkEditMode} className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 font-bold text-xs flex items-center gap-1">
-                       <X size={14}/> Hủy
-                    </button>
-                    <button onClick={handleBulkSave} className="px-3 py-1.5 rounded-lg bg-green-600 text-white font-bold text-xs flex items-center gap-1 shadow-lg shadow-green-200 animate-in zoom-in">
-                       <Save size={14}/> Lưu tất cả
-                    </button>
-                  </>
-                ) : (
-                  <button onClick={toggleBulkEditMode} className="px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100 font-bold text-xs flex items-center gap-1 hover:bg-indigo-100">
-                     <Zap size={14}/> Nhập nhanh
+           <div className="flex gap-2">
+              {isBulkEditMode ? (
+                <>
+                  <button onClick={toggleBulkEditMode} className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-600 font-bold text-xs flex items-center gap-1">
+                     <X size={14}/> Hủy
                   </button>
-                )}
-             </div>
-         )}
-      </div>
+                  <button onClick={handleBulkSave} className="px-3 py-1.5 rounded-lg bg-green-600 text-white font-bold text-xs flex items-center gap-1 shadow-lg shadow-green-200 animate-in zoom-in">
+                     <Save size={14}/> Lưu tất cả
+                  </button>
+                </>
+              ) : (
+                <button onClick={toggleBulkEditMode} className="px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100 font-bold text-xs flex items-center gap-1 hover:bg-indigo-100">
+                   <Zap size={14}/> Nhập nhanh
+                </button>
+              )}
+           </div>
+        </div>
+      )}
+
+      {!isManager && (
+         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800 flex items-center gap-2">
+             <EyeOff size={16} />
+             <span>Bạn đang xem thống kê cá nhân của mình.</span>
+         </div>
+      )}
 
       <div className="space-y-3">
-          {stats.map((u, idx) => {
+          {visibleStats.map((u) => {
               const roleInfo = roleConfigs[u.role];
               const isEditing = editingUserId === u.id;
               // Nếu đang Bulk Mode -> dùng giá trị trong state bulkEdits, fallback về giá trị gốc
@@ -208,8 +227,8 @@ const TaskForceTab: React.FC<TaskForceTabProps> = ({ currentUser, users, violati
                   <div key={u.id} className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
                       <div className="flex items-start justify-between mb-3 border-b border-slate-100 pb-3">
                         <div className="flex items-center gap-3">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm bg-${roleInfo?.color || 'gray'}-100 text-${roleInfo?.color || 'gray'}-700`}>
-                                {idx + 1}
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm bg-${roleInfo?.color || 'gray'}-100 text-${roleInfo?.color || 'gray'}-700 border border-${roleInfo?.color || 'gray'}-200`}>
+                                {u.rank}
                             </div>
                             <div>
                                 <div className="font-bold text-slate-800">{u.name}</div>
@@ -266,7 +285,7 @@ const TaskForceTab: React.FC<TaskForceTabProps> = ({ currentUser, users, violati
                                       ) : (
                                           <div className="font-bold text-green-700 text-lg flex items-center justify-center gap-1">
                                               {u.summaryMeetings}
-                                              {canEditSummary && (
+                                              {isManager && (
                                                   <button onClick={() => handleStartEdit(u)} className="opacity-50 hover:opacity-100 text-green-600 p-0.5"><Edit size={12}/></button>
                                               )}
                                           </div>
@@ -279,8 +298,10 @@ const TaskForceTab: React.FC<TaskForceTabProps> = ({ currentUser, users, violati
               );
           })}
           
-          {stats.length === 0 && (
-              <div className="text-center py-10 text-slate-400">Không tìm thấy thành viên nào.</div>
+          {visibleStats.length === 0 && (
+              <div className="text-center py-10 text-slate-400">
+                  {isManager ? "Không tìm thấy thành viên nào." : "Tài khoản của bạn không nằm trong danh sách Ban Nền Nếp."}
+              </div>
           )}
       </div>
 
