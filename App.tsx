@@ -620,26 +620,8 @@ export default function App() {
               </div>
            </div>
            
-           <div className="flex items-center gap-2 pt-1">
-              {/* Theme Toggle Button */}
-              <button
-                onClick={toggleTheme}
-                className={`p-2 rounded-full transition-all shadow-sm ${appTheme === 'TET' ? 'bg-red-800 text-yellow-200 hover:bg-red-700' : 'bg-blue-800 text-blue-200 hover:bg-blue-700'}`}
-                title="Đổi giao diện"
-              >
-                  {appTheme === 'TET' ? <Snowflake size={18} /> : <Flower2 size={18} />}
-              </button>
-
-              {/* Refresh Button */}
-              <button 
-                onClick={handleRefresh} 
-                disabled={isRefreshing}
-                className={`p-2 rounded-full transition-colors disabled:opacity-50 ${appTheme === 'TET' ? 'bg-red-800 text-yellow-400 hover:bg-red-700 hover:text-white' : 'bg-blue-800 text-blue-200 hover:bg-blue-700 hover:text-white'}`}
-                title="Làm mới dữ liệu từ Database"
-              >
-                  <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} />
-              </button>
-
+           {/* REARRANGED: Vertical Layout for Right Side Controls */}
+           <div className="flex flex-col items-end gap-3 pt-1">
               <div className="relative group">
                   {currentUser.role !== 'GUEST' ? (
                     <button 
@@ -658,6 +640,26 @@ export default function App() {
                         <LogIn size={16} /> Đăng nhập
                     </button>
                   )}
+              </div>
+
+              {/* Icon Buttons Row below Login */}
+              <div className="flex items-center gap-2">
+                 <button
+                    onClick={toggleTheme}
+                    className={`p-2 rounded-full transition-all shadow-sm ${appTheme === 'TET' ? 'bg-red-800 text-yellow-200 hover:bg-red-700' : 'bg-blue-800 text-blue-200 hover:bg-blue-700'}`}
+                    title="Đổi giao diện"
+                  >
+                      {appTheme === 'TET' ? <Snowflake size={18} /> : <Flower2 size={18} />}
+                  </button>
+
+                  <button 
+                    onClick={handleRefresh} 
+                    disabled={isRefreshing}
+                    className={`p-2 rounded-full transition-colors disabled:opacity-50 ${appTheme === 'TET' ? 'bg-red-800 text-yellow-400 hover:bg-red-700 hover:text-white' : 'bg-blue-800 text-blue-200 hover:bg-blue-700 hover:text-white'}`}
+                    title="Làm mới dữ liệu từ Database"
+                  >
+                      <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} />
+                  </button>
               </div>
            </div>
         </div>
