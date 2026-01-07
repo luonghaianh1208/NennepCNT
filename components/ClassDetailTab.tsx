@@ -137,7 +137,8 @@ const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ currentUser, classes, v
   const studentViolationStats = useMemo(() => {
       const classStudents = students.filter(s => s.classId === targetClassId);
       const stats = classStudents.map(s => {
-          const studentMinus = minusViolations.filter(v => v.studentId === s.id);
+          // STRICT MATCH: studentId AND classId must match
+          const studentMinus = minusViolations.filter(v => v.studentId === s.id && v.classId === targetClassId);
           const totalMinusPoints = studentMinus.reduce((acc, v) => acc + v.points, 0);
           return {
               student: s,
@@ -271,6 +272,11 @@ const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ currentUser, classes, v
             <div className="space-y-2">
               {minusViolations.length > 0 ? minusViolations.map(v => {
                   const images = safeParseImages(v.images);
+                  // FIX: Strict check for student matching both ID and ClassID
+                  const studentName = v.studentId 
+                      ? (students.find(s => s.id === v.studentId && s.classId === v.classId)?.name || 'Học sinh không tồn tại') 
+                      : 'Tập thể';
+
                   return (
                     <div 
                         key={v.id} 
@@ -280,7 +286,7 @@ const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ currentUser, classes, v
                       <div className="w-full flex justify-between items-start">
                         <div>
                            <div className="font-medium text-slate-800 text-sm">{criteria.find(c => c.id === v.criteriaId)?.content}</div>
-                           <div className="text-xs text-slate-500 mt-1">{formatDateDisplay(v.date)} • {v.studentId ? students.find(s=>s.id===v.studentId)?.name : 'Tập thể'}</div>
+                           <div className="text-xs text-slate-500 mt-1">{formatDateDisplay(v.date)} • {studentName}</div>
                         </div>
                         <div className="font-bold text-red-600">-{v.points}</div>
                       </div>
@@ -313,6 +319,11 @@ const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ currentUser, classes, v
             <div className="space-y-2">
               {plusViolations.length > 0 ? plusViolations.map(v => {
                   const images = safeParseImages(v.images);
+                  // FIX: Strict check for student matching both ID and ClassID
+                  const studentName = v.studentId 
+                      ? (students.find(s => s.id === v.studentId && s.classId === v.classId)?.name || 'Học sinh không tồn tại') 
+                      : 'Tập thể';
+
                   return (
                     <div 
                         key={v.id} 
@@ -322,7 +333,7 @@ const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ currentUser, classes, v
                       <div className="w-full flex justify-between items-start">
                         <div>
                            <div className="font-medium text-slate-800 text-sm">{criteria.find(c => c.id === v.criteriaId)?.content}</div>
-                           <div className="text-xs text-slate-500 mt-1">{formatDateDisplay(v.date)} • {v.studentId ? students.find(s=>s.id===v.studentId)?.name : 'Tập thể'}</div>
+                           <div className="text-xs text-slate-500 mt-1">{formatDateDisplay(v.date)} • {studentName}</div>
                         </div>
                         <div className="font-bold text-green-600">+{Math.abs(v.points)}</div>
                       </div>
