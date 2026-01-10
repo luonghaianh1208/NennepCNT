@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Download, Filter, Search, CheckSquare, Square, Trash2, Edit, Link2, ListChecks } from 'lucide-react';
+import { Download, Filter, Search, CheckSquare, Square, Trash2, Edit, Link2, ListChecks, ChevronDown } from 'lucide-react';
 import { Violation } from '../types';
 import { safeParseImages, formatDateDisplay, isDateInRange, exportToExcel } from '../utils';
 import { useAppStore } from '../contexts/AppContext';
@@ -11,6 +11,8 @@ interface ListTabProps {
   setViewingViolation: (v: Violation | null) => void;
   handleEditClick: (e: React.MouseEvent, v: Violation) => void;
 }
+
+const ITEMS_PER_PAGE = 50;
 
 const ListTab: React.FC<ListTabProps> = ({ handleDeleteViolation, handleBulkDelete, setViewingViolation, handleEditClick }) => {
   const { currentUser, violations, classes, students, criteria, users, roleConfigs, timeConfigs } = useAppStore();
@@ -24,6 +26,9 @@ const ListTab: React.FC<ListTabProps> = ({ handleDeleteViolation, handleBulkDele
   const [selectedViolationIds, setSelectedViolationIds] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Pagination State
+  const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
+
   useEffect(() => {
      if (filterMode !== 'ALL') {
          const configs = timeConfigs.filter(c => c.type === filterMode);
@@ -33,6 +38,11 @@ const ListTab: React.FC<ListTabProps> = ({ handleDeleteViolation, handleBulkDele
          }
      }
   }, [filterMode, timeConfigs, filterConfigId]);
+
+  // Reset pagination when filters change
+  useEffect(() => {
+      setVisibleCount(ITEMS_PER_PAGE);
+  }, [filterMode, filterCriteriaType, filterConfigId, filterClassId, searchTerm]);
 
   const isAdmin = useMemo(() => {
      const roleKey = currentUser.role.toUpperCase();
@@ -62,7 +72,10 @@ const ListTab: React.FC<ListTabProps> = ({ handleDeleteViolation, handleBulkDele
             const studentName = v.studentId ? students.find(s => s.id === v.studentId && s.classId === v.classId)?.name : 'Tập thể';
             const className = classes.find(c => c.id === v.classId)?.name;
             const criteriaContent = criteria.find(c => c.id === v.criteriaId)?.content;
-            const note = v.note || '';
+            
+            // Ensure note is treated as string even if API returns number/null
+            const note = v.note ? String(v.note) : ''; 
+            
             const reporter = users.find(u => u.id === v.reportedBy)?.name;
             
             return (
@@ -78,6 +91,11 @@ const ListTab: React.FC<ListTabProps> = ({ handleDeleteViolation, handleBulkDele
     return list.sort((a, b) => b.timestamp - a.timestamp);
   }, [violations, filterClassId, filterMode, filterConfigId, filterCriteriaType, searchTerm, timeConfigs, classes, students, criteria, users]);
 
+  // Derived visible violations for rendering
+  const visibleViolations = useMemo(() => {
+      return filteredViolations.slice(0, visibleCount);
+  }, [filteredViolations, visibleCount]);
+
   const toggleSelection = (id: string) => {
     const newSet = new Set(selectedViolationIds);
     if (newSet.has(id)) newSet.delete(id);
@@ -86,12 +104,17 @@ const ListTab: React.FC<ListTabProps> = ({ handleDeleteViolation, handleBulkDele
   };
 
   const handleSelectAll = () => {
+    // Select all filtered (matching) items, not just visible ones
     if (selectedViolationIds.size === filteredViolations.length) setSelectedViolationIds(new Set());
     else {
        const newSet = new Set<string>();
        filteredViolations.forEach(v => newSet.add(v.id));
        setSelectedViolationIds(newSet);
     }
+  };
+
+  const handleLoadMore = () => {
+      setVisibleCount(prev => prev + ITEMS_PER_PAGE);
   };
 
   const handleExportFilteredData = () => {
@@ -176,7 +199,7 @@ const ListTab: React.FC<ListTabProps> = ({ handleDeleteViolation, handleBulkDele
 
         <div className="flex items-center gap-2 text-sm text-slate-500 italic pl-1">
             <ListChecks size={16} className="text-blue-500" />
-            <span>Hiển thị <strong>{filteredViolations.length}</strong> kết quả phù hợp.</span>
+            <span>Hiển thị <strong>{visibleViolations.length}</strong> / {filteredViolations.length} kết quả phù hợp.</span>
         </div>
       </div>
 
@@ -219,7 +242,7 @@ const ListTab: React.FC<ListTabProps> = ({ handleDeleteViolation, handleBulkDele
       </div>
 
       <div className="space-y-3">
-        {filteredViolations.map((v) => {
+        {visibleViolations.map((v) => {
           const cls = classes.find(c => c.id === v.classId);
           const stu = students.find(s => s.id === v.studentId && s.classId === v.classId);
           const cri = criteria.find(c => c.id === v.criteriaId);
@@ -300,11 +323,26 @@ const ListTab: React.FC<ListTabProps> = ({ handleDeleteViolation, handleBulkDele
             </div>
           );
         })}
+        
+        {/* Empty State */}
         {filteredViolations.length === 0 && (
           <div className="text-center py-10 flex flex-col items-center text-slate-400">
              <Search size={48} strokeWidth={1} className="mb-2 opacity-50" />
              <p>Không tìm thấy dữ liệu phù hợp với bộ lọc.</p>
           </div>
+        )}
+
+        {/* Load More Button */}
+        {visibleCount < filteredViolations.length && (
+            <div className="flex justify-center pt-2 pb-6">
+                <button 
+                    onClick={handleLoadMore}
+                    className="flex items-center gap-2 px-6 py-2.5 bg-white border border-slate-200 shadow-sm rounded-full text-slate-600 font-bold hover:bg-slate-50 hover:text-blue-600 hover:border-blue-200 transition-all active:scale-95"
+                >
+                    <ChevronDown size={18} />
+                    Xem thêm ({filteredViolations.length - visibleCount} mục nữa)
+                </button>
+            </div>
         )}
       </div>
 
