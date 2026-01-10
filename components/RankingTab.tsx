@@ -1,27 +1,20 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Trophy } from 'lucide-react';
-import { TimeConfig, Violation, ClassEntity } from '../types';
+import { Violation } from '../types';
 import { calculateScore, getUniqueWeeksCount, getEarliestViolationDate, getLatestViolationDate, isDateInRange, formatDateDisplay } from '../utils';
+import { useAppStore } from '../contexts/AppContext';
 
-interface RankingTabProps {
-  violations: Violation[];
-  classes: ClassEntity[];
-  timeConfigs: TimeConfig[];
-}
+const RankingTab: React.FC = () => {
+  const { violations, classes, timeConfigs } = useAppStore();
 
-const RankingTab: React.FC<RankingTabProps> = ({ violations, classes, timeConfigs }) => {
   const [rankingGradeTab, setRankingGradeTab] = useState<'10' | '11' | '12'>('10');
-  
-  // Mặc định là 'ALL' (Toàn thời gian)
   const [rankingFilterMode, setRankingFilterMode] = useState<'WEEK' | 'MONTH' | 'SEMESTER' | 'ALL'>('ALL');
   const [rankingFilterConfigId, setRankingFilterConfigId] = useState<string>('');
 
-  // Tự động chọn config đầu tiên nếu chuyển mode (Trừ ALL)
   useEffect(() => {
      if (rankingFilterMode !== 'ALL') {
         const availableConfigs = timeConfigs.filter(c => c.type === rankingFilterMode);
-        // Nếu config hiện tại không hợp lệ với mode, chọn cái đầu tiên
         const currentIsValid = availableConfigs.find(c => c.id === rankingFilterConfigId);
         if (!currentIsValid && availableConfigs.length > 0) {
             setRankingFilterConfigId(availableConfigs[0].id);
@@ -35,61 +28,37 @@ const RankingTab: React.FC<RankingTabProps> = ({ violations, classes, timeConfig
     let weeksCount = 1;
     let isRangeMode = false;
 
-    // 1. XÁC ĐỊNH MẪU SỐ (Số tuần) và LỌC VI PHẠM
     if (rankingFilterMode === 'ALL') {
-        // TOÀN THỜI GIAN: Dùng tất cả dữ liệu từ DB, không lọc ngày tháng
         relevantViolations = violations;
-        
-        // Tính weeks count dựa trên dải dữ liệu thực tế (Min -> Max)
         const minDate = getEarliestViolationDate(violations);
         const maxDate = getLatestViolationDate(violations);
         weeksCount = getUniqueWeeksCount(minDate, maxDate);
         isRangeMode = true;
 
     } else if (rankingFilterMode === 'WEEK') {
-        // THEO TUẦN (CẤU HÌNH): Mẫu số = 1
         const config = timeConfigs.find(c => c.id === rankingFilterConfigId);
         if (config) {
              relevantViolations = violations.filter(v => isDateInRange(v.date, config.startDate, config.endDate));
-        } else {
-             relevantViolations = [];
         }
         weeksCount = 1; 
         isRangeMode = false;
 
     } else {
-        // THEO THÁNG HOẶC HỌC KỲ
-        // Mẫu số phải lấy từ CẤU HÌNH, không phụ thuộc vào việc có vi phạm hay không.
         const config = timeConfigs.find(c => c.id === rankingFilterConfigId);
-        
         if (config) {
-            // Lọc vi phạm nằm đúng trong khoảng ngày cấu hình
             relevantViolations = violations.filter(v => isDateInRange(v.date, config.startDate, config.endDate));
-            
-            // QUAN TRỌNG: Tính tổng số tuần của khoảng thời gian cấu hình
-            // Ví dụ: HK1 từ 05/09 đến 15/01 -> ~19 tuần.
-            // Số này sẽ dùng làm mẫu số cho tất cả các lớp.
             weeksCount = getUniqueWeeksCount(config.startDate, config.endDate);
         } else {
-            // Nếu không tìm thấy config (chưa chọn), danh sách lỗi rỗng, weeksCount=1
             relevantViolations = [];
             weeksCount = 1;
         }
         isRangeMode = true;
     }
 
-    // 2. TÍNH ĐIỂM CHO TỪNG LỚP
     const targetClasses = classes.filter(c => c.grade.toString() === rankingGradeTab);
     
     const stats = targetClasses.map(cls => {
-      // Lấy lỗi của riêng lớp này
       const clsViolations = relevantViolations.filter(v => v.classId === cls.id);
-      
-      // Tính điểm:
-      // calculateScore(loi_cua_lop, 500, tong_so_tuan_cua_ky, true)
-      // Nếu tong_so_tuan_cua_ky = 19, loi_cua_lop = 90đ
-      // Score = 500 - (90 / 19) = 495.26
-      // Nếu loi_cua_lop = 0 -> Score = 500
       const totalScore = calculateScore(clsViolations, baseScore, weeksCount, isRangeMode);
       
       return { 
@@ -99,10 +68,8 @@ const RankingTab: React.FC<RankingTabProps> = ({ violations, classes, timeConfig
       };
     });
 
-    // 3. XẾP HẠNG (Rank)
     const sorted = stats.sort((a, b) => b.score - a.score);
 
-    // Xử lý đồng hạng (Dense Rank: 1, 1, 3, 4, 4, 6...)
     return sorted.map((item, index) => {
         let rank = index + 1;
         if (index > 0 && item.score === sorted[index - 1].score) {
@@ -117,7 +84,6 @@ const RankingTab: React.FC<RankingTabProps> = ({ violations, classes, timeConfig
 
   }, [violations, classes, rankingGradeTab, rankingFilterMode, rankingFilterConfigId, timeConfigs]);
 
-  // Label hiển thị thời gian
   let timeLabel = '';
   if (rankingFilterMode === 'ALL') {
       const min = getEarliestViolationDate(violations);
@@ -165,10 +131,7 @@ const RankingTab: React.FC<RankingTabProps> = ({ violations, classes, timeConfig
          <select 
             className="bg-slate-50 border border-slate-300 rounded-lg px-2 py-2 text-sm outline-none font-medium w-full sm:w-auto" 
             value={rankingFilterMode} 
-            onChange={(e) => {
-                const newMode = e.target.value as any;
-                setRankingFilterMode(newMode);
-            }}
+            onChange={(e) => setRankingFilterMode(e.target.value as any)}
          >
            <option value="ALL">Toàn thời gian (Tất cả)</option>
            <option value="WEEK">Theo Tuần (Cấu hình)</option>

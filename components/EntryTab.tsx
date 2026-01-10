@@ -1,22 +1,14 @@
+
 import React, { useState, useRef, useMemo } from 'react';
-import { AlertTriangle, Star, ChevronDown, Camera, X, CheckCircle2, Shield, Upload, Info, Loader2, StopCircle } from 'lucide-react';
-import { User, ClassEntity, Student, Criteria, Violation, RoleConfig } from '../types';
+import { AlertTriangle, Star, ChevronDown, Camera, X, CheckCircle2, Upload, Info, Loader2, StopCircle } from 'lucide-react';
+import { Violation } from '../types';
 import { api } from '../services/googleApi';
 import { parseCSVLine, removeVietnameseTones } from '../utils';
+import { useAppStore } from '../contexts/AppContext';
 
-interface EntryTabProps {
-  currentUser: User;
-  classes: ClassEntity[];
-  students: Student[];
-  criteria: Criteria[];
-  violations: Violation[];
-  setViolations: (v: Violation[]) => void;
-  roleConfigs?: Record<string, RoleConfig>;
-  // Thêm props users để tìm kiếm người báo cáo khi import CSV
-  users?: User[]; 
-}
+const EntryTab: React.FC = () => {
+  const { currentUser, classes, students, criteria, violations, setViolations, roleConfigs, users, createViolation } = useAppStore();
 
-const EntryTab: React.FC<EntryTabProps & { users?: User[] }> = ({ currentUser, classes, students, criteria, violations, setViolations, roleConfigs, users = [] }) => {
   const [entryMode, setEntryMode] = useState<'VIOLATION' | 'ACHIEVEMENT'>('VIOLATION');
   const [entryDate, setEntryDate] = useState(new Date().toISOString().slice(0, 10));
   const [selectedGrade, setSelectedGrade] = useState<string>('');
@@ -33,10 +25,9 @@ const EntryTab: React.FC<EntryTabProps & { users?: User[] }> = ({ currentUser, c
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const csvInputRef = useRef<HTMLInputElement>(null);
-  const abortImportRef = useRef<boolean>(false); // Ref để kiểm soát việc hủy
+  const abortImportRef = useRef<boolean>(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
-  // Check Admin permission dynamically
   const isAdmin = useMemo(() => {
      if (!roleConfigs) return currentUser.role === 'ADMIN';
      const roleKey = currentUser.role.toUpperCase();
@@ -78,14 +69,12 @@ const EntryTab: React.FC<EntryTabProps & { users?: User[] }> = ({ currentUser, c
       
       const recordsToProcess: Violation[] = [];
       
-      // 1. Parse CSV based on Mode
       for (let i = 1; i < lines.length; i++) {
         const line = lines[i].trim();
         if (!line) continue;
         const parts = parseCSVLine(line);
         
         if (entryMode === 'VIOLATION') {
-             // Columns: Ngay_vi_pham, Lop_vi_pham, HS_vi_pham, Loi_vi_pham, Diem_tru, Ghi_chu, Link_anh, Nguoi_ghi_loi, Role_nguoi_ghi_loi
              if (parts.length >= 5) {
                 const [ngay, tenLop, tenHS, noiDungLoi, diemTruStr, ghiChu, linkAnh, nguoiGhi] = parts;
                 const targetClass = classes.find(c => c.name.toLowerCase() === tenLop.toLowerCase() || c.id.toLowerCase() === tenLop.toLowerCase());
@@ -97,7 +86,6 @@ const EntryTab: React.FC<EntryTabProps & { users?: User[] }> = ({ currentUser, c
                          targetStudentId = student ? student.id : undefined;
                     }
 
-                    // Tìm Criteria ID dựa trên nội dung, nếu không có thì tạo ID ảo
                     const foundCriteria = criteria.find(c => c.content.toLowerCase() === noiDungLoi.toLowerCase() && c.type === 'MINUS');
                     const criteriaId = foundCriteria ? foundCriteria.id : `IMP_V_${Date.now()}_${i}`;
                     
@@ -107,7 +95,7 @@ const EntryTab: React.FC<EntryTabProps & { users?: User[] }> = ({ currentUser, c
                     const imageList = linkAnh ? [linkAnh] : [];
                     const noteContent = ghiChu ? ghiChu.trim() : '';
                     
-                    let reporterId = currentUser.id; // Default Admin
+                    let reporterId = currentUser.id;
                     if (nguoiGhi) {
                         const foundUser = users.find(u => 
                             u.name.toLowerCase() === nguoiGhi.toLowerCase() || 
@@ -132,10 +120,7 @@ const EntryTab: React.FC<EntryTabProps & { users?: User[] }> = ({ currentUser, c
                 }
              }
         } else {
-             // ACHIEVEMENT MODE - CẬP NHẬT THEO YÊU CẦU 6 CỘT
-             // Columns: Ngay, Ten_Lop, HS_dat_thanh_tich, Loai_thanh_tich, Diem_cong, Ghi_chu
-             // Index:   0     1        2                  3                4          5
-             if (parts.length >= 5) { // Ghi chú (cột 6) có thể trống
+             if (parts.length >= 5) {
                  const [ngay, tenLop, tenHS, loaiThanhTich, diemCongStr, ghiChu] = parts;
                  
                  const targetClass = classes.find(c => c.name.toLowerCase() === tenLop.toLowerCase() || c.id.toLowerCase() === tenLop.toLowerCase());
@@ -150,18 +135,13 @@ const EntryTab: React.FC<EntryTabProps & { users?: User[] }> = ({ currentUser, c
                     const foundCriteria = criteria.find(c => c.content.toLowerCase() === loaiThanhTich.toLowerCase() && c.type === 'PLUS');
                     const criteriaId = foundCriteria ? foundCriteria.id : `IMP_A_${Date.now()}_${i}`;
                     
-                    // Xử lý điểm cộng: Đảm bảo là số âm trong hệ thống (vì hệ thống quy định Điểm = Số trừ, nên điểm cộng là số âm của số trừ)
-                    // Tuy nhiên trong code này mình đang dùng convention: 
-                    // points > 0 là Vi phạm (Trừ điểm).
-                    // points < 0 là Thành tích (Cộng điểm).
-                    // File CSV nhập vào cột "Điểm cộng" (VD: 10), thì phải chuyển thành -10.
                     let points = 0;
                     if (diemCongStr) {
                          points = parseFloat(diemCongStr);
                     } else if (foundCriteria) {
                          points = foundCriteria.points;
                     }
-                    const finalPoints = -Math.abs(points); // Luôn là số âm
+                    const finalPoints = -Math.abs(points);
 
                     recordsToProcess.push({
                         id: `VCSV_A_${Date.now()}_${i}`,
@@ -192,9 +172,8 @@ const EntryTab: React.FC<EntryTabProps & { users?: User[] }> = ({ currentUser, c
           return;
       }
 
-      // 2. Send to API sequentially with Abort check
       setIsSubmitting(true);
-      abortImportRef.current = false; // Reset abort flag
+      abortImportRef.current = false;
       let successCount = 0;
       let errorCount = 0;
 
@@ -208,7 +187,6 @@ const EntryTab: React.FC<EntryTabProps & { users?: User[] }> = ({ currentUser, c
           try {
               await api.createViolation(recordsToProcess[i]);
               successCount++;
-              // Thêm delay nhỏ để UI kịp cập nhật nếu cần
               await new Promise(resolve => setTimeout(resolve, 50));
           } catch (err) {
               console.error(err);
@@ -216,7 +194,6 @@ const EntryTab: React.FC<EntryTabProps & { users?: User[] }> = ({ currentUser, c
           }
       }
 
-      // 3. Update UI
       const processedRecords = recordsToProcess.slice(0, successCount + errorCount);
       setViolations([...processedRecords, ...violations]); 
       
@@ -238,7 +215,6 @@ const EntryTab: React.FC<EntryTabProps & { users?: User[] }> = ({ currentUser, c
     if (!selectedClassId || !selectedCriteriaId) return alert("Vui lòng chọn lớp và nội dung");
     if (selectedType === 'PERSONAL' && !selectedStudentId) return alert("Vui lòng chọn học sinh");
     
-    // Check image requirement: REQUIRED for Violation, OPTIONAL for Achievement
     if (entryMode === 'VIOLATION' && !previewImage) {
         return alert("Bắt buộc phải có ảnh minh họa/bằng chứng cho lỗi vi phạm.");
     }
@@ -256,7 +232,6 @@ const EntryTab: React.FC<EntryTabProps & { users?: User[] }> = ({ currentUser, c
 
         let imageUrls: string[] = [];
         if (previewImage) {
-            // Chuẩn hóa tên file
             const safeStudentName = selectedStudent ? removeVietnameseTones(selectedStudent.name) : 'TapThe';
             const safeClassName = selectedClass ? removeVietnameseTones(selectedClass.name) : selectedClassId;
             const safeViolation = criteriaItem ? removeVietnameseTones(criteriaItem.content) : 'LoiViPham';
@@ -291,8 +266,7 @@ const EntryTab: React.FC<EntryTabProps & { users?: User[] }> = ({ currentUser, c
           timestamp: Date.now()
         };
 
-        await api.createViolation(newViolation);
-        setViolations([newViolation, ...violations]);
+        await createViolation(newViolation);
         setShowSuccessModal(true);
         
         setSelectedStudentId('');

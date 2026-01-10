@@ -1,37 +1,12 @@
 
 import React, { useState, useRef } from 'react';
-import { Save, Clock, PlusCircle, Trash2, Plus, LogOut, Info, Upload, Users, GraduationCap, Calendar, X, Settings, AlertTriangle, Star, UserPlus, Edit, Check, Shield, LayoutTemplate } from 'lucide-react';
-import { TimeConfig, ClassEntity, Student, Criteria, User, RoleConfig, AppTheme } from '../types';
+import { Save, PlusCircle, Trash2, Plus, Upload, Users, GraduationCap, Calendar, X, Settings, AlertTriangle, Star, UserPlus, Edit, Check, Shield, LayoutTemplate } from 'lucide-react';
+import { User, ClassEntity, Student, Criteria, RoleConfig } from '../types';
 import { parseCSVLine, removeVietnameseTones } from '../utils';
+import { useAppStore } from '../contexts/AppContext';
 
-interface SettingsTabProps {
-  currentUserRole: string;
-  currentUser: User;
-  setCurrentUser: (u: User) => void;
-  academicYear: string;
-  setAcademicYear: (y: string) => void;
-  timeConfigs: TimeConfig[];
-  setTimeConfigs: (tc: TimeConfig[]) => void;
-  classes: ClassEntity[];
-  setClasses: (c: ClassEntity[]) => void;
-  students: Student[];
-  setStudents: (s: Student[]) => void;
-  criteria: Criteria[];
-  setCriteria: (c: Criteria[]) => void;
-  users: User[];
-  setUsers: (u: User[]) => void;
-  roleConfigs: Record<string, RoleConfig>;
-  setRoleConfigs: (r: Record<string, RoleConfig>) => void;
-  handleSaveSettings: () => void;
-  unsavedChanges: boolean;
-  setUnsavedChanges: (b: boolean) => void;
-  appTheme?: AppTheme;
-  setAppTheme?: (t: AppTheme) => void;
-}
-
-const SettingsTab: React.FC<SettingsTabProps> = (props) => {
+const SettingsTab: React.FC = () => {
   const { 
-      academicYear, setAcademicYear, 
       timeConfigs, setTimeConfigs, 
       classes, setClasses, 
       students, setStudents, 
@@ -39,13 +14,12 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
       users, setUsers, 
       roleConfigs, setRoleConfigs,
       currentUser, setCurrentUser,
-      setUnsavedChanges, handleSaveSettings, unsavedChanges,
+      setUnsavedChanges, syncSettings, unsavedChanges,
       appTheme, setAppTheme
-  } = props;
+  } = useAppStore();
 
   const [activeSubTab, setActiveSubTab] = useState<'ROLES' | 'TIME' | 'CLASSES' | 'STUDENTS' | 'CRITERIA_VIOLATION' | 'CRITERIA_ACHIEVEMENT' | 'ACCOUNTS'>('ROLES');
   
-  // States
   const [newClassName, setNewClassName] = useState('');
   const [newClassGrade, setNewClassGrade] = useState('10');
   const [newClassTeacher, setNewClassTeacher] = useState('');
@@ -64,12 +38,10 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
 
   const [editingUser, setEditingUser] = useState<User | null>(null);
 
-  // New Role States
   const [newRoleKey, setNewRoleKey] = useState('');
   const [newRoleLabel, setNewRoleLabel] = useState('');
   const [newRoleColor, setNewRoleColor] = useState('gray');
 
-  // New Time Config State
   const [newTimeType, setNewTimeType] = useState<'WEEK' | 'MONTH' | 'SEMESTER'>('WEEK');
 
   const csvClassInputRef = useRef<HTMLInputElement>(null);
@@ -77,6 +49,16 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
   const csvViolationInputRef = useRef<HTMLInputElement>(null);
   const csvAchievementInputRef = useRef<HTMLInputElement>(null);
   const csvAccountInputRef = useRef<HTMLInputElement>(null);
+
+  const handleSaveSettings = async () => {
+      if(!confirm("Lưu toàn bộ cấu hình lên hệ thống?")) return;
+      const success = await syncSettings();
+      if(success) {
+          alert("Đã lưu thành công!");
+      } else {
+          alert("Lỗi khi lưu dữ liệu. Vui lòng thử lại.");
+      }
+  };
 
   const handleUpdateTimeConfig = (id: string, field: 'startDate' | 'endDate' | 'name' | 'type', value: string) => {
     setUnsavedChanges(true);
@@ -101,7 +83,6 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
 
   const handleAddStudent = () => {
     if(!newStudentName || !selectedClassForStudent) return;
-    // Generate Deterministic ID for manual add as well
     const safeId = `S_${selectedClassForStudent}_${removeVietnameseTones(newStudentName).replace(/\s+/g, '')}`.toUpperCase();
     
     if (students.find(s => s.id === safeId)) {
@@ -139,7 +120,6 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
     }
   };
 
-  // --- Roles Logic ---
   const handleAddRole = () => {
     if (!newRoleKey || !newRoleLabel) return alert("Mã vai trò và Tên hiển thị không được trống");
     const key = newRoleKey.toUpperCase().replace(/\s/g, '_');
@@ -180,7 +160,6 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
       setUnsavedChanges(true);
   };
 
-  // --- Users Logic ---
   const handleAddUser = () => {
     if (!newUserFullName || !newUserUsername || !newUserPassword) return alert("Vui lòng nhập đầy đủ thông tin bắt buộc");
     if (users.find(u => u.username === newUserUsername)) return alert("Tên đăng nhập/Email đã tồn tại");
@@ -234,7 +213,6 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
       setUnsavedChanges(true);
   };
 
-  // --- CSV Handlers ---
   const processCSV = (e: React.ChangeEvent<HTMLInputElement>, callback: (rows: string[][]) => void) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -297,7 +275,6 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
                 const cls = classes.find(c => c.name.toLowerCase() === className.toLowerCase() || c.id.toLowerCase() === className.toLowerCase());
                 
                 if (cls) {
-                    // ID = CLS_ID + NORMALIZED_NAME (Guarantees uniqueness per class/student)
                     const safeId = `S_${cls.id}_${removeVietnameseTones(studentName).replace(/\s+/g, '')}`.toUpperCase();
                     
                     if (!students.find(s => s.id === safeId) && !newStudents.find(s => s.id === safeId)) {
@@ -508,11 +485,9 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
         </div>
       )}
 
-      {/* ROLES / GENERAL MANAGEMENT TAB */}
       {activeSubTab === 'ROLES' && (
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-             {/* SECTION: GIAO DIỆN HỆ THỐNG */}
-             {setAppTheme && appTheme && (
+             {appTheme && (
                  <div className="mb-6 border-b border-slate-100 pb-6">
                      <h3 className="font-bold text-lg mb-3 text-slate-800 flex items-center gap-2"><LayoutTemplate size={20}/> Giao diện hệ thống</h3>
                      <div className="flex gap-4">
@@ -587,7 +562,6 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
           </div>
       )}
 
-      {/* TIME TAB */}
       {activeSubTab === 'TIME' && (
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
             <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-2">
@@ -610,7 +584,6 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
             </div>
             
             <div className="space-y-4">
-                {/* Group by Types */}
                 {['WEEK', 'MONTH', 'SEMESTER'].map(type => {
                     const configs = timeConfigs.filter(c => c.type === type);
                     if (configs.length === 0) return null;
@@ -651,7 +624,6 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
           </div>
       )}
 
-      {/* CLASSES TAB */}
       {activeSubTab === 'CLASSES' && (
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
              <div className="flex justify-between items-center mb-4">
@@ -695,7 +667,6 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
           </div>
       )}
 
-      {/* STUDENTS TAB */}
       {activeSubTab === 'STUDENTS' && (
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
              <div className="flex justify-between items-center mb-4">
@@ -762,7 +733,6 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
           </div>
       )}
 
-      {/* CRITERIA VIOLATION TAB */}
       {activeSubTab === 'CRITERIA_VIOLATION' && (
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
              <div className="flex justify-between items-center mb-4">
@@ -822,7 +792,6 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
           </div>
       )}
 
-      {/* CRITERIA ACHIEVEMENT TAB */}
       {activeSubTab === 'CRITERIA_ACHIEVEMENT' && (
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
              <div className="flex justify-between items-center mb-4">
@@ -882,7 +851,6 @@ const SettingsTab: React.FC<SettingsTabProps> = (props) => {
           </div>
       )}
 
-      {/* ACCOUNTS TAB */}
       {activeSubTab === 'ACCOUNTS' && (
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
              <div className="flex justify-between items-center mb-4">

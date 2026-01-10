@@ -2,20 +2,17 @@
 import React, { useState, useMemo } from 'react';
 import { Award, TrendingUp, ThumbsDown, ThumbsUp, AlertCircle, Link2, Users, Download } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { User, ClassEntity, Violation, Student, Criteria, TimeConfig } from '../types';
-import { calculateScore, safeParseImages, formatDateDisplay, getUniqueWeeksCount, getEarliestViolationDate, getLatestViolationDate, isDateInRange, formatDateForInput, getYearWeekKey, exportToExcel } from '../utils';
+import { Violation } from '../types';
+import { calculateScore, safeParseImages, formatDateDisplay, getUniqueWeeksCount, getEarliestViolationDate, getLatestViolationDate, isDateInRange, getYearWeekKey, exportToExcel } from '../utils';
+import { useAppStore } from '../contexts/AppContext';
 
 interface ClassDetailTabProps {
-  currentUser: User;
-  classes: ClassEntity[];
-  violations: Violation[];
-  criteria: Criteria[];
-  students: Student[];
   setViewingViolation: (v: Violation | null) => void;
-  timeConfigs: TimeConfig[];
 }
 
-const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ currentUser, classes, violations, criteria, students, setViewingViolation, timeConfigs }) => {
+const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ setViewingViolation }) => {
+  const { currentUser, classes, violations, criteria, students, timeConfigs } = useAppStore();
+
   const [selectedClassId, setSelectedClassId] = useState('');
 
   const isRestrictedUser = (currentUser.role === 'TEACHER' || currentUser.role === 'RED_FLAG' || currentUser.role === 'DISCIPLINE') && currentUser.className;
@@ -26,7 +23,6 @@ const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ currentUser, classes, v
 
   const cls = classes.find(c => c.id === targetClassId);
 
-  // 1. FILTER VIOLATIONS: Get ALL violations for this class
   const clsViolations = useMemo(() => {
      if (!targetClassId) return [];
      return violations
@@ -34,26 +30,21 @@ const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ currentUser, classes, v
         .sort((a,b) => b.timestamp - a.timestamp);
   }, [violations, targetClassId]);
 
-  // 2. LOGIC TÍNH TOÁN DỰA TRÊN CẤU HÌNH (STRICT MODE)
   const { chartData, totalWeeksCount } = useMemo(() => {
-      // A. Lọc ra các cấu hình loại 'WEEK' và sắp xếp theo ngày bắt đầu
       const configuredWeeks = timeConfigs
           .filter(c => c.type === 'WEEK')
           .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
 
-      // B. Nếu CÓ cấu hình tuần, Biểu đồ & Thống kê sẽ chạy theo cấu hình này (Yêu cầu của user)
       if (configuredWeeks.length > 0) {
           const data = configuredWeeks.map(config => {
-              // Tìm các vi phạm nằm đúng trong khoảng ngày của tuần này
               const violationsInScope = clsViolations.filter(v => 
                   isDateInRange(v.date, config.startDate, config.endDate)
               );
 
-              // Tính điểm cho tuần này (mẫu số tuần = 1)
               const score = calculateScore(violationsInScope, 500, 1, false);
 
               return {
-                  name: config.name, // Hiển thị tên cấu hình (VD: Tuần 1)
+                  name: config.name,
                   fullLabel: `${config.name} (${formatDateDisplay(config.startDate)} - ${formatDateDisplay(config.endDate)})`,
                   score: score,
                   key: config.id
@@ -62,12 +53,9 @@ const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ currentUser, classes, v
 
           return { 
               chartData: data, 
-              totalWeeksCount: configuredWeeks.length // Mẫu số tổng là số lượng tuần đã cấu hình
+              totalWeeksCount: configuredWeeks.length
           };
-      } 
-      
-      // C. Fallback: Nếu KHÔNG có cấu hình tuần nào -> Dùng logic cũ (Quét Min/Max Date)
-      else {
+      } else {
           const minDate = getEarliestViolationDate(violations);
           const maxDate = getLatestViolationDate(violations);
           const weeksCount = getUniqueWeeksCount(minDate, maxDate);
@@ -75,7 +63,7 @@ const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ currentUser, classes, v
           const keys: string[] = [];
           const current = new Date(minDate);
           const day = current.getDay() || 7; 
-          current.setDate(current.getDate() - day + 1); // Về thứ 2
+          current.setDate(current.getDate() - day + 1);
           const endDate = new Date(maxDate);
           
           while (current <= endDate || getYearWeekKey(current) === getYearWeekKey(endDate)) {
@@ -108,7 +96,6 @@ const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ currentUser, classes, v
       );
   }
 
-  // 3. RANKING LOGIC (GLOBAL / ALL TIME)
   const gradeClasses = classes.filter(c => c.grade === cls.grade);
   const gradeRankings = gradeClasses.map(c => {
       const cViolations = violations.filter(v => v.classId === c.id);
@@ -133,11 +120,9 @@ const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ currentUser, classes, v
   const minusViolations = clsViolations.filter(v => v.points > 0);
   const plusViolations = clsViolations.filter(v => v.points < 0);
 
-  // 4. STUDENT STATISTICS
   const studentViolationStats = useMemo(() => {
       const classStudents = students.filter(s => s.classId === targetClassId);
       const stats = classStudents.map(s => {
-          // STRICT MATCH: studentId AND classId must match
           const studentMinus = minusViolations.filter(v => v.studentId === s.id && v.classId === targetClassId);
           const totalMinusPoints = studentMinus.reduce((acc, v) => acc + v.points, 0);
           return {
@@ -188,7 +173,6 @@ const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ currentUser, classes, v
         </div>
         
         <div className="bg-white border-l-4 border-l-green-500 rounded-xl shadow-sm p-4">
-           {/* CẬP NHẬT LABEL: Điểm TB -> Tổng Điểm */}
            <div className="text-slate-500 text-xs font-bold uppercase mb-1 flex items-center gap-1"><TrendingUp size={14} /> Tổng Điểm</div>
            <div className="text-3xl font-black text-slate-800">{myStats?.avgScore?.toFixed(2)}</div>
            <div className="text-xs text-slate-400 mt-1">Trên tổng {totalWeeksCount} tuần cấu hình</div>
@@ -202,7 +186,6 @@ const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ currentUser, classes, v
              <LineChart data={chartData}>
                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b'}} interval="preserveStartEnd" minTickGap={20} />
-               {/* YAxis domain có thể cần điều chỉnh nếu muốn hiển thị động, nhưng chartData vẫn là theo tuần đơn lẻ nên giữ nguyên domain 520 là hợp lý cho chart */}
                <YAxis domain={[0, 520]} hide />
                <Tooltip 
                  labelStyle={{ fontWeight: 'bold', color: '#1e293b' }}
@@ -222,7 +205,6 @@ const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ currentUser, classes, v
          </div>
       </div>
       
-      {/* THỐNG KÊ HỌC SINH VI PHẠM */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
          <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-2">
              <div className="flex items-center gap-2 text-slate-800 font-bold">
@@ -272,7 +254,6 @@ const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ currentUser, classes, v
             <div className="space-y-2">
               {minusViolations.length > 0 ? minusViolations.map(v => {
                   const images = safeParseImages(v.images);
-                  // FIX: Strict check for student matching both ID and ClassID
                   const studentName = v.studentId 
                       ? (students.find(s => s.id === v.studentId && s.classId === v.classId)?.name || 'Học sinh không tồn tại') 
                       : 'Tập thể';
@@ -319,7 +300,6 @@ const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ currentUser, classes, v
             <div className="space-y-2">
               {plusViolations.length > 0 ? plusViolations.map(v => {
                   const images = safeParseImages(v.images);
-                  // FIX: Strict check for student matching both ID and ClassID
                   const studentName = v.studentId 
                       ? (students.find(s => s.id === v.studentId && s.classId === v.classId)?.name || 'Học sinh không tồn tại') 
                       : 'Tập thể';

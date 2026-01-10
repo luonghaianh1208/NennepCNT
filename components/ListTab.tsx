@@ -1,41 +1,32 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Download, Filter, Search, CheckSquare, Square, Trash2, AlertTriangle, Eye, Edit, Link2, ListChecks } from 'lucide-react';
-import { Violation, ClassEntity, Student, Criteria, User, RoleConfig, TimeConfig } from '../types';
-import { getWeekNumber, safeParseImages, formatDateDisplay, removeVietnameseTones, isDateInRange, exportToExcel } from '../utils';
+import { Download, Filter, Search, CheckSquare, Square, Trash2, Edit, Link2, ListChecks } from 'lucide-react';
+import { Violation } from '../types';
+import { safeParseImages, formatDateDisplay, isDateInRange, exportToExcel } from '../utils';
+import { useAppStore } from '../contexts/AppContext';
 
 interface ListTabProps {
-  currentUser: User;
-  violations: Violation[];
-  classes: ClassEntity[];
-  students: Student[];
-  criteria: Criteria[];
-  users: User[];
-  roleConfigs: Record<string, RoleConfig>;
-  timeConfigs: TimeConfig[]; 
   handleDeleteViolation: (id: string) => void;
   handleBulkDelete: (ids: string[]) => void;
   setViewingViolation: (v: Violation | null) => void;
   handleEditClick: (e: React.MouseEvent, v: Violation) => void;
 }
 
-const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, students, criteria, users, roleConfigs, timeConfigs, handleDeleteViolation, handleBulkDelete, setViewingViolation, handleEditClick }) => {
-  // Default to ALL to show everything by default as requested
+const ListTab: React.FC<ListTabProps> = ({ handleDeleteViolation, handleBulkDelete, setViewingViolation, handleEditClick }) => {
+  const { currentUser, violations, classes, students, criteria, users, roleConfigs, timeConfigs } = useAppStore();
+
   const [filterMode, setFilterMode] = useState<'MONTH' | 'WEEK' | 'SEMESTER' | 'ALL'>('ALL');
   const [filterCriteriaType, setFilterCriteriaType] = useState<'ALL' | 'MINUS' | 'PLUS'>('ALL');
   
-  // State for Filters
-  const [filterConfigId, setFilterConfigId] = useState(''); // Dùng chung ID cho cả WEEK, MONTH, SEMESTER
+  const [filterConfigId, setFilterConfigId] = useState('');
   const [filterClassId, setFilterClassId] = useState('ALL');
   
   const [selectedViolationIds, setSelectedViolationIds] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Auto-select first config if available when switching Mode
   useEffect(() => {
      if (filterMode !== 'ALL') {
          const configs = timeConfigs.filter(c => c.type === filterMode);
-         // Nếu chưa chọn hoặc config hiện tại không thuộc mode mới, chọn cái đầu tiên
          const currentIsValid = configs.find(c => c.id === filterConfigId);
          if (!currentIsValid && configs.length > 0) {
              setFilterConfigId(configs[0].id);
@@ -43,7 +34,6 @@ const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, stu
      }
   }, [filterMode, timeConfigs, filterConfigId]);
 
-  // Check Admin permission safely based on Role Config
   const isAdmin = useMemo(() => {
      const roleKey = currentUser.role.toUpperCase();
      return roleConfigs[roleKey]?.isAdmin || false;
@@ -52,37 +42,29 @@ const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, stu
   const filteredViolations = useMemo(() => {
     let list = violations;
 
-    // 1. Filter by Class
     if (filterClassId !== 'ALL') list = list.filter(v => v.classId === filterClassId);
     
-    // 2. Filter by Time Mode (WEEK/MONTH/SEMESTER dùng chung logic lấy config từ ID)
     if (filterMode !== 'ALL') {
         const config = timeConfigs.find(c => c.id === filterConfigId);
         if (config) {
-            // SỬ DỤNG HÀM isDateInRange ĐỂ ĐẢM BẢO CHÍNH XÁC (bao gồm cả ngày start và end)
             list = list.filter(v => isDateInRange(v.date, config.startDate, config.endDate));
         } else {
-             // Nếu chọn mode mà không có config, list rỗng
              if (timeConfigs.filter(c => c.type === filterMode).length > 0) list = []; 
         }
     }
 
-    // 3. Filter by Criteria Type
     if (filterCriteriaType === 'MINUS') list = list.filter(v => v.points > 0);
     else if (filterCriteriaType === 'PLUS') list = list.filter(v => v.points < 0);
 
-    // 4. Search Filter (Client-side)
     if (searchTerm.trim()) {
         const term = searchTerm.toLowerCase();
         list = list.filter(v => {
-            // STRICT MATCHING HERE TOO
             const studentName = v.studentId ? students.find(s => s.id === v.studentId && s.classId === v.classId)?.name : 'Tập thể';
             const className = classes.find(c => c.id === v.classId)?.name;
             const criteriaContent = criteria.find(c => c.id === v.criteriaId)?.content;
             const note = v.note || '';
             const reporter = users.find(u => u.id === v.reportedBy)?.name;
             
-            // Search in: Student Name, Class Name, Criteria, Note, Reporter
             return (
                 (studentName && studentName.toLowerCase().includes(term)) ||
                 (className && className.toLowerCase().includes(term)) ||
@@ -118,7 +100,6 @@ const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, stu
       return;
     }
 
-    // 1. Định nghĩa Header
     const headerRow = [
       "Mã ID",
       "Ngày",
@@ -132,10 +113,8 @@ const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, stu
       "Loại"
     ];
 
-    // 2. Map dữ liệu
     const dataRows = filteredViolations.map(v => {
       const clsName = classes.find(c => c.id === v.classId)?.name || v.classId;
-      // STRICT MATCHING
       const stuName = v.studentId ? (students.find(s => s.id === v.studentId && s.classId === v.classId)?.name || v.studentId) : "Tập thể";
       const criContent = criteria.find(c => c.id === v.criteriaId)?.content || v.criteriaId;
       
@@ -173,7 +152,6 @@ const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, stu
 
   return (
     <div className="space-y-4 pb-28">
-      {/* Search Bar & Export */}
       <div className="flex flex-col gap-3 mb-2">
         <div className="flex justify-between items-center">
             <h2 className="text-xl font-bold text-slate-800">Tra Cứu Dữ Liệu</h2>
@@ -185,7 +163,6 @@ const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, stu
             </button>
         </div>
         
-        {/* Search Input */}
         <div className="relative w-full">
             <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
             <input 
@@ -197,14 +174,12 @@ const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, stu
             />
         </div>
 
-        {/* --- KẾT QUẢ BỘ LỌC (New Feature) --- */}
         <div className="flex items-center gap-2 text-sm text-slate-500 italic pl-1">
             <ListChecks size={16} className="text-blue-500" />
             <span>Hiển thị <strong>{filteredViolations.length}</strong> kết quả phù hợp.</span>
         </div>
       </div>
 
-      {/* Filter Section */}
       <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm space-y-3">
          <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-slate-700 font-bold text-sm"><Filter size={16} /> Bộ lọc dữ liệu</div>
@@ -227,7 +202,6 @@ const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, stu
                <option value="PLUS">Chỉ xem Thành tích</option>
             </select>
             
-            {/* Dynamic Time Filter Inputs */}
             {filterMode !== 'ALL' && (
                 <select className="bg-slate-50 border border-slate-300 rounded-lg px-2 py-2 text-sm outline-none" value={filterConfigId} onChange={(e) => setFilterConfigId(e.target.value)}>
                     {getTimeOptions().length === 0 && <option value="">Chưa có cấu hình</option>}
@@ -247,17 +221,14 @@ const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, stu
       <div className="space-y-3">
         {filteredViolations.map((v) => {
           const cls = classes.find(c => c.id === v.classId);
-          // STRICT MATCHING
           const stu = students.find(s => s.id === v.studentId && s.classId === v.classId);
           const cri = criteria.find(c => c.id === v.criteriaId);
           const isSelected = selectedViolationIds.has(v.id);
-          
           const images = safeParseImages(v.images);
 
           const reporterUser = users.find(u => u.id === v.reportedBy);
           const reporterRoleConfig = reporterUser ? roleConfigs[reporterUser.role] : null;
           const reporterRoleLabel = reporterRoleConfig ? reporterRoleConfig.label : 'Không rõ';
-          
           const isReporterMe = v.reportedBy === currentUser.id;
           const reporterColor = reporterRoleConfig ? reporterRoleConfig.color : 'gray';
 
@@ -296,12 +267,10 @@ const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, stu
                   <div className="text-sm font-medium text-slate-800 mb-0.5">{stu ? `${stu.name} - Cá nhân` : 'Tập thể lớp'}</div>
                   <div className="text-sm text-slate-600 mb-1">{cri?.content}</div>
                   
-                  {/* Hiển thị người báo dạng Tag */}
                   <div className="mt-1">
                       {reporterDisplay}
                   </div>
 
-                  {/* Hiển thị Link Ảnh */}
                   {images.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-2">
                       {images.map((img, idx) => (
@@ -310,7 +279,7 @@ const ListTab: React.FC<ListTabProps> = ({ currentUser, violations, classes, stu
                             href={img} 
                             target="_blank" 
                             rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()} // Tránh kích hoạt view modal
+                            onClick={(e) => e.stopPropagation()}
                             className="flex items-center gap-1 text-xs text-blue-600 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded border border-blue-200 transition-colors"
                         >
                             <Link2 size={12} /> 

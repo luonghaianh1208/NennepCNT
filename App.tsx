@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Shield,
   PlusCircle,
@@ -7,25 +7,19 @@ import {
   Trophy,
   BarChart2,
   Settings,
-  User,
-  Eye,
-  Trash2,
-  X,
-  Save,
-  Edit,
   LogIn,
   LogOut,
   Loader2,
   Users,
-  Link2,
   RefreshCw,
   CheckCircle2,
   Snowflake,
-  Flower2
+  Flower2,
+  X
 } from 'lucide-react';
-import { User as UserType, Violation, ClassEntity, Student, Criteria, TimeConfig, RoleConfig, AppTheme } from './types';
-import { INITIAL_ROLE_DEFINITIONS, GUEST_USER, INITIAL_TIME_CONFIGS, formatDateForInput, formatDateDisplay, safeParseImages } from './utils';
-import { api } from './services/googleApi';
+import { Violation } from './types';
+import { INITIAL_ROLE_DEFINITIONS, GUEST_USER } from './utils';
+import { useAppStore } from './contexts/AppContext';
 
 import EntryTab from './components/EntryTab';
 import ListTab from './components/ListTab';
@@ -34,112 +28,53 @@ import ClassDetailTab from './components/ClassDetailTab';
 import SettingsTab from './components/SettingsTab';
 import TaskForceTab from './components/TaskForceTab';
 
+import ViewViolationModal from './components/modals/ViewViolationModal';
+import EditViolationModal from './components/modals/EditViolationModal';
+
 export default function App() {
+  const { 
+      currentUser, setCurrentUser, 
+      users, roleConfigs, 
+      appTheme, setAppTheme, 
+      isLoading, isRefreshing, refreshData,
+      deleteViolation, deleteViolations, updateViolation,
+      setViolations
+  } = useAppStore();
+
   const [activeTab, setActiveTab] = useState<string>('list');
-  const [currentUser, setCurrentUser] = useState<UserType>(GUEST_USER);
   
-  // App Config State: Initialize from LocalStorage OR Default to 'TET'
-  const [appTheme, setAppTheme] = useState<AppTheme>(() => {
-      if (typeof window !== 'undefined') {
-          const saved = localStorage.getItem('nnp_app_theme');
-          // Nếu đã lưu là WINTER hoặc TET thì lấy, nếu không thì mặc định là TET
-          return (saved === 'WINTER' || saved === 'TET') ? saved : 'TET';
-      }
-      return 'TET';
-  });
-
-  // Data States
-  const [users, setUsers] = useState<UserType[]>([]);
-  const [violations, setViolations] = useState<Violation[]>([]);
-  const [classes, setClasses] = useState<ClassEntity[]>([]);
-  const [students, setStudents] = useState<Student[]>([]);
-  const [criteria, setCriteria] = useState<Criteria[]>([]);
-  const [timeConfigs, setTimeConfigs] = useState<TimeConfig[]>(INITIAL_TIME_CONFIGS);
-  
-  // Role Configuration State (Dynamic Roles)
-  const [roleConfigs, setRoleConfigs] = useState<Record<string, RoleConfig>>(INITIAL_ROLE_DEFINITIONS);
-  
-  const [academicYear, setAcademicYear] = useState<string>('2023-2024');
-  const [unsavedChanges, setUnsavedChanges] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [showGlobalSuccess, setShowGlobalSuccess] = useState(false); // Global Success Notification
-
-  // Login State
+  // Local UI State
+  const [showGlobalSuccess, setShowGlobalSuccess] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [loginUsername, setLoginUsername] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
 
-  // Modal States
   const [editingViolation, setEditingViolation] = useState<Violation | null>(null);
   const [viewingViolation, setViewingViolation] = useState<Violation | null>(null);
-  
-  const [editDate, setEditDate] = useState('');
-  const [editClassId, setEditClassId] = useState('');
-  const [editStudentId, setEditStudentId] = useState('');
-  const [editCriteriaId, setEditCriteriaId] = useState('');
-  const [editNote, setEditNote] = useState('');
 
-  // Fetch Data Function
-  const fetchData = useCallback(async (showLoading = true) => {
-    if (showLoading) setIsLoading(true);
-    else setIsRefreshing(true);
-    
-    const data = await api.getAllData();
-    if (data) {
-      if(data.Users) setUsers(data.Users);
-      if(data.Classes) setClasses(data.Classes);
-      if(data.Students) setStudents(data.Students);
-      if(data.Criteria) setCriteria(data.Criteria);
-      if(data.Violations) setViolations(data.Violations);
-      
-      // Fix: Chuẩn hóa ngày tháng cho TimeConfigs ngay khi load về
-      if(data.TimeConfigs && data.TimeConfigs.length > 0) {
-        const normalizedTimeConfigs = data.TimeConfigs.map((tc: TimeConfig) => ({
-            ...tc,
-            startDate: formatDateForInput(tc.startDate),
-            endDate: formatDateForInput(tc.endDate)
-        }));
-        setTimeConfigs(normalizedTimeConfigs);
-      }
-    }
-    
-    if (showLoading) setIsLoading(false);
-    else setIsRefreshing(false);
+  // Auto Login Logic
+  useEffect(() => {
+     const savedUserJson = localStorage.getItem('nnp_user_creds');
+     if (savedUserJson) {
+         try {
+             const creds = JSON.parse(savedUserJson);
+             setLoginUsername(creds.username);
+             setLoginPassword(creds.password);
+             setRememberMe(true);
+         } catch (e) {
+             localStorage.removeItem('nnp_user_creds');
+         }
+     }
   }, []);
 
-  // Initial Fetch & Auto Login
-  useEffect(() => {
-    const init = async () => {
-        await fetchData(true);
-        
-        // Auto Login Check
-        const savedUserJson = localStorage.getItem('nnp_user_creds');
-        if (savedUserJson) {
-            try {
-                const creds = JSON.parse(savedUserJson);
-                setLoginUsername(creds.username);
-                setLoginPassword(creds.password);
-                setRememberMe(true);
-            } catch (e) {
-                localStorage.removeItem('nnp_user_creds');
-            }
-        }
-    };
-    init();
-  }, [fetchData]);
-
-  // Effect để Auto Login khi users data đã load và có thông tin đăng nhập lưu sẵn
   useEffect(() => {
      if (users.length > 0 && currentUser.role === 'GUEST' && loginUsername && loginPassword && rememberMe) {
          const user = users.find(u => u.username === loginUsername && u.password === loginPassword);
          if (user) {
              setCurrentUser(user);
-             // Redirect logic
              const userRoleKey = user.role.toUpperCase();
-             // Assuming roleConfigs is populated or default
              const roleConfig = roleConfigs[userRoleKey] || roleConfigs['GUEST'] || INITIAL_ROLE_DEFINITIONS[userRoleKey];
              
              if (roleConfig?.canEntry) setActiveTab('entry');
@@ -147,20 +82,8 @@ export default function App() {
              else setActiveTab('list');
          }
      }
-  }, [users, loginUsername, loginPassword, rememberMe]); // Run when users load
+  }, [users, loginUsername, loginPassword, rememberMe, currentUser.role, roleConfigs, setCurrentUser]);
 
-  // Effect to save Theme whenever it changes
-  useEffect(() => {
-      localStorage.setItem('nnp_app_theme', appTheme);
-  }, [appTheme]);
-
-  const toggleTheme = () => {
-      setAppTheme(prev => prev === 'TET' ? 'WINTER' : 'TET');
-  };
-
-  const handleRefresh = () => {
-    fetchData(false); // Silent refresh (show small spinner)
-  };
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -177,7 +100,6 @@ export default function App() {
           localStorage.removeItem('nnp_user_creds');
       }
       
-      // Clear sensitive inputs from state
       setLoginUsername('');
       setLoginPassword('');
       
@@ -204,112 +126,29 @@ export default function App() {
     }
   };
 
-  // Modified: Support skipConfirmation for TaskForce Tab and Silent Save
-  const handleSaveSettings = async (skipConfirmation = false) => {
-     if(!skipConfirmation) {
-        if(!confirm("Lưu toàn bộ cấu hình lên hệ thống?")) return;
-     }
-     
-     setIsRefreshing(true);
-
-     const payload = {
-        Users: users,
-        Classes: classes,
-        Students: students,
-        Criteria: criteria,
-        TimeConfigs: timeConfigs
-     };
-
-     try {
-        await api.syncSettings(payload);
-        setUnsavedChanges(false);
-        
-        // Show Global Success
-        setShowGlobalSuccess(true);
-        setTimeout(() => setShowGlobalSuccess(false), 2000);
-     } catch (e) {
-        alert("Lỗi khi lưu dữ liệu. Vui lòng thử lại.");
-     } finally {
-        setIsRefreshing(false);
-     }
-  };
-
-  const handleUpdateUser = async (updatedUser: UserType) => {
-      // Optimistic Update
-      setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
-      setUnsavedChanges(true); 
-  };
-
-  // --- Xử lý Xóa Đơn Lẻ ---
-  const handleDeleteViolation = async (id: string) => {
-    if (confirm("Xóa vĩnh viễn mục này trên hệ thống?")) {
-      // Optimistic update
-      setViolations(prev => prev.filter(v => v.id !== id));
-      if (viewingViolation?.id === id) setViewingViolation(null);
-      
-      await api.deleteViolation(id);
-    }
-  };
-
-  // --- Xử lý Xóa Nhiều (Mới) ---
-  const handleBulkDelete = async (ids: string[]) => {
-      if (ids.length === 0) return;
-      if (!confirm(`Bạn có chắc muốn xóa ${ids.length} mục đã chọn?`)) return;
-
-      setIsRefreshing(true); // Show loading indicator
-
-      // 1. Optimistic update (Cập nhật giao diện ngay lập tức)
-      setViolations(prev => prev.filter(v => !ids.includes(v.id)));
-
-      // 2. Gọi API xóa hàng loạt
-      try {
-          await api.deleteViolations(ids);
-          // Không cần alert thành công để trải nghiệm mượt hơn, hoặc alert nhỏ
-      } catch (e) {
-          alert("Có lỗi xảy ra khi xóa dữ liệu trên Server.");
-          // Rollback nếu cần (nhưng phức tạp), ở đây ta nên refresh lại data
-          fetchData(false);
-      } finally {
-          setIsRefreshing(false);
-      }
-  };
-
   const handleEditClick = (e: React.MouseEvent, v: Violation) => {
     e.stopPropagation();
     setEditingViolation(v);
-    
-    setEditDate(formatDateForInput(v.date));
-    setEditClassId(v.classId);
-    setEditStudentId(v.studentId || '');
-    setEditCriteriaId(v.criteriaId);
-    setEditNote(v.note || '');
   };
 
-  const handleSaveEdit = async () => {
-    if (!editingViolation) return;
-    
-    const criteriaItem = criteria.find(c => c.id === editCriteriaId);
-    let finalPoints = criteriaItem ? criteriaItem.points : 0;
-    if (criteriaItem?.type === 'PLUS') finalPoints = -Math.abs(finalPoints);
-    else finalPoints = Math.abs(finalPoints);
-
-    const updatedV: Violation = {
-      ...editingViolation,
-      date: editDate,
-      classId: editClassId,
-      studentId: editStudentId || undefined,
-      criteriaId: editCriteriaId,
-      points: finalPoints,
-      note: editNote,
-    };
-
-    setViolations(prev => prev.map(v => v.id === updatedV.id ? updatedV : v));
+  const onSaveEdit = async (updatedV: Violation) => {
+    await updateViolation(updatedV);
     setEditingViolation(null);
-    await api.updateViolation(updatedV);
-    
-    // Show quick success
     setShowGlobalSuccess(true);
     setTimeout(() => setShowGlobalSuccess(false), 1500);
+  };
+
+  const onDeleteViolation = async (id: string) => {
+    if (confirm("Xóa vĩnh viễn mục này trên hệ thống?")) {
+        if (viewingViolation?.id === id) setViewingViolation(null);
+        await deleteViolation(id);
+    }
+  };
+
+  const onBulkDelete = async (ids: string[]) => {
+      if (ids.length === 0) return;
+      if (!confirm(`Bạn có chắc muốn xóa ${ids.length} mục đã chọn?`)) return;
+      await deleteViolations(ids);
   };
 
   const isCurrentUserAdmin = () => {
@@ -322,122 +161,8 @@ export default function App() {
       return roleConfigs[roleKey]?.canEntry || false;
   };
 
-  const renderViewModal = () => {
-    if (!viewingViolation) return null;
-    const v = viewingViolation;
-    const cls = classes.find(c => c.id === v.classId);
-    
-    // STRICT FIX: Tìm học sinh phải khớp cả ID và ClassID để tránh trùng ID
-    const stu = students.find(s => s.id === v.studentId && s.classId === v.classId);
-    
-    const cri = criteria.find(c => c.id === v.criteriaId);
-    const reporter = users.find(u => u.id === v.reportedBy);
-    
-    const images = safeParseImages(v.images);
-
-    // Xử lý hiển thị người báo cáo
-    const reporterRoleConfig = reporter ? roleConfigs[reporter.role] : null;
-    const reporterRoleLabel = reporterRoleConfig ? reporterRoleConfig.label : 'Không rõ';
-    const reporterColor = reporterRoleConfig ? reporterRoleConfig.color : 'gray';
-
-    // Chỉ Admin hoặc chính người báo mới thấy tên đầy đủ
-    const showReporterDetails = isCurrentUserAdmin() || currentUser.id === v.reportedBy;
-
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
-        <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
-           <div className="flex justify-between items-center p-4 border-b bg-slate-50">
-             <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2"><Eye size={20} className="text-blue-600"/> Chi tiết</h3>
-             <button onClick={() => setViewingViolation(null)} className="p-1 rounded-full hover:bg-slate-200"><X size={24} className="text-slate-500" /></button>
-           </div>
-           <div className="p-5 overflow-y-auto space-y-4">
-              
-              {/* Image Links instead of Preview */}
-              {images.length > 0 ? (
-                <div className="flex flex-col gap-2">
-                    {images.map((img, idx) => (
-                         <a 
-                            key={idx} 
-                            href={img} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-2 w-full p-3 rounded-xl border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
-                        >
-                            <Link2 size={18} /> 
-                            <span className="font-semibold text-sm">Xem ảnh minh chứng {images.length > 1 ? idx + 1 : ''}</span>
-                        </a>
-                    ))}
-                </div>
-              ) : <div className="w-full h-20 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 text-sm italic border border-slate-200 border-dashed">Không có ảnh minh họa</div>}
-
-              <div className="space-y-3">
-                 <div>
-                    <div className="text-2xl font-black text-blue-800">{cls?.name}</div>
-                    <div className="text-sm font-semibold text-slate-600">{formatDateDisplay(v.date)}</div>
-                 </div>
-                 <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                    <div className="text-xs font-bold text-slate-500 uppercase mb-1">Học sinh</div>
-                    <div className="font-medium text-slate-800 flex items-center gap-2"><User size={16} /> {stu ? `${stu.name}` : 'Tập thể lớp'}</div>
-                 </div>
-                 <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                    <div className="text-xs font-bold text-slate-500 uppercase mb-1">Nội dung</div>
-                    <div className="font-medium text-slate-800">{cri?.content}</div>
-                    <div className={`text-lg font-bold mt-1 ${v.points > 0 ? 'text-red-600' : 'text-green-600'}`}>{v.points > 0 ? `Trừ ${v.points} điểm` : `Cộng ${Math.abs(v.points)} điểm`}</div>
-                 </div>
-                 {v.note && <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-100 text-sm text-yellow-900"><span className="font-bold">Ghi chú:</span> {v.note}</div>}
-                 
-                 {/* Phần hiển thị Người báo cáo */}
-                 <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-100">
-                     <span className="text-xs text-slate-400 font-medium">Người báo cáo</span>
-                     <div className="flex items-center gap-2">
-                        {showReporterDetails && (
-                            <span className="text-xs font-bold text-slate-700 text-right">
-                                {reporter?.name} {reporter?.className ? `(${reporter.className})` : ''}
-                            </span>
-                        )}
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase border bg-${reporterColor}-50 border-${reporterColor}-200 text-${reporterColor}-700`}>
-                            {reporterRoleLabel}
-                        </span>
-                     </div>
-                 </div>
-              </div>
-           </div>
-           <div className="p-4 border-t bg-slate-50 flex justify-end">
-              {isCurrentUserAdmin() && (
-                 <button onClick={() => { setViewingViolation(null); handleDeleteViolation(v.id); }} className="text-red-600 font-bold text-sm px-4 py-2 hover:bg-red-50 rounded-lg mr-auto flex items-center gap-1"><Trash2 size={16} /> Xóa</button>
-              )}
-              <button onClick={() => setViewingViolation(null)} className="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-700">Đóng</button>
-           </div>
-        </div>
-      </div>
-    );
-  };
-
-  const renderEditModal = () => {
-    if (!editingViolation) return null;
-    return (
-      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4 sm:p-6 animate-in fade-in">
-        <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl flex flex-col max-h-[90vh] animate-in slide-in-from-bottom-4 sm:zoom-in-95">
-          <div className="flex justify-between items-center p-4 border-b">
-            <h3 className="font-bold text-lg flex items-center gap-2"><Edit size={20} className="text-blue-600"/> Chỉnh sửa thông tin</h3>
-            <button onClick={() => setEditingViolation(null)} className="p-1 rounded-full hover:bg-slate-100"><X size={24} className="text-slate-500" /></button>
-          </div>
-          <div className="p-4 space-y-4 overflow-y-auto">
-             <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Ngày ghi nhận</label><input type="date" value={editDate} onChange={e => setEditDate(e.target.value)} className="w-full p-2 border rounded-lg" /></div>
-             <div className="grid grid-cols-2 gap-3">
-                <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Lớp</label><select value={editClassId} onChange={e => setEditClassId(e.target.value)} className="w-full p-2 border rounded-lg">{classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
-                <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Học sinh</label><select value={editStudentId} onChange={e => setEditStudentId(e.target.value)} className="w-full p-2 border rounded-lg" disabled={!editingViolation.studentId && !editStudentId}><option value="">-- Tập thể --</option>{students.filter(s => s.classId === editClassId).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
-             </div>
-             <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Nội dung</label><select value={editCriteriaId} onChange={e => setEditCriteriaId(e.target.value)} className="w-full p-2 border rounded-lg"><optgroup label="Vi phạm">{criteria.filter(c => c.type === 'MINUS').map(c => <option key={c.id} value={c.id}>{c.content}</option>)}</optgroup><optgroup label="Thành tích">{criteria.filter(c => c.type === 'PLUS').map(c => <option key={c.id} value={c.id}>{c.content}</option>)}</optgroup></select></div>
-             <div><label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Ghi chú</label><textarea value={editNote} onChange={e => setEditNote(e.target.value)} className="w-full p-2 border rounded-lg" rows={2}></textarea></div>
-          </div>
-          <div className="p-4 border-t bg-slate-50 rounded-b-2xl flex justify-end gap-3">
-             <button onClick={() => setEditingViolation(null)} className="px-4 py-2 text-slate-600 font-medium hover:bg-slate-200 rounded-lg">Hủy</button>
-             <button onClick={handleSaveEdit} className="px-4 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 flex items-center gap-2"><Save size={18} /> Lưu Thay Đổi</button>
-          </div>
-        </div>
-      </div>
-    );
+  const toggleTheme = () => {
+      setAppTheme(appTheme === 'TET' ? 'WINTER' : 'TET');
   };
 
   if (isLoading) {
@@ -449,7 +174,6 @@ export default function App() {
       );
   }
 
-  // --- Theme Colors Helper ---
   const headerBgClass = appTheme === 'TET' ? 'bg-gradient-to-b from-red-800 to-red-900' : 'bg-blue-900';
   const headerTextClass = appTheme === 'TET' ? 'text-yellow-100' : 'text-blue-100';
   const primaryTitleColor = appTheme === 'TET' ? 'text-yellow-400' : 'text-white';
@@ -501,92 +225,28 @@ export default function App() {
       `}</style>
       
       <header className={`${headerBgClass} text-white p-4 pt-8 pb-6 sticky top-0 z-20 shadow-lg rounded-b-[2rem] relative overflow-hidden transition-colors duration-500`}>
-        {/* --- HIỆU ỨNG NỀN (TÙY THEME) --- */}
+        {/* --- EFFECTS --- */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
              {appTheme === 'WINTER' ? (
                  <>
-                     {/* Tuyết rơi */}
                      {[...Array(15)].map((_, i) => (
-                       <div 
-                         key={`snow-${i}`} 
-                         className="snowflake"
-                         style={{
-                            width: `${Math.random() * 4 + 2}px`,
-                            height: `${Math.random() * 4 + 2}px`,
-                            left: `${Math.random() * 100}%`,
-                            top: `-${Math.random() * 20}px`,
-                            animationDuration: `${Math.random() * 5 + 3}s`,
-                            animationDelay: `${Math.random() * 5}s`,
-                            opacity: Math.random() * 0.5 + 0.3
-                         }}
-                       ></div>
+                       <div key={`snow-${i}`} className="snowflake" style={{ width: `${Math.random() * 4 + 2}px`, height: `${Math.random() * 4 + 2}px`, left: `${Math.random() * 100}%`, top: `-${Math.random() * 20}px`, animationDuration: `${Math.random() * 5 + 3}s`, animationDelay: `${Math.random() * 5}s`, opacity: Math.random() * 0.5 + 0.3 }}></div>
                      ))}
-                     {/* Sao lấp lánh */}
                      {[...Array(8)].map((_, i) => (
-                        <div 
-                          key={`star-${i}`}
-                          className="star-twinkle"
-                          style={{
-                              left: `${Math.random() * 90 + 5}%`,
-                              top: `${Math.random() * 60}%`,
-                              animationDelay: `${Math.random() * 2}s`
-                          }}
-                        ></div>
+                        <div key={`star-${i}`} className="star-twinkle" style={{ left: `${Math.random() * 90 + 5}%`, top: `${Math.random() * 60}%`, animationDelay: `${Math.random() * 2}s` }}></div>
                      ))}
-                     {/* Tuyết đọng chân */}
                      <div className="absolute bottom-0 left-0 right-0 h-16 pointer-events-none z-0">
                          <div className="absolute bottom-0 w-full h-full bg-gradient-to-t from-white/30 to-transparent"></div>
-                         <svg className="absolute bottom-0 w-full h-12 text-white/20 fill-current" viewBox="0 0 1440 320" preserveAspectRatio="none"><path d="M0,224L48,234.7C96,245,192,267,288,266.7C384,267,480,245,576,213.3C672,181,768,139,864,138.7C960,139,1056,181,1152,197.3C1248,213,1344,203,1392,197.3L1440,192L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path></svg>
-                         <svg className="absolute bottom-0 w-full h-8 text-white/40 fill-current" viewBox="0 0 1440 320" preserveAspectRatio="none"><path d="M0,128L48,144C96,160,192,192,288,186.7C384,181,480,139,576,144C672,149,768,203,864,208C960,213,1056,171,1152,149.3C1248,128,1344,128,1392,128L1440,128L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path></svg>
-                         <div className="absolute -bottom-6 -left-6 w-32 h-24 bg-white/60 blur-xl rounded-full"></div>
-                         <div className="absolute -bottom-8 -right-4 w-40 h-28 bg-white/50 blur-xl rounded-full"></div>
                      </div>
                  </>
              ) : (
                  <>
-                     {/* Hoa đào rơi (Hồng) */}
                      {[...Array(20)].map((_, i) => (
-                       <div 
-                         key={`petal-${i}`} 
-                         className="petal"
-                         style={{
-                            left: `${Math.random() * 100}%`,
-                            top: `-${Math.random() * 20}px`,
-                            animationDuration: `${Math.random() * 4 + 4}s`,
-                            animationDelay: `${Math.random() * 5}s`,
-                            backgroundColor: Math.random() > 0.5 ? '#fbcfe8' : '#f9a8d4', // Pink variations
-                            opacity: Math.random() * 0.4 + 0.6
-                         }}
-                       ></div>
+                       <div key={`petal-${i}`} className="petal" style={{ left: `${Math.random() * 100}%`, top: `-${Math.random() * 20}px`, animationDuration: `${Math.random() * 4 + 4}s`, animationDelay: `${Math.random() * 5}s`, backgroundColor: Math.random() > 0.5 ? '#fbcfe8' : '#f9a8d4', opacity: Math.random() * 0.4 + 0.6 }}></div>
                      ))}
-                     
-                     {/* Đám mây cách điệu (Vàng/Đỏ nhạt) ở chân */}
-                     <div className="absolute bottom-0 left-0 right-0 h-20 pointer-events-none z-0">
-                          <svg className="absolute bottom-0 w-full h-16 text-yellow-500/20 fill-current" viewBox="0 0 1440 320" preserveAspectRatio="none"><path d="M0,192L48,197.3C96,203,192,213,288,229.3C384,245,480,267,576,250.7C672,235,768,181,864,181.3C960,181,1056,235,1152,234.7C1248,235,1344,181,1392,154.7L1440,128L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path></svg>
-                          <svg className="absolute bottom-0 w-full h-10 text-yellow-400/30 fill-current" viewBox="0 0 1440 320" preserveAspectRatio="none"><path d="M0,96L48,112C96,128,192,160,288,160C384,160,480,128,576,112C672,96,768,96,864,112C960,128,1056,160,1152,160C1248,160,1344,128,1392,112L1440,96L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path></svg>
-                     </div>
-
-                     {/* Cành đào góc TRÁI (Lật ngược để đối xứng) */}
-                     <img 
-                        src="https://doantruong.chuyennguyentrai.edu.vn/wp-content/uploads/2026/01/Canh-dao.png" 
-                        className="absolute -top-4 -left-6 w-36 md:w-56 z-0 pointer-events-none opacity-90"
-                        style={{ transform: 'scaleX(-1) rotate(15deg)' }}
-                        alt="Dao Left"
-                     />
-
-                     {/* Chữ 2026 treo - Sáng hơn, Cao hơn nữa */}
-                     <img 
-                        src="https://doantruong.chuyennguyentrai.edu.vn/wp-content/uploads/2026/01/Chu-2026.png" 
-                        className="absolute -top-1 right-12 md:right-24 w-16 md:w-24 z-0 pointer-events-none opacity-100 brightness-125 drop-shadow-sm"
-                        alt="2026"
-                     />
-
-                     {/* Linh vật Ngựa - Nhỏ lại hơn nữa */}
-                     <img 
-                        src="https://doantruong.chuyennguyentrai.edu.vn/wp-content/uploads/2026/01/Thiet-ke-chua-co-ten.png" 
-                        className="absolute bottom-0 right-0 w-12 md:w-16 z-0 pointer-events-none drop-shadow-md"
-                        alt="Horse"
-                     />
+                     <img src="https://doantruong.chuyennguyentrai.edu.vn/wp-content/uploads/2026/01/Canh-dao.png" className="absolute -top-4 -left-6 w-36 md:w-56 z-0 pointer-events-none opacity-90" style={{ transform: 'scaleX(-1) rotate(15deg)' }} alt="Dao Left" />
+                     <img src="https://doantruong.chuyennguyentrai.edu.vn/wp-content/uploads/2026/01/Chu-2026.png" className="absolute -top-1 right-12 md:right-24 w-16 md:w-24 z-0 pointer-events-none opacity-100 brightness-125 drop-shadow-sm" alt="2026" />
+                     <img src="https://doantruong.chuyennguyentrai.edu.vn/wp-content/uploads/2026/01/Thiet-ke-chua-co-ten.png" className="absolute bottom-0 right-0 w-12 md:w-16 z-0 pointer-events-none drop-shadow-md" alt="Horse" />
                  </>
              )}
         </div>
@@ -596,7 +256,6 @@ export default function App() {
               <div className="flex items-center gap-3 mb-2">
                  <div className="flex -space-x-2"> 
                      <img src="https://upload.wikimedia.org/wikipedia/commons/7/70/THPT_Chuyen_Nguyen_Trai.png" alt="CNT" className="w-10 h-10 object-contain bg-white rounded-full p-0.5 shadow-md z-10" />
-                     {/* Logo Đoàn: Luôn hiển thị */}
                      <img src="https://upload.wikimedia.org/wikipedia/vi/0/09/Huy_Hi%E1%BB%87u_%C4%90o%C3%A0n.png" alt="Doan" className="w-10 h-10 object-contain drop-shadow-md z-0" />
                  </div>
                  
@@ -620,7 +279,6 @@ export default function App() {
               </div>
            </div>
            
-           {/* REARRANGED: Vertical Layout for Right Side Controls */}
            <div className="flex flex-col items-end gap-3 pt-1">
               <div className="relative group">
                   {currentUser.role !== 'GUEST' ? (
@@ -642,7 +300,6 @@ export default function App() {
                   )}
               </div>
 
-              {/* Icon Buttons Row below Login */}
               <div className="flex items-center gap-2">
                  <button
                     onClick={toggleTheme}
@@ -653,7 +310,7 @@ export default function App() {
                   </button>
 
                   <button 
-                    onClick={handleRefresh} 
+                    onClick={refreshData} 
                     disabled={isRefreshing}
                     className={`p-2 rounded-full transition-colors disabled:opacity-50 ${appTheme === 'TET' ? 'bg-red-800 text-yellow-400 hover:bg-red-700 hover:text-white' : 'bg-blue-800 text-blue-200 hover:bg-blue-700 hover:text-white'}`}
                     title="Làm mới dữ liệu từ Database"
@@ -667,91 +324,30 @@ export default function App() {
 
       <main className="flex-1 p-4 overflow-y-auto scroll-smooth">
         {activeTab === 'entry' && currentUser.role !== 'GUEST' && canCurrentUserEntry() && (
-          <EntryTab 
-            currentUser={currentUser} 
-            classes={classes} 
-            students={students} 
-            criteria={criteria} 
-            violations={violations} 
-            setViolations={setViolations}
-            roleConfigs={roleConfigs}
-            users={users}
-          />
+          <EntryTab />
         )}
         {activeTab === 'list' && (
           <ListTab 
-            currentUser={currentUser} 
-            violations={violations} 
-            classes={classes} 
-            students={students} 
-            criteria={criteria} 
-            users={users} 
-            roleConfigs={roleConfigs}
-            timeConfigs={timeConfigs}
-            handleDeleteViolation={handleDeleteViolation}
-            handleBulkDelete={handleBulkDelete} 
+            handleDeleteViolation={onDeleteViolation}
+            handleBulkDelete={onBulkDelete}
             setViewingViolation={setViewingViolation}
             handleEditClick={handleEditClick}
           />
         )}
         {activeTab === 'ranking' && (
-          <RankingTab 
-            violations={violations} 
-            classes={classes} 
-            timeConfigs={timeConfigs} 
-          />
+          <RankingTab />
         )}
         {activeTab === 'detail' && (
-          <ClassDetailTab 
-            currentUser={currentUser} 
-            classes={classes} 
-            violations={violations} 
-            criteria={criteria} 
-            students={students} 
-            setViewingViolation={setViewingViolation} 
-            timeConfigs={timeConfigs}
-          />
+          <ClassDetailTab setViewingViolation={setViewingViolation} />
         )}
         {activeTab === 'taskforce' && (isCurrentUserAdmin() || ['BCH_PHU_TRACH', 'BCH', 'RED_FLAG', 'DISCIPLINE'].includes(currentUser.role)) && (
-          <TaskForceTab 
-            currentUser={currentUser}
-            users={users}
-            violations={violations}
-            classes={classes}
-            students={students}
-            roleConfigs={roleConfigs}
-            onUpdateUser={handleUpdateUser}
-            unsavedChanges={unsavedChanges}
-            onSave={() => handleSaveSettings(true)} // Pass true to skip confirmation
-          />
+          <TaskForceTab />
         )}
-        {activeTab === 'settings' && (
-          isCurrentUserAdmin() ? (
-            <SettingsTab 
-              currentUserRole={currentUser.role}
-              currentUser={currentUser}
-              setCurrentUser={setCurrentUser}
-              academicYear={academicYear}
-              setAcademicYear={setAcademicYear}
-              timeConfigs={timeConfigs}
-              setTimeConfigs={setTimeConfigs}
-              classes={classes}
-              setClasses={setClasses}
-              students={students}
-              setStudents={setStudents}
-              criteria={criteria}
-              setCriteria={setCriteria}
-              users={users}
-              setUsers={setUsers}
-              roleConfigs={roleConfigs}
-              setRoleConfigs={setRoleConfigs}
-              handleSaveSettings={() => handleSaveSettings(false)}
-              unsavedChanges={unsavedChanges}
-              setUnsavedChanges={setUnsavedChanges}
-              appTheme={appTheme}
-              setAppTheme={setAppTheme}
-            />
-          ) : (activeTab === 'settings' && <div className="text-center py-20 text-slate-400">Bạn không có quyền truy cập.</div>)
+        {activeTab === 'settings' && isCurrentUserAdmin() && (
+            <SettingsTab />
+        )}
+         {activeTab === 'settings' && !isCurrentUserAdmin() && (
+            <div className="text-center py-20 text-slate-400">Bạn không có quyền truy cập.</div>
         )}
         
       </main>
@@ -838,7 +434,6 @@ export default function App() {
                     />
                  </div>
                  
-                 {/* Remember Me Checkbox */}
                  <div className="flex items-center gap-2">
                     <input 
                         type="checkbox" 
@@ -861,8 +456,18 @@ export default function App() {
         </div>
       )}
 
-      {renderEditModal()}
-      {renderViewModal()}
+      {/* Modals using Store data internally */}
+      <EditViolationModal 
+        violation={editingViolation}
+        onClose={() => setEditingViolation(null)}
+        onSave={onSaveEdit}
+      />
+
+      <ViewViolationModal 
+        violation={viewingViolation}
+        onClose={() => setViewingViolation(null)}
+        onDelete={onDeleteViolation}
+      />
     </div>
   );
 }

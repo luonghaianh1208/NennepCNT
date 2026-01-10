@@ -1,53 +1,45 @@
 
 import React, { useMemo, useState } from 'react';
-import { User, Violation, ClassEntity, RoleConfig, Student } from '../types';
+import { User, RoleConfig } from '../types';
 import { Shield, Save, Edit, Zap, X, Check, Download } from 'lucide-react';
 import { exportToExcel } from '../utils';
+import { useAppStore } from '../contexts/AppContext';
 
-interface TaskForceTabProps {
-  currentUser: User;
-  users: User[];
-  violations: Violation[];
-  classes: ClassEntity[];
-  students: Student[];
-  roleConfigs: Record<string, RoleConfig>;
-  onUpdateUser: (updatedUser: User) => void;
-  unsavedChanges: boolean;
-  onSave: () => void;
-}
+const TaskForceTab: React.FC = () => {
+  const { currentUser, users, violations, students, roleConfigs, setUsers, setUnsavedChanges, syncSettings, unsavedChanges } = useAppStore();
 
-const TaskForceTab: React.FC<TaskForceTabProps> = ({ currentUser, users, violations, classes, students, roleConfigs, onUpdateUser, unsavedChanges, onSave }) => {
   const [filterRole, setFilterRole] = useState('ALL');
-  
-  // Single Edit State
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editSummaryCount, setEditSummaryCount] = useState<string>('');
-
-  // Bulk Edit State
   const [isBulkEditMode, setIsBulkEditMode] = useState(false);
   const [bulkEdits, setBulkEdits] = useState<Record<string, number>>({});
 
-  // Quyền Quản lý (Xem tất cả, Sửa, Xuất Excel): Admin hoặc BCH_PHU_TRACH
+  const onUpdateUser = (updatedUser: User) => {
+      setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
+      setUnsavedChanges(true); 
+  };
+
+  const onSave = async () => {
+    if(!confirm("Lưu thay đổi lên hệ thống?")) return;
+    await syncSettings();
+  };
+
   const isManager = useMemo(() => {
      const role = currentUser.role.toUpperCase();
      return role === 'ADMIN' || role === 'BCH_PHU_TRACH';
   }, [currentUser]);
 
-  // 1. Lấy danh sách các vai trò "làm nhiệm vụ" (canEntry = true, nhưng không phải Admin)
   const taskForceRoles = useMemo(() => {
     return (Object.entries(roleConfigs) as [string, RoleConfig][])
         .filter(([key, config]) => config.canEntry && !config.isAdmin)
         .map(([key, config]) => ({ key, label: config.label }));
   }, [roleConfigs]);
 
-  // 2. Lọc User hiển thị
   const taskForceUsers = useMemo(() => {
-      // Nếu không phải Quản lý, chỉ trả về chính mình (nếu mình thuộc nhóm làm nhiệm vụ)
       if (!isManager) {
           return users.filter(u => u.id === currentUser.id);
       }
 
-      // Nếu là Quản lý, lọc theo bộ lọc Role
       return users.filter(u => {
           const config = roleConfigs[u.role] || roleConfigs['GUEST'];
           const isTaskForce = config.canEntry && !config.isAdmin;
@@ -57,27 +49,19 @@ const TaskForceTab: React.FC<TaskForceTabProps> = ({ currentUser, users, violati
       });
   }, [users, roleConfigs, filterRole, isManager, currentUser.id]);
 
-  // 3. Tính toán thống kê cho từng User
   const stats = useMemo(() => {
       return taskForceUsers.map(u => {
-          // A. Số lỗi họ đã báo cáo
           const reportedCount = violations.filter(v => v.reportedBy === u.id).length;
-          
-          // B. Số lần xuống tổng kết thi đua (Từ User Data)
           const summaryMeetings = u.summaryMeetings || 0;
 
-          // C. Số lỗi chính họ vi phạm (Strict Matching)
           let personalViolationsCount = 0;
           if (u.className) {
-              // Tìm học sinh trong lớp đó có tên giống tên User (Normalize: Trim + Lowercase)
               const normalizedUserName = u.name.trim().toLowerCase();
               const matchedStudent = students.find(s => 
                   s.classId === u.className && s.name.trim().toLowerCase() === normalizedUserName
               );
 
               if (matchedStudent) {
-                  // Đếm lỗi của Student ID này (Points > 0 là lỗi)
-                  // QUAN TRỌNG: Kiểm tra thêm v.classId phải trùng với u.className để đảm bảo đúng người đúng lớp tại thời điểm vi phạm
                   personalViolationsCount = violations.filter(v => 
                     v.studentId === matchedStudent.id && 
                     v.classId === u.className && 
@@ -86,8 +70,6 @@ const TaskForceTab: React.FC<TaskForceTabProps> = ({ currentUser, users, violati
               }
           }
 
-          // D. Tính điểm thi đua
-          // Công thức: (Số lỗi báo x 2) + (Số lần tổng kết x 5) - (Số lỗi vi phạm x 5)
           const score = (reportedCount * 2) + (summaryMeetings * 5) - (personalViolationsCount * 5);
           
           return {
@@ -97,7 +79,7 @@ const TaskForceTab: React.FC<TaskForceTabProps> = ({ currentUser, users, violati
               summaryMeetings,
               score
           };
-      }).sort((a, b) => b.score - a.score); // Xếp theo điểm thi đua
+      }).sort((a, b) => b.score - a.score);
   }, [taskForceUsers, violations, students]);
 
   const handleStartEdit = (u: any) => {
@@ -114,16 +96,12 @@ const TaskForceTab: React.FC<TaskForceTabProps> = ({ currentUser, users, violati
       setEditingUserId(null);
   };
 
-  // --- Bulk Edit Handlers ---
   const toggleBulkEditMode = () => {
     if (isBulkEditMode) {
-      // Canceling
       setIsBulkEditMode(false);
       setBulkEdits({});
     } else {
-      // Starting
       setIsBulkEditMode(true);
-      // Init bulkEdits with current values
       const initialEdits: Record<string, number> = {};
       stats.forEach(u => {
         initialEdits[u.id] = u.summaryMeetings;
@@ -140,7 +118,6 @@ const TaskForceTab: React.FC<TaskForceTabProps> = ({ currentUser, users, violati
   };
 
   const handleBulkSave = () => {
-     // Apply all edits to global state
      let hasChanges = false;
      stats.forEach(u => {
        if (bulkEdits[u.id] !== undefined && bulkEdits[u.id] !== u.summaryMeetings) {
@@ -152,9 +129,7 @@ const TaskForceTab: React.FC<TaskForceTabProps> = ({ currentUser, users, violati
      setIsBulkEditMode(false);
      setBulkEdits({});
      
-     // Gọi Save ngay lập tức nếu có thay đổi (trigger sync database)
      if (hasChanges) {
-        // Use timeout 0 to allow state to settle
         setTimeout(() => {
              onSave();
         }, 0);
@@ -192,7 +167,6 @@ const TaskForceTab: React.FC<TaskForceTabProps> = ({ currentUser, users, violati
       </div>
 
       <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-3 justify-between items-center">
-         {/* Chỉ hiển thị bộ lọc nếu là Manager */}
          {isManager ? (
              <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar w-full md:w-auto">
                  <button 
@@ -216,7 +190,6 @@ const TaskForceTab: React.FC<TaskForceTabProps> = ({ currentUser, users, violati
          )}
 
          <div className="flex gap-2">
-            {/* Chỉ hiển thị nút Xuất Excel nếu là Manager */}
             {isManager && (
                 <button 
                     onClick={handleExportExcel}
@@ -251,7 +224,6 @@ const TaskForceTab: React.FC<TaskForceTabProps> = ({ currentUser, users, violati
           {stats.map((u, idx) => {
               const roleInfo = roleConfigs[u.role];
               const isEditing = editingUserId === u.id;
-              // Nếu đang Bulk Mode -> dùng giá trị trong state bulkEdits, fallback về giá trị gốc
               const displaySummary = isBulkEditMode ? (bulkEdits[u.id] ?? u.summaryMeetings) : u.summaryMeetings;
 
               return (
@@ -289,7 +261,6 @@ const TaskForceTab: React.FC<TaskForceTabProps> = ({ currentUser, users, violati
                           <div className={`p-2 rounded-lg border relative group transition-colors ${isBulkEditMode ? 'bg-green-100 border-green-300 ring-1 ring-green-300' : 'bg-green-50 border-green-100'}`}>
                               <div className="text-green-600 font-medium mb-1">Tổng kết (x5)</div>
                               
-                              {/* DISPLAY LOGIC */}
                               {isBulkEditMode ? (
                                   <div className="flex justify-center">
                                       <input 
@@ -334,7 +305,6 @@ const TaskForceTab: React.FC<TaskForceTabProps> = ({ currentUser, users, violati
           )}
       </div>
 
-      {/* Floating Save Button - Only show if not in bulk mode (bulk mode has its own save) and has changes */}
       {unsavedChanges && !isBulkEditMode && (
         <div className="fixed bottom-24 right-6 z-50 animate-in slide-in-from-bottom-5 fade-in">
            <button onClick={onSave} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-full shadow-xl flex items-center gap-2 active:scale-95 transition-all">
