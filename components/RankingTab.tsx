@@ -1,8 +1,8 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Trophy } from 'lucide-react';
+import { Trophy, Download } from 'lucide-react';
 import { Violation } from '../types';
-import { calculateScore, getUniqueWeeksCount, getEarliestViolationDate, getLatestViolationDate, isDateInRange, formatDateDisplay } from '../utils';
+import { calculateScore, getUniqueWeeksCount, getEarliestViolationDate, getLatestViolationDate, isDateInRange, formatDateDisplay, exportToExcel } from '../utils';
 import { useAppStore } from '../contexts/AppContext';
 
 const RankingTab: React.FC = () => {
@@ -107,16 +107,49 @@ const RankingTab: React.FC = () => {
       return ''; 
   };
 
+  const handleExportRanking = () => {
+      if (rankingData.length === 0) {
+          alert("Không có dữ liệu để xuất!");
+          return;
+      }
+
+      // Xác định chuỗi hiển thị cho cột "Khoảng thời gian"
+      let periodStr = "Toàn thời gian";
+      if (rankingFilterMode !== 'ALL') {
+          const config = timeConfigs.find(c => c.id === rankingFilterConfigId);
+          if (config) {
+              periodStr = `${config.name} (${formatDateDisplay(config.startDate)} - ${formatDateDisplay(config.endDate)})`;
+          } else {
+              periodStr = rankingFilterMode;
+          }
+      }
+
+      const header = ["Thứ hạng", "Lớp", "Tổng điểm", "Tổng số lỗi (lượt)", "Khoảng thời gian"];
+      
+      const rows = rankingData.map(item => [
+          item.rank,
+          item.name,
+          item.score,
+          item.totalViolations,
+          periodStr
+      ]);
+
+      const fileName = `Bang_Xep_Hang_Khoi_${rankingGradeTab}_${new Date().toISOString().slice(0,10)}`;
+      exportToExcel([header, ...rows], fileName);
+  };
+
   const top3 = rankingData.slice(0, 3);
   const podiumOrder = [1, 0, 2]; 
 
   return (
     <div className="pb-20 space-y-6">
-      <div className="bg-gradient-to-r from-blue-800 to-indigo-900 text-white border-none rounded-xl p-4 shadow-sm">
-        <h2 className="text-xl font-bold mb-2 flex items-center gap-2">
-          <Trophy className="text-yellow-400" /> Bảng Vàng Thi Đua
-        </h2>
-        <p className="text-blue-100 text-sm opacity-90">{timeLabel}</p>
+      <div className="bg-gradient-to-r from-blue-800 to-indigo-900 text-white border-none rounded-xl p-4 shadow-sm flex justify-between items-start">
+        <div>
+            <h2 className="text-xl font-bold mb-2 flex items-center gap-2">
+            <Trophy className="text-yellow-400" /> Bảng Vàng Thi Đua
+            </h2>
+            <p className="text-blue-100 text-sm opacity-90">{timeLabel}</p>
+        </div>
       </div>
 
       <div className="flex bg-white rounded-xl p-1 shadow-sm border border-slate-200">
@@ -128,29 +161,38 @@ const RankingTab: React.FC = () => {
       </div>
 
       <div className="flex flex-col sm:flex-row gap-2 bg-white p-2 rounded-xl shadow-sm border border-slate-200">
-         <select 
-            className="bg-slate-50 border border-slate-300 rounded-lg px-2 py-2 text-sm outline-none font-medium w-full sm:w-auto" 
-            value={rankingFilterMode} 
-            onChange={(e) => setRankingFilterMode(e.target.value as any)}
+         <div className="flex flex-1 gap-2 flex-col sm:flex-row">
+            <select 
+                className="bg-slate-50 border border-slate-300 rounded-lg px-2 py-2 text-sm outline-none font-medium w-full sm:w-auto" 
+                value={rankingFilterMode} 
+                onChange={(e) => setRankingFilterMode(e.target.value as any)}
+            >
+            <option value="ALL">Toàn thời gian (Tất cả)</option>
+            <option value="WEEK">Theo Tuần (Cấu hình)</option>
+            <option value="MONTH">Theo Tháng</option>
+            <option value="SEMESTER">Theo Học kỳ</option>
+            </select>
+            
+            {rankingFilterMode === 'ALL' ? (
+                <div className="flex-1 px-2 py-2 text-sm text-slate-500 italic bg-slate-50 border border-slate-300 rounded-lg">Dữ liệu tổng hợp từ toàn bộ Database</div>
+            ) : (
+            <select 
+                    className="bg-slate-50 border border-slate-300 rounded-lg px-2 py-2 text-sm outline-none font-medium flex-1 w-full" 
+                    value={rankingFilterConfigId} 
+                    onChange={(e) => setRankingFilterConfigId(e.target.value)}
+            >
+                {timeConfigs.filter(c => c.type === rankingFilterMode).length === 0 && <option value="">Chưa có cấu hình</option>}
+                {timeConfigs.filter(c => c.type === rankingFilterMode).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+            )}
+         </div>
+
+         <button 
+            onClick={handleExportRanking}
+            className="flex items-center justify-center gap-2 bg-green-600 text-white px-3 py-2 rounded-lg text-sm font-bold shadow hover:bg-green-700 transition-colors whitespace-nowrap"
          >
-           <option value="ALL">Toàn thời gian (Tất cả)</option>
-           <option value="WEEK">Theo Tuần (Cấu hình)</option>
-           <option value="MONTH">Theo Tháng</option>
-           <option value="SEMESTER">Theo Học kỳ</option>
-         </select>
-         
-         {rankingFilterMode === 'ALL' ? (
-             <div className="flex-1 px-2 py-2 text-sm text-slate-500 italic bg-slate-50 border border-slate-300 rounded-lg">Dữ liệu tổng hợp từ toàn bộ Database</div>
-         ) : (
-           <select 
-                className="bg-slate-50 border border-slate-300 rounded-lg px-2 py-2 text-sm outline-none font-medium flex-1 w-full" 
-                value={rankingFilterConfigId} 
-                onChange={(e) => setRankingFilterConfigId(e.target.value)}
-           >
-             {timeConfigs.filter(c => c.type === rankingFilterMode).length === 0 && <option value="">Chưa có cấu hình</option>}
-             {timeConfigs.filter(c => c.type === rankingFilterMode).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-           </select>
-         )}
+            <Download size={16} /> Xuất Excel
+         </button>
       </div>
 
       {rankingData.length > 0 ? (
