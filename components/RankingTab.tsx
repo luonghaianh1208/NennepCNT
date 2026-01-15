@@ -165,7 +165,7 @@ const RankingTab: React.FC = () => {
           return;
       }
 
-      // 3. Tính điểm
+      // 3. Tính điểm sơ bộ cho tất cả các lớp đích
       const stats = targetClasses.map(cls => {
           const clsViolations = relevantViolations.filter(v => v.classId === cls.id);
           const totalScore = calculateScore(clsViolations, baseScore, weeksCount, isRangeMode);
@@ -176,19 +176,46 @@ const RankingTab: React.FC = () => {
           };
       });
 
-      // 4. Sắp xếp & Xếp hạng
-      const sorted = stats.sort((a, b) => b.score - a.score);
-      const rankedData = sorted.map((item, index) => {
-          let rank = index + 1;
-          if (index > 0 && item.score === sorted[index - 1].score) {
-              let firstIndex = index;
-              while(firstIndex > 0 && sorted[firstIndex - 1].score === item.score) {
-                  firstIndex--;
+      // 4. Sắp xếp & Xếp hạng (LOGIC MỚI: Xếp hạng riêng theo từng khối nếu chọn ALL)
+      let rankedData: any[] = [];
+
+      if (scope === 'CURRENT') {
+          // Chỉ 1 khối: Xếp hạng bình thường
+          const sorted = stats.sort((a, b) => b.score - a.score);
+          rankedData = sorted.map((item, index) => {
+              let rank = index + 1;
+              if (index > 0 && item.score === sorted[index - 1].score) {
+                  let firstIndex = index;
+                  while(firstIndex > 0 && sorted[firstIndex - 1].score === item.score) {
+                      firstIndex--;
+                  }
+                  rank = firstIndex + 1;
               }
-              rank = firstIndex + 1;
-          }
-          return { ...item, rank };
-      });
+              return { ...item, rank };
+          });
+      } else {
+          // Toàn trường: Gom nhóm theo khối, xếp hạng riêng từng khối rồi gộp lại
+          const grades = [10, 11, 12]; // Ưu tiên thứ tự 10 -> 11 -> 12
+          
+          grades.forEach(grade => {
+              const gradeStats = stats.filter(s => s.grade === grade);
+              if (gradeStats.length > 0) {
+                  const sorted = gradeStats.sort((a, b) => b.score - a.score);
+                  const rankedGradeStats = sorted.map((item, index) => {
+                      let rank = index + 1;
+                      if (index > 0 && item.score === sorted[index - 1].score) {
+                          let firstIndex = index;
+                          while(firstIndex > 0 && sorted[firstIndex - 1].score === item.score) {
+                              firstIndex--;
+                          }
+                          rank = firstIndex + 1;
+                      }
+                      return { ...item, rank };
+                  });
+                  rankedData = [...rankedData, ...rankedGradeStats];
+              }
+          });
+      }
 
       // 5. Xuất file
       const header = ["Thứ hạng", "Lớp", "GVCN", "Khối", "Tổng điểm", "Tổng số lỗi (lượt)", "Khoảng thời gian"];
@@ -247,7 +274,7 @@ const RankingTab: React.FC = () => {
                           <div className="bg-indigo-200 p-2 rounded-lg"><FileSpreadsheet size={20}/></div>
                           <div>
                               <div className="text-sm">Toàn Trường (3 Khối)</div>
-                              <div className="text-[10px] font-normal opacity-70">Gộp và xếp hạng chung tất cả lớp</div>
+                              <div className="text-[10px] font-normal opacity-70">Gộp nhưng xếp hạng riêng từng khối</div>
                           </div>
                       </button>
                   </div>
