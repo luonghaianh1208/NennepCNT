@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Trophy, Download } from 'lucide-react';
+import { Trophy, Download, X, FileSpreadsheet, Layers } from 'lucide-react';
 import { Violation } from '../types';
 import { calculateScore, getUniqueWeeksCount, getEarliestViolationDate, getLatestViolationDate, isDateInRange, formatDateDisplay, exportToExcel } from '../utils';
 import { useAppStore } from '../contexts/AppContext';
@@ -11,6 +11,9 @@ const RankingTab: React.FC = () => {
   const [rankingGradeTab, setRankingGradeTab] = useState<'10' | '11' | '12'>('10');
   const [rankingFilterMode, setRankingFilterMode] = useState<'WEEK' | 'MONTH' | 'SEMESTER' | 'ALL'>('ALL');
   const [rankingFilterConfigId, setRankingFilterConfigId] = useState<string>('');
+  
+  // State cho Modal chọn xuất Excel
+  const [showExportModal, setShowExportModal] = useState(false);
 
   useEffect(() => {
      if (rankingFilterMode !== 'ALL') {
@@ -22,6 +25,7 @@ const RankingTab: React.FC = () => {
      }
   }, [rankingFilterMode, timeConfigs, rankingFilterConfigId]);
 
+  // Logic tính toán dữ liệu hiển thị trên màn hình (Memoized)
   const rankingData = useMemo(() => {
     const baseScore = 500;
     let relevantViolations: Violation[] = [];
@@ -34,7 +38,6 @@ const RankingTab: React.FC = () => {
         const maxDate = getLatestViolationDate(violations);
         weeksCount = getUniqueWeeksCount(minDate, maxDate);
         isRangeMode = true;
-
     } else if (rankingFilterMode === 'WEEK') {
         const config = timeConfigs.find(c => c.id === rankingFilterConfigId);
         if (config) {
@@ -42,7 +45,6 @@ const RankingTab: React.FC = () => {
         }
         weeksCount = 1; 
         isRangeMode = false;
-
     } else {
         const config = timeConfigs.find(c => c.id === rankingFilterConfigId);
         if (config) {
@@ -107,42 +109,152 @@ const RankingTab: React.FC = () => {
       return ''; 
   };
 
-  const handleExportRanking = () => {
-      if (rankingData.length === 0) {
-          alert("Không có dữ liệu để xuất!");
+  // --- LOGIC XUẤT EXCEL ---
+
+  const handleOpenExportModal = () => {
+      if (violations.length === 0 && rankingFilterMode === 'ALL') {
+          alert("Hệ thống chưa có dữ liệu vi phạm nào.");
           return;
       }
+      setShowExportModal(true);
+  };
 
-      // Xác định chuỗi hiển thị cho cột "Khoảng thời gian"
+  const processExport = (scope: 'CURRENT' | 'ALL') => {
+      // 1. Chuẩn bị dữ liệu (Lặp lại logic tính toán để đảm bảo chính xác tại thời điểm xuất)
+      const baseScore = 500;
+      let relevantViolations: Violation[] = [];
+      let weeksCount = 1;
+      let isRangeMode = false;
       let periodStr = "Toàn thời gian";
-      if (rankingFilterMode !== 'ALL') {
+
+      // Lọc vi phạm theo thời gian
+      if (rankingFilterMode === 'ALL') {
+          relevantViolations = violations;
+          const minDate = getEarliestViolationDate(violations);
+          const maxDate = getLatestViolationDate(violations);
+          weeksCount = getUniqueWeeksCount(minDate, maxDate);
+          isRangeMode = true;
+          periodStr = `Toàn thời gian (${formatDateDisplay(minDate.toISOString())} - Nay)`;
+      } else {
           const config = timeConfigs.find(c => c.id === rankingFilterConfigId);
           if (config) {
+              relevantViolations = violations.filter(v => isDateInRange(v.date, config.startDate, config.endDate));
+              if (rankingFilterMode === 'WEEK') {
+                  weeksCount = 1;
+                  isRangeMode = false;
+              } else {
+                  weeksCount = getUniqueWeeksCount(config.startDate, config.endDate);
+                  isRangeMode = true;
+              }
               periodStr = `${config.name} (${formatDateDisplay(config.startDate)} - ${formatDateDisplay(config.endDate)})`;
           } else {
-              periodStr = rankingFilterMode;
+              periodStr = "Chưa xác định thời gian";
           }
       }
 
-      const header = ["Thứ hạng", "Lớp", "Tổng điểm", "Tổng số lỗi (lượt)", "Khoảng thời gian"];
-      
-      const rows = rankingData.map(item => [
+      // 2. Xác định danh sách lớp cần xuất
+      let targetClasses = [];
+      if (scope === 'CURRENT') {
+          targetClasses = classes.filter(c => c.grade.toString() === rankingGradeTab);
+      } else {
+          targetClasses = classes; // Lấy toàn bộ lớp
+      }
+
+      if (targetClasses.length === 0) {
+          alert("Không tìm thấy dữ liệu lớp học.");
+          return;
+      }
+
+      // 3. Tính điểm
+      const stats = targetClasses.map(cls => {
+          const clsViolations = relevantViolations.filter(v => v.classId === cls.id);
+          const totalScore = calculateScore(clsViolations, baseScore, weeksCount, isRangeMode);
+          return { 
+              ...cls, 
+              totalViolations: clsViolations.length, 
+              score: totalScore 
+          };
+      });
+
+      // 4. Sắp xếp & Xếp hạng
+      const sorted = stats.sort((a, b) => b.score - a.score);
+      const rankedData = sorted.map((item, index) => {
+          let rank = index + 1;
+          if (index > 0 && item.score === sorted[index - 1].score) {
+              let firstIndex = index;
+              while(firstIndex > 0 && sorted[firstIndex - 1].score === item.score) {
+                  firstIndex--;
+              }
+              rank = firstIndex + 1;
+          }
+          return { ...item, rank };
+      });
+
+      // 5. Xuất file
+      const header = ["Thứ hạng", "Lớp", "GVCN", "Khối", "Tổng điểm", "Tổng số lỗi (lượt)", "Khoảng thời gian"];
+      const rows = rankedData.map(item => [
           item.rank,
           item.name,
+          item.homeroomTeacher || '',
+          item.grade,
           item.score,
           item.totalViolations,
           periodStr
       ]);
 
-      const fileName = `Bang_Xep_Hang_Khoi_${rankingGradeTab}_${new Date().toISOString().slice(0,10)}`;
+      const scopeName = scope === 'CURRENT' ? `Khoi_${rankingGradeTab}` : `Toan_Truong`;
+      const fileName = `Bang_Xep_Hang_${scopeName}_${new Date().toISOString().slice(0,10)}`;
+      
       exportToExcel([header, ...rows], fileName);
+      setShowExportModal(false);
   };
 
   const top3 = rankingData.slice(0, 3);
   const podiumOrder = [1, 0, 2]; 
 
   return (
-    <div className="pb-20 space-y-6">
+    <div className="pb-20 space-y-6 relative">
+      {/* --- EXPORT MODAL --- */}
+      {showExportModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+              <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95">
+                  <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                      <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                          <Download size={20} className="text-green-600"/> Xuất Báo Cáo
+                      </h3>
+                      <button onClick={() => setShowExportModal(false)} className="text-slate-400 hover:text-slate-600">
+                          <X size={20} />
+                      </button>
+                  </div>
+                  <div className="p-6 space-y-3">
+                      <p className="text-sm text-slate-600 mb-2">Bạn muốn xuất bảng xếp hạng cho phạm vi nào?</p>
+                      
+                      <button 
+                        onClick={() => processExport('CURRENT')}
+                        className="w-full flex items-center gap-3 p-3 rounded-xl border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-all font-bold text-left"
+                      >
+                          <div className="bg-blue-200 p-2 rounded-lg"><Layers size={20}/></div>
+                          <div>
+                              <div className="text-sm">Chỉ Khối {rankingGradeTab}</div>
+                              <div className="text-[10px] font-normal opacity-70">Xuất dữ liệu khối đang xem</div>
+                          </div>
+                      </button>
+
+                      <button 
+                        onClick={() => processExport('ALL')}
+                        className="w-full flex items-center gap-3 p-3 rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-all font-bold text-left"
+                      >
+                          <div className="bg-indigo-200 p-2 rounded-lg"><FileSpreadsheet size={20}/></div>
+                          <div>
+                              <div className="text-sm">Toàn Trường (3 Khối)</div>
+                              <div className="text-[10px] font-normal opacity-70">Gộp và xếp hạng chung tất cả lớp</div>
+                          </div>
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
+
       <div className="bg-gradient-to-r from-blue-800 to-indigo-900 text-white border-none rounded-xl p-4 shadow-sm flex justify-between items-start">
         <div>
             <h2 className="text-xl font-bold mb-2 flex items-center gap-2">
@@ -188,7 +300,7 @@ const RankingTab: React.FC = () => {
          </div>
 
          <button 
-            onClick={handleExportRanking}
+            onClick={handleOpenExportModal}
             className="flex items-center justify-center gap-2 bg-green-600 text-white px-3 py-2 rounded-lg text-sm font-bold shadow hover:bg-green-700 transition-colors whitespace-nowrap"
          >
             <Download size={16} /> Xuất Excel
