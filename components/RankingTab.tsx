@@ -61,11 +61,15 @@ const RankingTab: React.FC = () => {
     
     const stats = targetClasses.map(cls => {
       const clsViolations = relevantViolations.filter(v => v.classId === cls.id);
+      
+      // CHỈ ĐẾM LỖI (points > 0), KHÔNG ĐẾM THÀNH TÍCH (points < 0)
+      const violationCount = clsViolations.filter(v => v.points > 0).length;
+      
       const totalScore = calculateScore(clsViolations, baseScore, weeksCount, isRangeMode);
       
       return { 
           ...cls, 
-          totalViolations: clsViolations.length, 
+          totalViolations: violationCount, 
           score: totalScore 
       };
     });
@@ -168,10 +172,14 @@ const RankingTab: React.FC = () => {
       // 3. Tính điểm sơ bộ cho tất cả các lớp đích
       const stats = targetClasses.map(cls => {
           const clsViolations = relevantViolations.filter(v => v.classId === cls.id);
+          
+          // CHỈ ĐẾM LỖI (points > 0) CHO FILE EXCEL
+          const violationCount = clsViolations.filter(v => v.points > 0).length;
+          
           const totalScore = calculateScore(clsViolations, baseScore, weeksCount, isRangeMode);
           return { 
               ...cls, 
-              totalViolations: clsViolations.length, 
+              totalViolations: violationCount, 
               score: totalScore 
           };
       });
