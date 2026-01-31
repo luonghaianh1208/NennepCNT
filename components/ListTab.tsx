@@ -77,8 +77,17 @@ const ListTab: React.FC<ListTabProps> = ({ handleDeleteViolation, handleBulkDele
         // Bước 2: Lọc lấy những thằng có count > 1
         list = list.filter(v => (counts.get(getSignature(v)) || 0) > 1);
 
-        // Bước 3: Sắp xếp để các thằng trùng nằm cạnh nhau
+        // Bước 3: Sắp xếp
         list.sort((a, b) => {
+             // Ưu tiên 1: Ngày mới nhất lên đầu (Descending)
+             const dateA = a.date.includes('T') ? a.date.split('T')[0] : a.date;
+             const dateB = b.date.includes('T') ? b.date.split('T')[0] : b.date;
+             
+             if (dateA !== dateB) {
+                 return dateB.localeCompare(dateA); // Chuỗi ngày lớn hơn (mới hơn) đứng trước
+             }
+
+             // Ưu tiên 2: Nếu cùng ngày, gom nhóm theo chữ ký để các bản ghi trùng nằm cạnh nhau
              const sigA = getSignature(a);
              const sigB = getSignature(b);
              return sigA.localeCompare(sigB);
@@ -100,7 +109,7 @@ const ListTab: React.FC<ListTabProps> = ({ handleDeleteViolation, handleBulkDele
         if (filterCriteriaType === 'MINUS') list = list.filter(v => v.points > 0);
         else if (filterCriteriaType === 'PLUS') list = list.filter(v => v.points < 0);
         
-        // Sắp xếp mặc định theo thời gian mới nhất
+        // Sắp xếp mặc định theo thời gian mới nhất (Timestamp tạo ra)
         list.sort((a, b) => b.timestamp - a.timestamp);
     }
 
@@ -126,6 +135,17 @@ const ListTab: React.FC<ListTabProps> = ({ handleDeleteViolation, handleBulkDele
 
     return list;
   }, [violations, filterClassId, filterMode, filterConfigId, filterCriteriaType, searchTerm, timeConfigs, classes, students, criteria, users, showDuplicatesOnly, isAdmin]);
+
+  // Thông báo khi lọc xong (Chỉ chạy khi showDuplicatesOnly chuyển sang true)
+  useEffect(() => {
+    if (showDuplicatesOnly && isAdmin) {
+        // Dùng setTimeout để đảm bảo UI render xong mới alert (tránh block render)
+        const timer = setTimeout(() => {
+            alert(`Đã hoàn tất quét dữ liệu.\nTìm thấy: ${filteredViolations.length} bản ghi có dấu hiệu trùng lặp.`);
+        }, 300);
+        return () => clearTimeout(timer);
+    }
+  }, [showDuplicatesOnly]); // Không cho dependency filteredViolations vào để tránh alert lại khi search/filter
 
   // Derived visible violations for rendering
   const visibleViolations = useMemo(() => {
