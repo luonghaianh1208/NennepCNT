@@ -57,6 +57,10 @@ const ListTab: React.FC<ListTabProps> = ({ handleDeleteViolation, handleBulkDele
 
     // --- LOGIC LỌC TRÙNG LẶP (Dành cho Admin) ---
     if (showDuplicatesOnly && isAdmin) {
+        // 1. Áp dụng bộ lọc Loại (Vi phạm/Thành tích) trước khi tìm trùng
+        if (filterCriteriaType === 'MINUS') list = list.filter(v => v.points > 0);
+        else if (filterCriteriaType === 'PLUS') list = list.filter(v => v.points < 0);
+
         // Tạo map đếm số lần xuất hiện của từng bộ dữ liệu (trừ ghi chú)
         const counts = new Map<string, number>();
         
@@ -69,7 +73,7 @@ const ListTab: React.FC<ListTabProps> = ({ handleDeleteViolation, handleBulkDele
         };
 
         // Bước 1: Đếm
-        violations.forEach(v => {
+        list.forEach(v => {
             const sig = getSignature(v);
             counts.set(sig, (counts.get(sig) || 0) + 1);
         });
@@ -79,12 +83,12 @@ const ListTab: React.FC<ListTabProps> = ({ handleDeleteViolation, handleBulkDele
 
         // Bước 3: Sắp xếp
         list.sort((a, b) => {
-             // Ưu tiên 1: Ngày mới nhất lên đầu (Descending)
-             const dateA = a.date.includes('T') ? a.date.split('T')[0] : a.date;
-             const dateB = b.date.includes('T') ? b.date.split('T')[0] : b.date;
+             // Ưu tiên 1: Ngày mới nhất lên đầu (Dùng timestamp để chính xác tuyệt đối)
+             const timeA = new Date(a.date).getTime();
+             const timeB = new Date(b.date).getTime();
              
-             if (dateA !== dateB) {
-                 return dateB.localeCompare(dateA); // Chuỗi ngày lớn hơn (mới hơn) đứng trước
+             if (timeA !== timeB) {
+                 return timeB - timeA; // Giảm dần theo thời gian (Mới nhất lên đầu)
              }
 
              // Ưu tiên 2: Nếu cùng ngày, gom nhóm theo chữ ký để các bản ghi trùng nằm cạnh nhau
@@ -287,22 +291,37 @@ const ListTab: React.FC<ListTabProps> = ({ handleDeleteViolation, handleBulkDele
             )}
          </div>
          
-         {/* Nếu đang lọc trùng lặp thì ẩn các bộ lọc khác để tránh nhầm lẫn, hoặc disable chúng */}
-         <div className={`grid grid-cols-2 md:grid-cols-4 gap-2 ${showDuplicatesOnly ? 'opacity-50 pointer-events-none grayscale' : ''}`}>
-            <select className="bg-slate-50 border border-slate-300 rounded-lg px-2 py-2 text-sm outline-none" value={filterMode} onChange={(e) => setFilterMode(e.target.value as any)}>
+         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            <select 
+                className={`bg-slate-50 border border-slate-300 rounded-lg px-2 py-2 text-sm outline-none ${showDuplicatesOnly ? 'opacity-50 pointer-events-none' : ''}`}
+                value={filterMode} 
+                onChange={(e) => setFilterMode(e.target.value as any)}
+                disabled={showDuplicatesOnly}
+            >
                <option value="ALL">Tất cả thời gian</option>
                <option value="WEEK">Theo Tuần (Cấu hình)</option>
                <option value="MONTH">Theo Tháng (Cấu hình)</option>
                <option value="SEMESTER">Theo Học Kỳ (Cấu hình)</option>
             </select>
-            <select className="bg-slate-50 border border-slate-300 rounded-lg px-2 py-2 text-sm outline-none" value={filterCriteriaType} onChange={(e) => setFilterCriteriaType(e.target.value as any)}>
+            
+            {/* Vẫn cho phép chọn loại khi đang lọc trùng */}
+            <select 
+                className="bg-slate-50 border border-slate-300 rounded-lg px-2 py-2 text-sm outline-none" 
+                value={filterCriteriaType} 
+                onChange={(e) => setFilterCriteriaType(e.target.value as any)}
+            >
                <option value="ALL">Tất cả loại</option>
                <option value="MINUS">Chỉ xem Vi phạm</option>
                <option value="PLUS">Chỉ xem Thành tích</option>
             </select>
             
             {filterMode !== 'ALL' && (
-                <select className="bg-slate-50 border border-slate-300 rounded-lg px-2 py-2 text-sm outline-none" value={filterConfigId} onChange={(e) => setFilterConfigId(e.target.value)}>
+                <select 
+                    className={`bg-slate-50 border border-slate-300 rounded-lg px-2 py-2 text-sm outline-none ${showDuplicatesOnly ? 'opacity-50 pointer-events-none' : ''}`}
+                    value={filterConfigId} 
+                    onChange={(e) => setFilterConfigId(e.target.value)}
+                    disabled={showDuplicatesOnly}
+                >
                     {getTimeOptions().length === 0 && <option value="">Chưa có cấu hình</option>}
                     {getTimeOptions().map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
@@ -310,7 +329,12 @@ const ListTab: React.FC<ListTabProps> = ({ handleDeleteViolation, handleBulkDele
             
             {filterMode === 'ALL' && <div className="hidden md:block"></div>}
             
-            <select className="bg-slate-50 border border-slate-300 rounded-lg px-2 py-2 text-sm outline-none col-span-2 md:col-span-1" value={filterClassId} onChange={(e) => setFilterClassId(e.target.value)}>
+            <select 
+                className={`bg-slate-50 border border-slate-300 rounded-lg px-2 py-2 text-sm outline-none col-span-2 md:col-span-1 ${showDuplicatesOnly ? 'opacity-50 pointer-events-none' : ''}`}
+                value={filterClassId} 
+                onChange={(e) => setFilterClassId(e.target.value)}
+                disabled={showDuplicatesOnly}
+            >
                <option value="ALL">Tất cả các lớp</option>
                {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
