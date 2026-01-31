@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Download, Filter, Search, CheckSquare, Square, Trash2, Edit, Link2, ListChecks, ChevronDown } from 'lucide-react';
+import { Download, Filter, Search, CheckSquare, Square, Trash2, Edit, Link2, ListChecks, ChevronDown, Copy, RefreshCw } from 'lucide-react';
 import { Violation } from '../types';
 import { safeParseImages, formatDateDisplay, isDateInRange, exportToExcel } from '../utils';
 import { useAppStore } from '../contexts/AppContext';
@@ -23,6 +23,9 @@ const ListTab: React.FC<ListTabProps> = ({ handleDeleteViolation, handleBulkDele
   const [filterConfigId, setFilterConfigId] = useState('');
   const [filterClassId, setFilterClassId] = useState('ALL');
   
+  // State mới cho bộ lọc trùng lặp
+  const [showDuplicatesOnly, setShowDuplicatesOnly] = useState(false);
+
   const [selectedViolationIds, setSelectedViolationIds] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -42,7 +45,7 @@ const ListTab: React.FC<ListTabProps> = ({ handleDeleteViolation, handleBulkDele
   // Reset pagination when filters change
   useEffect(() => {
       setVisibleCount(ITEMS_PER_PAGE);
-  }, [filterMode, filterCriteriaType, filterConfigId, filterClassId, searchTerm]);
+  }, [filterMode, filterCriteriaType, filterConfigId, filterClassId, searchTerm, showDuplicatesOnly]);
 
   const isAdmin = useMemo(() => {
      const roleKey = currentUser.role.toUpperCase();
@@ -52,30 +55,63 @@ const ListTab: React.FC<ListTabProps> = ({ handleDeleteViolation, handleBulkDele
   const filteredViolations = useMemo(() => {
     let list = violations;
 
-    if (filterClassId !== 'ALL') list = list.filter(v => v.classId === filterClassId);
-    
-    if (filterMode !== 'ALL') {
-        const config = timeConfigs.find(c => c.id === filterConfigId);
-        if (config) {
-            list = list.filter(v => isDateInRange(v.date, config.startDate, config.endDate));
-        } else {
-             if (timeConfigs.filter(c => c.type === filterMode).length > 0) list = []; 
+    // --- LOGIC LỌC TRÙNG LẶP (Dành cho Admin) ---
+    if (showDuplicatesOnly && isAdmin) {
+        // Tạo map đếm số lần xuất hiện của từng bộ dữ liệu (trừ ghi chú)
+        const counts = new Map<string, number>();
+        
+        // Hàm tạo chữ ký duy nhất cho mỗi bản ghi
+        const getSignature = (v: Violation) => {
+            // Chuẩn hóa ngày về YYYY-MM-DD để so sánh chính xác
+            const dateStr = v.date.includes('T') ? v.date.split('T')[0] : v.date;
+            // Key = Ngày | Lớp | Học sinh | Loại lỗi
+            return `${dateStr}|${v.classId}|${v.studentId || 'GROUP'}|${v.criteriaId}`;
+        };
+
+        // Bước 1: Đếm
+        violations.forEach(v => {
+            const sig = getSignature(v);
+            counts.set(sig, (counts.get(sig) || 0) + 1);
+        });
+
+        // Bước 2: Lọc lấy những thằng có count > 1
+        list = list.filter(v => (counts.get(getSignature(v)) || 0) > 1);
+
+        // Bước 3: Sắp xếp để các thằng trùng nằm cạnh nhau
+        list.sort((a, b) => {
+             const sigA = getSignature(a);
+             const sigB = getSignature(b);
+             return sigA.localeCompare(sigB);
+        });
+
+    } else {
+        // --- LOGIC LỌC THÔNG THƯỜNG ---
+        if (filterClassId !== 'ALL') list = list.filter(v => v.classId === filterClassId);
+        
+        if (filterMode !== 'ALL') {
+            const config = timeConfigs.find(c => c.id === filterConfigId);
+            if (config) {
+                list = list.filter(v => isDateInRange(v.date, config.startDate, config.endDate));
+            } else {
+                 if (timeConfigs.filter(c => c.type === filterMode).length > 0) list = []; 
+            }
         }
+
+        if (filterCriteriaType === 'MINUS') list = list.filter(v => v.points > 0);
+        else if (filterCriteriaType === 'PLUS') list = list.filter(v => v.points < 0);
+        
+        // Sắp xếp mặc định theo thời gian mới nhất
+        list.sort((a, b) => b.timestamp - a.timestamp);
     }
 
-    if (filterCriteriaType === 'MINUS') list = list.filter(v => v.points > 0);
-    else if (filterCriteriaType === 'PLUS') list = list.filter(v => v.points < 0);
-
+    // --- LOGIC TÌM KIẾM (Áp dụng cho cả 2 chế độ) ---
     if (searchTerm.trim()) {
         const term = searchTerm.toLowerCase();
         list = list.filter(v => {
             const studentName = v.studentId ? students.find(s => s.id === v.studentId && s.classId === v.classId)?.name : 'Tập thể';
             const className = classes.find(c => c.id === v.classId)?.name;
             const criteriaContent = criteria.find(c => c.id === v.criteriaId)?.content;
-            
-            // Ensure note is treated as string even if API returns number/null
             const note = v.note ? String(v.note) : ''; 
-            
             const reporter = users.find(u => u.id === v.reportedBy)?.name;
             
             return (
@@ -88,8 +124,8 @@ const ListTab: React.FC<ListTabProps> = ({ handleDeleteViolation, handleBulkDele
         });
     }
 
-    return list.sort((a, b) => b.timestamp - a.timestamp);
-  }, [violations, filterClassId, filterMode, filterConfigId, filterCriteriaType, searchTerm, timeConfigs, classes, students, criteria, users]);
+    return list;
+  }, [violations, filterClassId, filterMode, filterConfigId, filterCriteriaType, searchTerm, timeConfigs, classes, students, criteria, users, showDuplicatesOnly, isAdmin]);
 
   // Derived visible violations for rendering
   const visibleViolations = useMemo(() => {
@@ -104,7 +140,6 @@ const ListTab: React.FC<ListTabProps> = ({ handleDeleteViolation, handleBulkDele
   };
 
   const handleSelectAll = () => {
-    // Select all filtered (matching) items, not just visible ones
     if (selectedViolationIds.size === filteredViolations.length) setSelectedViolationIds(new Set());
     else {
        const newSet = new Set<string>();
@@ -178,12 +213,24 @@ const ListTab: React.FC<ListTabProps> = ({ handleDeleteViolation, handleBulkDele
       <div className="flex flex-col gap-3 mb-2">
         <div className="flex justify-between items-center">
             <h2 className="text-xl font-bold text-slate-800">Tra Cứu Dữ Liệu</h2>
-            <button 
-            onClick={handleExportFilteredData} 
-            className="flex items-center gap-2 bg-green-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium shadow hover:bg-green-700 active:scale-95 transition-transform"
-            >
-            <Download size={16} /> Xuất Excel
-            </button>
+            <div className="flex gap-2">
+                {isAdmin && (
+                    <button 
+                        onClick={() => setShowDuplicatesOnly(!showDuplicatesOnly)}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium shadow transition-all active:scale-95 ${showDuplicatesOnly ? 'bg-orange-600 text-white' : 'bg-white text-orange-600 border border-orange-200 hover:bg-orange-50'}`}
+                        title="Tìm các lỗi trùng lặp (Ngày, Lớp, Học sinh, Lỗi)"
+                    >
+                        {showDuplicatesOnly ? <RefreshCw size={16} className="animate-spin" /> : <Copy size={16} />}
+                        <span className="hidden sm:inline">{showDuplicatesOnly ? 'Đang lọc trùng' : 'Lọc trùng lặp'}</span>
+                    </button>
+                )}
+                <button 
+                    onClick={handleExportFilteredData} 
+                    className="flex items-center gap-2 bg-green-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium shadow hover:bg-green-700 active:scale-95 transition-transform"
+                >
+                    <Download size={16} /> <span className="hidden sm:inline">Xuất Excel</span>
+                </button>
+            </div>
         </div>
         
         <div className="relative w-full">
@@ -197,13 +244,20 @@ const ListTab: React.FC<ListTabProps> = ({ handleDeleteViolation, handleBulkDele
             />
         </div>
 
-        <div className="flex items-center gap-2 text-sm text-slate-500 italic pl-1">
-            <ListChecks size={16} className="text-blue-500" />
-            <span>Hiển thị <strong>{visibleViolations.length}</strong> / {filteredViolations.length} kết quả phù hợp.</span>
+        <div className="flex items-center justify-between text-sm text-slate-500 pl-1">
+            <div className="flex items-center gap-2 italic">
+                <ListChecks size={16} className="text-blue-500" />
+                <span>Hiển thị <strong>{visibleViolations.length}</strong> / {filteredViolations.length} kết quả phù hợp.</span>
+            </div>
+            {showDuplicatesOnly && (
+                <span className="text-orange-600 font-bold text-xs bg-orange-50 px-2 py-1 rounded border border-orange-100 animate-pulse">
+                    Đang xem chế độ trùng lặp
+                </span>
+            )}
         </div>
       </div>
 
-      <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm space-y-3">
+      <div className={`bg-white p-3 rounded-xl border shadow-sm space-y-3 transition-colors ${showDuplicatesOnly ? 'border-orange-200 bg-orange-50/30' : 'border-slate-200'}`}>
          <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-slate-700 font-bold text-sm"><Filter size={16} /> Bộ lọc dữ liệu</div>
             {isAdmin && filteredViolations.length > 0 && (
@@ -212,7 +266,9 @@ const ListTab: React.FC<ListTabProps> = ({ handleDeleteViolation, handleBulkDele
                 </button>
             )}
          </div>
-         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+         
+         {/* Nếu đang lọc trùng lặp thì ẩn các bộ lọc khác để tránh nhầm lẫn, hoặc disable chúng */}
+         <div className={`grid grid-cols-2 md:grid-cols-4 gap-2 ${showDuplicatesOnly ? 'opacity-50 pointer-events-none grayscale' : ''}`}>
             <select className="bg-slate-50 border border-slate-300 rounded-lg px-2 py-2 text-sm outline-none" value={filterMode} onChange={(e) => setFilterMode(e.target.value as any)}>
                <option value="ALL">Tất cả thời gian</option>
                <option value="WEEK">Theo Tuần (Cấu hình)</option>
@@ -328,7 +384,7 @@ const ListTab: React.FC<ListTabProps> = ({ handleDeleteViolation, handleBulkDele
         {filteredViolations.length === 0 && (
           <div className="text-center py-10 flex flex-col items-center text-slate-400">
              <Search size={48} strokeWidth={1} className="mb-2 opacity-50" />
-             <p>Không tìm thấy dữ liệu phù hợp với bộ lọc.</p>
+             <p>{showDuplicatesOnly ? "Không tìm thấy dữ liệu trùng lặp." : "Không tìm thấy dữ liệu phù hợp với bộ lọc."}</p>
           </div>
         )}
 
