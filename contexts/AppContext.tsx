@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { User, Violation, ClassEntity, Student, Criteria, TimeConfig, RoleConfig, AppTheme, AuditLog, AuditAction } from '../types';
-import { INITIAL_ROLE_DEFINITIONS, GUEST_USER, INITIAL_TIME_CONFIGS, formatDateForInput } from '../utils';
+import { INITIAL_ROLE_DEFINITIONS, GUEST_USER, INITIAL_TIME_CONFIGS } from '../utils';
 import { api } from '../services/googleApi';
 
 // ─── MAX audit entries to keep in localStorage ───────────────────────────────
@@ -149,10 +149,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (data.Violations) setViolations(data.Violations);
 
         if (data.TimeConfigs && data.TimeConfigs.length > 0) {
+          // Normalize date strings: cắt phần ISO timestamp, chỉ lấy YYYY-MM-DD
+          const normalizeDate = (s: string) => (s && s.includes('T') ? s.split('T')[0] : s || '');
           const normalizedTimeConfigs = data.TimeConfigs.map((tc: TimeConfig) => ({
             ...tc,
-            startDate: formatDateForInput(tc.startDate),
-            endDate: formatDateForInput(tc.endDate),
+            startDate: normalizeDate(tc.startDate),
+            endDate: normalizeDate(tc.endDate),
           }));
           setTimeConfigs(normalizedTimeConfigs);
         }
