@@ -7,8 +7,6 @@ import { useAppStore } from '../contexts/AppContext';
 import { useModal } from '../contexts/ModalContext';
 
 interface ListTabProps {
-  handleDeleteViolation: (id: string) => void;
-  handleBulkDelete: (ids: string[]) => void;
   onDeleteViolation: (id: string) => void;
   onBulkDelete: (ids: string[]) => void;
   setViewingViolation: (v: Violation | null) => void;
@@ -420,7 +418,7 @@ const ListTab: React.FC<ListTabProps> = ({ setViewingViolation, setEditingViolat
                 <div className="text-right flex flex-col justify-between h-full min-h-[80px]">
                   <div className={`text-lg font-bold ${v.points > 0 ? 'text-red-600' : 'text-green-600'}`}>{v.points > 0 ? `-${v.points}` : `+${Math.abs(v.points)}`}</div>
                   {isAdmin && (
-                    <button onClick={(e) => handleEditClick(e, v)} className="self-end p-1.5 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition-colors mt-auto"><Edit size={16} /></button>
+                    <button onClick={(e) => { e.stopPropagation(); setEditingViolation(v); }} className="self-end p-1.5 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition-colors mt-auto"><Edit size={16} /></button>
                   )}
                 </div>
               </div>
@@ -455,7 +453,7 @@ const ListTab: React.FC<ListTabProps> = ({ setViewingViolation, setEditingViolat
            <div className="font-bold pl-2">Đã chọn {selectedViolationIds.size} mục</div>
            <div className="flex gap-2">
               <button onClick={() => setSelectedViolationIds(new Set())} className="px-4 py-2 text-slate-300 hover:text-white font-medium">Hủy</button>
-              <button onClick={() => { handleBulkDelete(Array.from(selectedViolationIds)); setSelectedViolationIds(new Set()); }} className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg flex items-center gap-2">
+              <button onClick={() => { onBulkDelete(Array.from(selectedViolationIds)); setSelectedViolationIds(new Set()); }} className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg flex items-center gap-2">
                  <Trash2 size={16} /> Xóa
               </button>
            </div>

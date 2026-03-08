@@ -380,10 +380,10 @@ export default function App() {
         )}
         {activeTab === 'list' && (
           <ListTab 
-            handleDeleteViolation={onDeleteViolation}
-            handleBulkDelete={onBulkDelete}
+            onDeleteViolation={onDeleteViolation}
+            onBulkDelete={onBulkDelete}
             setViewingViolation={setViewingViolation}
-            handleEditClick={handleEditClick}
+            setEditingViolation={setEditingViolation}
           />
         )}
         {activeTab === 'ranking' && (
