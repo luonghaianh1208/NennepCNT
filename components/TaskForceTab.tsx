@@ -4,9 +4,11 @@ import { User, RoleConfig } from '../types';
 import { Shield, Save, Edit, Zap, X, Check, Download } from 'lucide-react';
 import { exportToExcel } from '../utils';
 import { useAppStore } from '../contexts/AppContext';
+import { useModal } from '../contexts/ModalContext';
 
 const TaskForceTab: React.FC = () => {
-  const { currentUser, users, violations, students, roleConfigs, setUsers, setUnsavedChanges, syncSettings, unsavedChanges } = useAppStore();
+  const { currentUser, users, violations, students, roleConfigs, setUsers, setUnsavedChanges, syncSettings, unsavedChanges, classes, timeConfigs } = useAppStore();
+  const { showToast } = useModal();
 
   const [filterRole, setFilterRole] = useState('ALL');
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
@@ -138,7 +140,7 @@ const TaskForceTab: React.FC = () => {
 
   const handleExportExcel = () => {
       if (stats.length === 0) {
-          alert("Không có dữ liệu để xuất.");
+          return showToast('Không có dữ liệu để xuất.', 'error');
           return;
       }
       

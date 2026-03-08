@@ -4,18 +4,22 @@ import { Download, Filter, Search, CheckSquare, Square, Trash2, Edit, Link2, Lis
 import { Violation } from '../types';
 import { safeParseImages, formatDateDisplay, isDateInRange, exportToExcel } from '../utils';
 import { useAppStore } from '../contexts/AppContext';
+import { useModal } from '../contexts/ModalContext';
 
 interface ListTabProps {
   handleDeleteViolation: (id: string) => void;
   handleBulkDelete: (ids: string[]) => void;
+  onDeleteViolation: (id: string) => void;
+  onBulkDelete: (ids: string[]) => void;
   setViewingViolation: (v: Violation | null) => void;
-  handleEditClick: (e: React.MouseEvent, v: Violation) => void;
+  setEditingViolation: (v: Violation | null) => void;
 }
 
 const ITEMS_PER_PAGE = 50;
 
-const ListTab: React.FC<ListTabProps> = ({ handleDeleteViolation, handleBulkDelete, setViewingViolation, handleEditClick }) => {
+const ListTab: React.FC<ListTabProps> = ({ setViewingViolation, setEditingViolation, onDeleteViolation, onBulkDelete }) => {
   const { currentUser, violations, classes, students, criteria, users, roleConfigs, timeConfigs } = useAppStore();
+  const { showToast } = useModal();
 
   const [filterMode, setFilterMode] = useState<'MONTH' | 'WEEK' | 'SEMESTER' | 'ALL'>('ALL');
   const [filterCriteriaType, setFilterCriteriaType] = useState<'ALL' | 'MINUS' | 'PLUS'>('ALL');
@@ -145,7 +149,7 @@ const ListTab: React.FC<ListTabProps> = ({ handleDeleteViolation, handleBulkDele
     if (showDuplicatesOnly && isAdmin) {
         // Dùng setTimeout để đảm bảo UI render xong mới alert (tránh block render)
         const timer = setTimeout(() => {
-            alert(`Đã hoàn tất quét dữ liệu.\nTìm thấy: ${filteredViolations.length} bản ghi có dấu hiệu trùng lặp.`);
+            showToast(`Quét xong. Tìm thấy ${filteredViolations.length} bản ghi có dấu hiệu trùng lặp.`, 'info');
         }, 300);
         return () => clearTimeout(timer);
     }
@@ -178,7 +182,7 @@ const ListTab: React.FC<ListTabProps> = ({ handleDeleteViolation, handleBulkDele
 
   const handleExportFilteredData = () => {
     if (filteredViolations.length === 0) {
-      alert("Không có dữ liệu nào để xuất!");
+      return showToast('Không có dữ liệu nào để xuất!', 'error');
       return;
     }
 

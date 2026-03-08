@@ -1,9 +1,10 @@
 
 import React, { useState, useRef } from 'react';
-import { Save, PlusCircle, Trash2, Plus, Upload, Users, GraduationCap, Calendar, X, Settings, AlertTriangle, Star, UserPlus, Edit, Check, Shield, LayoutTemplate } from 'lucide-react';
+import { Save, PlusCircle, Trash2, Plus, Upload, Users, GraduationCap, Calendar, X, Settings, AlertTriangle, Star, UserPlus, Edit, Check, Shield, LayoutTemplate, ClipboardList } from 'lucide-react';
 import { User, ClassEntity, Student, Criteria, RoleConfig } from '../types';
 import { parseCSVLine, removeVietnameseTones } from '../utils';
 import { useAppStore } from '../contexts/AppContext';
+import { useModal } from '../contexts/ModalContext';
 
 const SettingsTab: React.FC = () => {
   const { 
@@ -15,10 +16,12 @@ const SettingsTab: React.FC = () => {
       roleConfigs, setRoleConfigs,
       currentUser, setCurrentUser,
       setUnsavedChanges, syncSettings, unsavedChanges,
-      appTheme, setAppTheme
+      appTheme, setAppTheme,
+      auditLogs, clearAuditLogs,
   } = useAppStore();
+  const { showConfirm, showAlert, showToast } = useModal();
 
-  const [activeSubTab, setActiveSubTab] = useState<'ROLES' | 'TIME' | 'CLASSES' | 'STUDENTS' | 'CRITERIA_VIOLATION' | 'CRITERIA_ACHIEVEMENT' | 'ACCOUNTS'>('ROLES');
+  const [activeSubTab, setActiveSubTab] = useState<'ROLES' | 'TIME' | 'CLASSES' | 'STUDENTS' | 'CRITERIA_VIOLATION' | 'CRITERIA_ACHIEVEMENT' | 'ACCOUNTS' | 'AUDIT_LOG'>('ROLES');
   
   const [newClassName, setNewClassName] = useState('');
   const [newClassGrade, setNewClassGrade] = useState('10');
@@ -51,12 +54,13 @@ const SettingsTab: React.FC = () => {
   const csvAccountInputRef = useRef<HTMLInputElement>(null);
 
   const handleSaveSettings = async () => {
-      if(!confirm("Lưu toàn bộ cấu hình lên hệ thống?")) return;
+      const ok = await showConfirm({ title: 'Lưu cấu hình', message: 'Lưu toàn bộ cấu hình lên hệ thống?', confirmText: 'Lưu' });
+      if (!ok) return;
       const success = await syncSettings();
-      if(success) {
-          alert("Đã lưu thành công!");
+      if (success) {
+          showToast('Đã lưu thành công!', 'success');
       } else {
-          alert("Lỗi khi lưu dữ liệu. Vui lòng thử lại.");
+          showToast('Lỗi khi lưu dữ liệu. Vui lòng thử lại.', 'error');
       }
   };
 
@@ -66,15 +70,16 @@ const SettingsTab: React.FC = () => {
   };
 
   const handleAddClass = () => {
-    if(!newClassName) return alert("Vui lòng nhập tên lớp");
+    if(!newClassName) return showToast('Vui lòng nhập tên lớp', 'error');
     const newId = newClassName.replace(/\s/g, '');
-    if(classes.find(c => c.id === newId)) return alert("Lớp này đã tồn tại");
+    if(classes.find(c => c.id === newId)) return showToast('Lớp này đã tồn tại', 'error');
     setClasses([...classes, { id: newId, name: newClassName, grade: parseInt(newClassGrade), homeroomTeacher: newClassTeacher || 'Chưa cập nhật' }]);
     setNewClassName(''); setNewClassTeacher(''); setUnsavedChanges(true);
   };
 
-  const handleDeleteClass = (id: string) => {
-     if(confirm("Xóa lớp sẽ xóa cả học sinh trong lớp. Tiếp tục?")) {
+  const handleDeleteClass = async (id: string) => {
+     const ok = await showConfirm({ title: 'Xóa Lớp', message: 'Xóa lớp sẽ xóa cả học sinh trong lớp. Tiếp tục?', type: 'danger', confirmText: 'Xóa lớp' });
+     if (ok) {
         setClasses(classes.filter(c => c.id !== id));
         setStudents(students.filter(s => s.classId !== id));
         setUnsavedChanges(true);
@@ -86,7 +91,7 @@ const SettingsTab: React.FC = () => {
     const safeId = `S_${selectedClassForStudent}_${removeVietnameseTones(newStudentName).replace(/\s+/g, '')}`.toUpperCase();
     
     if (students.find(s => s.id === safeId)) {
-        alert("Học sinh này đã tồn tại trong lớp (trùng ID)");
+        showToast('Học sinh này đã tồn tại trong lớp', 'error');
         return;
     }
 
@@ -100,7 +105,7 @@ const SettingsTab: React.FC = () => {
   };
 
   const handleAddCriteria = (type: 'MINUS' | 'PLUS') => {
-    if (!newCriteriaContent || !newCriteriaPoints) return alert("Vui lòng nhập đầy đủ nội dung và điểm");
+    if (!newCriteriaContent || !newCriteriaPoints) return showToast('Vui lòng nhập đầy đủ nội dung và điểm', 'error');
     const newId = `C${Date.now()}`;
     setCriteria([...criteria, { 
       id: newId, 
@@ -113,17 +118,18 @@ const SettingsTab: React.FC = () => {
     setUnsavedChanges(true);
   };
 
-  const handleDeleteCriteria = (id: string) => {
-    if(confirm("Bạn có chắc muốn xóa tiêu chí này không?")) {
+  const handleDeleteCriteria = async (id: string) => {
+    const ok = await showConfirm({ title: 'Xóa tiêu chí', message: 'Bạn có chắc muốn xóa tiêu chí này không?', type: 'danger', confirmText: 'Xóa' });
+    if (ok) {
       setCriteria(criteria.filter(c => c.id !== id));
       setUnsavedChanges(true);
     }
   };
 
   const handleAddRole = () => {
-    if (!newRoleKey || !newRoleLabel) return alert("Mã vai trò và Tên hiển thị không được trống");
+    if (!newRoleKey || !newRoleLabel) return showToast('Mã vai trò và Tên hiển thị không được trống', 'error');
     const key = newRoleKey.toUpperCase().replace(/\s/g, '_');
-    if (roleConfigs[key]) return alert("Mã vai trò này đã tồn tại");
+    if (roleConfigs[key]) return showToast('Mã vai trò này đã tồn tại', 'error');
 
     setRoleConfigs({
       ...roleConfigs,
@@ -139,9 +145,10 @@ const SettingsTab: React.FC = () => {
     setUnsavedChanges(true);
   };
 
-  const handleDeleteRole = (key: string) => {
-    if (key === 'ADMIN' || key === 'GUEST') return alert("Không thể xóa vai trò mặc định");
-    if (confirm(`Xóa vai trò ${key}? Các tài khoản đang dùng vai trò này sẽ bị lỗi quyền.`)) {
+  const handleDeleteRole = async (key: string) => {
+    if (key === 'ADMIN' || key === 'GUEST') return showAlert('Không thể xóa', 'Không thể xóa vai trò mặc định', 'error');
+    const ok = await showConfirm({ title: 'Xóa vai trò', message: `Xóa vai trò ${key}? Các tài khoản đang dùng vai trò này sẽ bị lỗi quyền.`, type: 'danger', confirmText: 'Xóa vai trò' });
+    if (ok) {
       const newConfigs = { ...roleConfigs };
       delete newConfigs[key];
       setRoleConfigs(newConfigs);
@@ -161,8 +168,8 @@ const SettingsTab: React.FC = () => {
   };
 
   const handleAddUser = () => {
-    if (!newUserFullName || !newUserUsername || !newUserPassword) return alert("Vui lòng nhập đầy đủ thông tin bắt buộc");
-    if (users.find(u => u.username === newUserUsername)) return alert("Tên đăng nhập/Email đã tồn tại");
+    if (!newUserFullName || !newUserUsername || !newUserPassword) return showToast('Vui lòng nhập đầy đủ thông tin bắt buộc', 'error');
+    if (users.find(u => u.username === newUserUsername)) return showToast('Tên đăng nhập/Email đã tồn tại', 'error');
     
     const newUser: User = {
         id: `U${Date.now()}`,
@@ -181,9 +188,10 @@ const SettingsTab: React.FC = () => {
     setUnsavedChanges(true);
   };
 
-  const handleDeleteUser = (id: string) => {
-      if(id === 'U1') return alert("Không thể xóa Admin mặc định");
-      if(confirm("Xóa tài khoản này?")) {
+  const handleDeleteUser = async (id: string) => {
+      if (id === 'U1') return showAlert('Không thể xóa', 'Không thể xóa Admin mặc định', 'error');
+      const ok = await showConfirm({ title: 'Xóa tài khoản', message: 'Xóa tài khoản này?', type: 'danger', confirmText: 'Xóa' });
+      if (ok) {
           setUsers(users.filter(u => u.id !== id));
           setUnsavedChanges(true);
       }
@@ -195,11 +203,11 @@ const SettingsTab: React.FC = () => {
 
   const handleSaveUserEdit = () => {
       if (!editingUser) return;
-      if (!editingUser.name || !editingUser.username) return alert("Tên và Username không được để trống");
+      if (!editingUser.name || !editingUser.username) return showToast('Tên và Username không được để trống', 'error');
       
       const originalUser = users.find(u => u.id === editingUser.id);
       if (originalUser?.username !== editingUser.username) {
-          if (users.find(u => u.username === editingUser.username)) return alert("Username này đã tồn tại");
+          if (users.find(u => u.username === editingUser.username)) return showToast('Username này đã tồn tại', 'error');
       }
 
       const updatedUser = editingUser;
@@ -254,9 +262,9 @@ const SettingsTab: React.FC = () => {
         if (count > 0) {
             setClasses([...classes, ...newClasses]);
             setUnsavedChanges(true);
-            alert(`Đã thêm ${count} lớp mới. Vui lòng bấm LƯU để đồng bộ.`);
+            showToast(`Đã thêm ${count} lớp mới. Nhớ bấm LƯU để đồng bộ.`, 'success');
         } else {
-            alert("Không tìm thấy lớp mới hoặc file lỗi format.");
+            showToast('Không tìm thấy lớp mới hoặc file lỗi format.', 'error');
         }
     });
   };
@@ -294,7 +302,7 @@ const SettingsTab: React.FC = () => {
         if (count > 0) {
             setStudents([...students, ...newStudents]);
             setUnsavedChanges(true);
-            alert(`Đã thêm ${count} học sinh.${missingClassCount > 0 ? `\nBỏ qua ${missingClassCount} học sinh do không tìm thấy lớp tương ứng.` : ''}\nVui lòng bấm LƯU.`);
+            showToast(`Đã thêm ${count} học sinh${missingClassCount > 0 ? ` (bỏ qua ${missingClassCount} do không tìm thấy lớp)` : ''}. Nhớ bấm LƯU.`, 'success');
         }
     });
   };
@@ -321,7 +329,7 @@ const SettingsTab: React.FC = () => {
         if (count > 0) {
             setCriteria([...criteria, ...newCriteria]);
             setUnsavedChanges(true);
-            alert(`Đã thêm ${count} tiêu chí vi phạm. Vui lòng bấm LƯU.`);
+            showToast(`Đã thêm ${count} tiêu chí vi phạm. Nhớ bấm LƯU.`, 'success');
         }
     });
   };
@@ -348,7 +356,7 @@ const SettingsTab: React.FC = () => {
         if (count > 0) {
             setCriteria([...criteria, ...newCriteria]);
             setUnsavedChanges(true);
-            alert(`Đã thêm ${count} tiêu chí thành tích. Vui lòng bấm LƯU.`);
+            showToast(`Đã thêm ${count} tiêu chí thành tích. Nhớ bấm LƯU.`, 'success');
         }
     });
   };
@@ -386,7 +394,7 @@ const SettingsTab: React.FC = () => {
           if (count > 0) {
               setUsers([...users, ...newUsers]);
               setUnsavedChanges(true);
-              alert(`Đã thêm ${count} tài khoản. Vui lòng bấm LƯU.`);
+              showToast(`Đã thêm ${count} tài khoản. Nhớ bấm LƯU.`, 'success');
           }
       });
   };
@@ -461,6 +469,7 @@ const SettingsTab: React.FC = () => {
             { id: 'CRITERIA_VIOLATION', label: 'Vi phạm', icon: <AlertTriangle size={16}/> },
             { id: 'CRITERIA_ACHIEVEMENT', label: 'Thành tích', icon: <Star size={16}/> },
             { id: 'ACCOUNTS', label: 'Tài khoản', icon: <UserPlus size={16}/> },
+            { id: 'AUDIT_LOG', label: 'Audit Log', icon: <ClipboardList size={16}/> },
         ].map(tab => (
             <button
                 key={tab.id}
@@ -923,6 +932,81 @@ const SettingsTab: React.FC = () => {
           </div>
       )}
       
+      {activeSubTab === 'AUDIT_LOG' && (
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+              <div className="flex justify-between items-center mb-4">
+                  <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
+                      <ClipboardList size={20} className="text-indigo-500" /> Audit Log
+                  </h3>
+                  <button
+                      onClick={async () => {
+                          const ok = await showConfirm({ title: 'Xóa Audit Log', message: 'Xóa toàn bộ lịch sử thao tác? Hành động này không đị hoàn tác.', type: 'danger', confirmText: 'Xóa Log' });
+                          if (ok) { clearAuditLogs(); showToast('Đã xóa audit log.', 'success'); }
+                      }}
+                      className="flex items-center gap-1 text-xs bg-red-50 text-red-600 border border-red-200 px-3 py-1.5 rounded-lg hover:bg-red-100 font-bold"
+                  >
+                      <Trash2 size={14} /> Xóa log
+                  </button>
+              </div>
+
+              {auditLogs.length === 0 ? (
+                  <div className="text-center py-12 text-slate-400">
+                      <ClipboardList size={40} className="mx-auto mb-2 opacity-30" />
+                      <p className="italic">Chưa có hoạt động nào được ghi lại.</p>
+                  </div>
+              ) : (
+                  <div className="max-h-[500px] overflow-y-auto border border-slate-200 rounded-lg">
+                      <table className="w-full text-sm text-left">
+                          <thead className="bg-slate-50 text-xs uppercase text-slate-500 sticky top-0">
+                              <tr>
+                                  <th className="px-3 py-2">Thời gian</th>
+                                  <th className="px-3 py-2">Người thực hiện</th>
+                                  <th className="px-3 py-2">Hành động</th>
+                                  <th className="px-3 py-2">Chi tiết</th>
+                              </tr>
+                          </thead>
+                          <tbody>
+                              {[...auditLogs].reverse().map(log => {
+                                  const actionColors: Record<string, string> = {
+                                      DELETE_VIOLATION: 'text-red-600 bg-red-50 border-red-100',
+                                      BULK_DELETE: 'text-red-700 bg-red-100 border-red-200',
+                                      UPDATE_VIOLATION: 'text-blue-600 bg-blue-50 border-blue-100',
+                                      CREATE_VIOLATION: 'text-green-600 bg-green-50 border-green-100',
+                                      SYNC_SETTINGS: 'text-indigo-600 bg-indigo-50 border-indigo-100',
+                                  };
+                                  const actionLabels: Record<string, string> = {
+                                      DELETE_VIOLATION: 'Xóa',
+                                      BULK_DELETE: 'Xóa hàng loạt',
+                                      UPDATE_VIOLATION: 'Sửa',
+                                      CREATE_VIOLATION: 'Tạo mới',
+                                      SYNC_SETTINGS: 'Lưu cấu hình',
+                                  };
+                                  const d = new Date(log.timestamp);
+                                  const timeStr = `${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+                                  return (
+                                      <tr key={log.id} className="border-b last:border-0 hover:bg-slate-50">
+                                          <td className="px-3 py-2 text-slate-400 font-mono text-xs whitespace-nowrap">{timeStr}</td>
+                                          <td className="px-3 py-2">
+                                              <div className="font-medium text-slate-700 text-xs">{log.userName}</div>
+                                              <div className="text-[10px] text-slate-400">{log.userRole}</div>
+                                          </td>
+                                          <td className="px-3 py-2">
+                                              <span className={`text-[10px] px-2 py-0.5 rounded border font-bold ${actionColors[log.action] || 'text-slate-600 bg-slate-50 border-slate-200'}`}>
+                                                  {actionLabels[log.action] || log.action}
+                                              </span>
+                                          </td>
+                                          <td className="px-3 py-2 text-slate-600 text-xs">{log.details}</td>
+                                      </tr>
+                                  );
+                              })}
+                          </tbody>
+                      </table>
+                  </div>
+              )}
+              <div className="mt-2 text-xs text-slate-400 text-right">Tổng: {auditLogs.length} bản ghi (lưu đến 500 gần nhất)</div>
+          </div>
+      )}
+
       {renderEditUserModal()}
     </div>
   );

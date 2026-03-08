@@ -63,3 +63,23 @@ export interface TimeConfig {
   startDate: string;
   endDate: string;
 }
+
+// --- Audit Log ---
+export type AuditAction =
+  | 'DELETE_VIOLATION'
+  | 'BULK_DELETE'
+  | 'UPDATE_VIOLATION'
+  | 'CREATE_VIOLATION'
+  | 'SYNC_SETTINGS';
+
+export interface AuditLog {
+  id: string;
+  timestamp: number;
+  userId: string;
+  userName: string;
+  userRole: string;
+  action: AuditAction;
+  details: string;
+  targetId?: string;
+}
+

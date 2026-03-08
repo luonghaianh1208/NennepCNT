@@ -1,5 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useModal } from './contexts/ModalContext';
 import {
   Shield,
   PlusCircle,
@@ -54,14 +55,18 @@ export default function App() {
   const [editingViolation, setEditingViolation] = useState<Violation | null>(null);
   const [viewingViolation, setViewingViolation] = useState<Violation | null>(null);
 
-  // Auto Login Logic
+  const { showConfirm, showAlert, showToast } = useModal();
+
+  // Auto Login Logic — decode encoded session (btoa)
   useEffect(() => {
-     const savedUserJson = localStorage.getItem('nnp_user_creds');
-     if (savedUserJson) {
+     const savedSession = localStorage.getItem('nnp_user_creds');
+     if (savedSession) {
          try {
-             const creds = JSON.parse(savedUserJson);
-             setLoginUsername(creds.username);
-             setLoginPassword(creds.password);
+             const decoded = atob(savedSession);
+             const [username, ...rest] = decoded.split(':');
+             const password = rest.join(':'); // password may contain ':'
+             setLoginUsername(username);
+             setLoginPassword(password);
              setRememberMe(true);
          } catch (e) {
              localStorage.removeItem('nnp_user_creds');
@@ -95,7 +100,9 @@ export default function App() {
       setLoginError('');
       
       if (rememberMe) {
-          localStorage.setItem('nnp_user_creds', JSON.stringify({ username: loginUsername, password: loginPassword }));
+          // Encode username:password bằng base64 thay vì lưu JSON plaintext
+          const encoded = btoa(`${loginUsername}:${loginPassword}`);
+          localStorage.setItem('nnp_user_creds', encoded);
       } else {
           localStorage.removeItem('nnp_user_creds');
       }
@@ -118,8 +125,9 @@ export default function App() {
     }
   };
 
-  const handleLogout = () => {
-    if(confirm("Bạn có chắc muốn đăng xuất?")) {
+  const handleLogout = async () => {
+    const ok = await showConfirm({ title: 'Đăng xuất', message: 'Bạn có chắc muốn đăng xuất?', type: 'confirm' });
+    if (ok) {
         setCurrentUser(GUEST_USER);
         setActiveTab('list');
         localStorage.removeItem('nnp_user_creds');
@@ -132,23 +140,38 @@ export default function App() {
   };
 
   const onSaveEdit = async (updatedV: Violation) => {
-    await updateViolation(updatedV);
-    setEditingViolation(null);
-    setShowGlobalSuccess(true);
-    setTimeout(() => setShowGlobalSuccess(false), 1500);
+    try {
+      await updateViolation(updatedV);
+      setEditingViolation(null);
+      showToast('Đã lưu thành công!', 'success');
+    } catch {
+      showToast('Lỗi khi lưu. Vui lòng thử lại.', 'error');
+    }
   };
 
   const onDeleteViolation = async (id: string) => {
-    if (confirm("Xóa vĩnh viễn mục này trên hệ thống?")) {
+    const ok = await showConfirm({ title: 'Xác nhận xóa', message: 'Xóa vĩnh viễn mục này trên hệ thống?', type: 'danger', confirmText: 'Xóa' });
+    if (ok) {
         if (viewingViolation?.id === id) setViewingViolation(null);
-        await deleteViolation(id);
+        try {
+          await deleteViolation(id);
+          showToast('Đã xóa thành công.', 'success');
+        } catch {
+          showToast('Lỗi khi xóa. Vui lòng thử lại.', 'error');
+        }
     }
   };
 
   const onBulkDelete = async (ids: string[]) => {
       if (ids.length === 0) return;
-      if (!confirm(`Bạn có chắc muốn xóa ${ids.length} mục đã chọn?`)) return;
-      await deleteViolations(ids);
+      const ok = await showConfirm({ title: 'Xóa hàng loạt', message: `Bạn có chắc muốn xóa ${ids.length} mục đã chọn? Hành động này không thể hoàn tác.`, type: 'danger', confirmText: `Xóa ${ids.length} mục` });
+      if (!ok) return;
+      try {
+        await deleteViolations(ids);
+        showToast(`Đã xóa ${ids.length} mục thành công.`, 'success');
+      } catch {
+        showToast('Lỗi khi xóa hàng loạt. Vui lòng thử lại.', 'error');
+      }
   };
 
   const isCurrentUserAdmin = () => {
@@ -173,6 +196,35 @@ export default function App() {
           </div>
       );
   }
+
+  // Snowflake / petal data — memoized to avoid re-creating on every render
+  const snowflakes = useMemo(() => Array.from({ length: 15 }, (_, i) => ({
+    key: `snow-${i}`,
+    width: `${Math.random() * 4 + 2}px`,
+    height: `${Math.random() * 4 + 2}px`,
+    left: `${Math.random() * 100}%`,
+    top: `-${Math.random() * 20}px`,
+    duration: `${Math.random() * 5 + 3}s`,
+    delay: `${Math.random() * 5}s`,
+    opacity: Math.random() * 0.5 + 0.3,
+  })), []);
+
+  const stars = useMemo(() => Array.from({ length: 8 }, (_, i) => ({
+    key: `star-${i}`,
+    left: `${Math.random() * 90 + 5}%`,
+    top: `${Math.random() * 60}%`,
+    delay: `${Math.random() * 2}s`,
+  })), []);
+
+  const petals = useMemo(() => Array.from({ length: 20 }, (_, i) => ({
+    key: `petal-${i}`,
+    left: `${Math.random() * 100}%`,
+    top: `-${Math.random() * 20}px`,
+    duration: `${Math.random() * 4 + 4}s`,
+    delay: `${Math.random() * 5}s`,
+    color: Math.random() > 0.5 ? '#fbcfe8' : '#f9a8d4',
+    opacity: Math.random() * 0.4 + 0.6,
+  })), []);
 
   const headerBgClass = appTheme === 'TET' ? 'bg-gradient-to-b from-red-800 to-red-900' : 'bg-blue-900';
   const headerTextClass = appTheme === 'TET' ? 'text-yellow-100' : 'text-blue-100';
@@ -229,11 +281,11 @@ export default function App() {
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
              {appTheme === 'WINTER' ? (
                  <>
-                     {[...Array(15)].map((_, i) => (
-                       <div key={`snow-${i}`} className="snowflake" style={{ width: `${Math.random() * 4 + 2}px`, height: `${Math.random() * 4 + 2}px`, left: `${Math.random() * 100}%`, top: `-${Math.random() * 20}px`, animationDuration: `${Math.random() * 5 + 3}s`, animationDelay: `${Math.random() * 5}s`, opacity: Math.random() * 0.5 + 0.3 }}></div>
+                     {snowflakes.map(s => (
+                       <div key={s.key} className="snowflake" style={{ width: s.width, height: s.height, left: s.left, top: s.top, animationDuration: s.duration, animationDelay: s.delay, opacity: s.opacity }}></div>
                      ))}
-                     {[...Array(8)].map((_, i) => (
-                        <div key={`star-${i}`} className="star-twinkle" style={{ left: `${Math.random() * 90 + 5}%`, top: `${Math.random() * 60}%`, animationDelay: `${Math.random() * 2}s` }}></div>
+                     {stars.map(s => (
+                        <div key={s.key} className="star-twinkle" style={{ left: s.left, top: s.top, animationDelay: s.delay }}></div>
                      ))}
                      <div className="absolute bottom-0 left-0 right-0 h-16 pointer-events-none z-0">
                          <div className="absolute bottom-0 w-full h-full bg-gradient-to-t from-white/30 to-transparent"></div>
@@ -241,8 +293,8 @@ export default function App() {
                  </>
              ) : (
                  <>
-                     {[...Array(20)].map((_, i) => (
-                       <div key={`petal-${i}`} className="petal" style={{ left: `${Math.random() * 100}%`, top: `-${Math.random() * 20}px`, animationDuration: `${Math.random() * 4 + 4}s`, animationDelay: `${Math.random() * 5}s`, backgroundColor: Math.random() > 0.5 ? '#fbcfe8' : '#f9a8d4', opacity: Math.random() * 0.4 + 0.6 }}></div>
+                     {petals.map(p => (
+                       <div key={p.key} className="petal" style={{ left: p.left, top: p.top, animationDuration: p.duration, animationDelay: p.delay, backgroundColor: p.color, opacity: p.opacity }}></div>
                      ))}
                      <img src="https://doantruong.chuyennguyentrai.edu.vn/wp-content/uploads/2026/01/Canh-dao.png" className="absolute -top-4 -left-6 w-36 md:w-56 z-0 pointer-events-none opacity-90" style={{ transform: 'scaleX(-1) rotate(15deg)' }} alt="Dao Left" />
                      <img src="https://doantruong.chuyennguyentrai.edu.vn/wp-content/uploads/2026/01/Chu-2026.png" className="absolute -top-1 right-12 md:right-24 w-16 md:w-24 z-0 pointer-events-none opacity-100 brightness-125 drop-shadow-sm" alt="2026" />
@@ -385,15 +437,7 @@ export default function App() {
         </div>
       </nav>
 
-      {/* Global Success Notification */}
-      {showGlobalSuccess && (
-         <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[60] animate-in zoom-in fade-in duration-200">
-             <div className="bg-black/80 text-white backdrop-blur-md px-6 py-4 rounded-2xl shadow-2xl flex flex-col items-center gap-2">
-                 <CheckCircle2 size={40} className="text-green-400" />
-                 <span className="font-bold text-lg">Đã lưu thành công!</span>
-             </div>
-         </div>
-      )}
+      {/* Global Success Notification — now handled by Toast */}
 
       {/* Login Modal */}
       {showLoginModal && (

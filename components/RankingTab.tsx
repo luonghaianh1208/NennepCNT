@@ -4,9 +4,11 @@ import { Trophy, Download, X, FileSpreadsheet, Layers } from 'lucide-react';
 import { Violation } from '../types';
 import { calculateScore, getUniqueWeeksCount, getEarliestViolationDate, getLatestViolationDate, isDateInRange, formatDateDisplay, exportToExcel } from '../utils';
 import { useAppStore } from '../contexts/AppContext';
+import { useModal } from '../contexts/ModalContext';
 
 const RankingTab: React.FC = () => {
-  const { violations, classes, timeConfigs } = useAppStore();
+  const { classes, violations, criteria, timeConfigs, roleConfigs } = useAppStore();
+  const { showToast } = useModal();
 
   const [rankingGradeTab, setRankingGradeTab] = useState<'10' | '11' | '12'>('10');
   const [rankingFilterMode, setRankingFilterMode] = useState<'WEEK' | 'MONTH' | 'SEMESTER' | 'ALL'>('ALL');
@@ -117,7 +119,7 @@ const RankingTab: React.FC = () => {
 
   const handleOpenExportModal = () => {
       if (violations.length === 0 && rankingFilterMode === 'ALL') {
-          alert("Hệ thống chưa có dữ liệu vi phạm nào.");
+          return showToast('Hệ thống chưa có dữ liệu vi phạm nào.', 'error');
           return;
       }
       setShowExportModal(true);
@@ -165,7 +167,7 @@ const RankingTab: React.FC = () => {
       }
 
       if (targetClasses.length === 0) {
-          alert("Không tìm thấy dữ liệu lớp học.");
+          return showToast('Không tìm thấy dữ liệu lớp học.', 'error');
           return;
       }
 

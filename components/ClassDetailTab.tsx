@@ -5,6 +5,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { Violation } from '../types';
 import { calculateScore, safeParseImages, formatDateDisplay, getUniqueWeeksCount, getEarliestViolationDate, getLatestViolationDate, isDateInRange, getYearWeekKey, exportToExcel } from '../utils';
 import { useAppStore } from '../contexts/AppContext';
+import { useModal } from '../contexts/ModalContext';
 
 interface ClassDetailTabProps {
   setViewingViolation: (v: Violation | null) => void;
@@ -12,6 +13,7 @@ interface ClassDetailTabProps {
 
 const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ setViewingViolation }) => {
   const { currentUser, classes, violations, criteria, students, timeConfigs } = useAppStore();
+  const { showToast } = useModal();
 
   const [selectedClassId, setSelectedClassId] = useState('');
 
@@ -136,7 +138,7 @@ const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ setViewingViolation }) 
 
   const handleExportTopStudents = () => {
     if (studentViolationStats.length === 0) {
-        alert("Không có dữ liệu học sinh vi phạm để xuất.");
+        showToast('Không có dữ liệu học sinh vi phạm để xuất.', 'error');
         return;
     }
     const header = ["STT", "Học sinh", "Lớp", "Số lượt vi phạm", "Tổng điểm trừ"];

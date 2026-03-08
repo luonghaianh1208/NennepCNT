@@ -5,9 +5,11 @@ import { Violation } from '../types';
 import { api } from '../services/googleApi';
 import { parseCSVLine, removeVietnameseTones } from '../utils';
 import { useAppStore } from '../contexts/AppContext';
+import { useModal } from '../contexts/ModalContext';
 
 const EntryTab: React.FC = () => {
   const { currentUser, classes, students, criteria, violations, setViolations, roleConfigs, users, createViolation } = useAppStore();
+  const { showConfirm, showAlert, showToast } = useModal();
 
   const [entryMode, setEntryMode] = useState<'VIOLATION' | 'ACHIEVEMENT'>('VIOLATION');
   const [entryDate, setEntryDate] = useState(new Date().toISOString().slice(0, 10));
@@ -52,8 +54,9 @@ const EntryTab: React.FC = () => {
     }
   };
 
-  const handleCancelImport = () => {
-      if (confirm("Bạn có chắc muốn hủy quá trình Import? Dữ liệu đã xử lý trước đó vẫn sẽ được lưu.")) {
+  const handleCancelImport = async () => {
+      const ok = await showConfirm({ title: 'Hủy Import', message: 'Bạn có chắc muốn hủy? Dữ liệu đã xử lý trước đó vẫn được lưu.', type: 'confirm', confirmText: 'Hủy Import' });
+      if (ok) {
           abortImportRef.current = true;
       }
   };
@@ -160,14 +163,17 @@ const EntryTab: React.FC = () => {
              }
         }
       }
+                     // --- Track successful records separately ---
+      const successfulRecords: Violation[] = [];
 
       if (recordsToProcess.length === 0) {
-          alert("Không tìm thấy dữ liệu hợp lệ trong file CSV hoặc sai định dạng cột.");
+          await showAlert('Không có dữ liệu', 'Không tìm thấy dữ liệu hợp lệ trong file CSV hoặc sai định dạng cột.', 'error');
           if (csvInputRef.current) csvInputRef.current.value = '';
           return;
       }
 
-      if (!confirm(`Tìm thấy ${recordsToProcess.length} dòng hợp lệ. Bắt đầu lưu vào hệ thống?`)) {
+      const confirmed = await showConfirm({ title: 'Xác nhận Import', message: `Tìm thấy ${recordsToProcess.length} dòng hợp lệ. Bắt đầu lưu vào hệ thống?`, confirmText: 'Import' });
+      if (!confirmed) {
           if (csvInputRef.current) csvInputRef.current.value = '';
           return;
       }
@@ -179,13 +185,14 @@ const EntryTab: React.FC = () => {
 
       for (let i = 0; i < recordsToProcess.length; i++) {
           if (abortImportRef.current) {
-              setImportProgress("Đã hủy quá trình Import!");
+              setImportProgress('Rð Import đã hủy!');
               break;
           }
 
           setImportProgress(`Đang xử lý ${i + 1}/${recordsToProcess.length}...`);
           try {
               await api.createViolation(recordsToProcess[i]);
+              successfulRecords.push(recordsToProcess[i]); // ✅ chỉ push khi thành công
               successCount++;
               await new Promise(resolve => setTimeout(resolve, 50));
           } catch (err) {
@@ -194,29 +201,31 @@ const EntryTab: React.FC = () => {
           }
       }
 
-      const processedRecords = recordsToProcess.slice(0, successCount + errorCount);
-      setViolations([...processedRecords, ...violations]); 
-      
+      // ✅ Chỉ thêm records thành công vào state
+      if (successfulRecords.length > 0) {
+          setViolations(prev => [...successfulRecords, ...prev]);
+      }
+
       setIsSubmitting(false);
       setImportProgress('');
-      
+
       if (abortImportRef.current) {
-          alert(`Đã HỦY Import:\n- Đã lưu thành công: ${successCount}\n- Lỗi: ${errorCount}\n- Còn lại: ${recordsToProcess.length - (successCount + errorCount)} chưa xử lý.`);
+          await showAlert('Import bị hủy', `Đã lưu thành công: ${successCount}\nLỗi: ${errorCount}\nCòn lại chưa xử lý: ${recordsToProcess.length - (successCount + errorCount)}`, 'info');
       } else {
-          alert(`Hoàn tất import:\n- Thành công: ${successCount}\n- Lỗi: ${errorCount}`);
+          await showAlert(successCount > 0 ? 'Import Thành Công' : 'Import Thất Bại', `Thành công: ${successCount}\nLỗi: ${errorCount}`, successCount > 0 ? 'success' : 'error');
       }
-      
+
       if (csvInputRef.current) csvInputRef.current.value = '';
     };
     reader.readAsText(file);
   };
 
   const handleSubmitViolation = async () => {
-    if (!selectedClassId || !selectedCriteriaId) return alert("Vui lòng chọn lớp và nội dung");
-    if (selectedType === 'PERSONAL' && !selectedStudentId) return alert("Vui lòng chọn học sinh");
+    if (!selectedClassId || !selectedCriteriaId) return showAlert('Thiếu thông tin', 'Vui lòng chọn lớp và nội dung', 'error');
+    if (selectedType === 'PERSONAL' && !selectedStudentId) return showAlert('Thiếu thông tin', 'Vui lòng chọn học sinh', 'error');
     
     if (entryMode === 'VIOLATION' && !previewImage) {
-        return alert("Bắt buộc phải có ảnh minh họa/bằng chứng cho lỗi vi phạm.");
+        return showAlert('Thiếu ảnh', 'Bắt buộc phải có ảnh minh họa/bằng chứng cho lỗi vi phạm.', 'error');
     }
 
     setIsSubmitting(true);
@@ -246,7 +255,7 @@ const EntryTab: React.FC = () => {
             if (uploadRes.status === 'success') {
                 imageUrls.push(uploadRes.url);
             } else {
-                alert("Lỗi upload ảnh: " + uploadRes.message);
+                showToast('Lỗi upload ảnh: ' + uploadRes.message, 'error');
                 setIsSubmitting(false);
                 return;
             }
@@ -277,7 +286,7 @@ const EntryTab: React.FC = () => {
         setTimeout(() => setShowSuccessModal(false), 2000);
 
     } catch (error) {
-        alert("Có lỗi xảy ra khi lưu dữ liệu.");
+        showToast('Có lỗi xảy ra khi lưu dữ liệu.', 'error');
         console.error(error);
     } finally {
         setIsSubmitting(false);
