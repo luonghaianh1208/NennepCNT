@@ -1,0 +1,473 @@
+
+import React, { useState, useEffect } from 'react';
+import {
+  Shield,
+  PlusCircle,
+  List,
+  Trophy,
+  BarChart2,
+  Settings,
+  LogIn,
+  LogOut,
+  Loader2,
+  Users,
+  RefreshCw,
+  CheckCircle2,
+  Snowflake,
+  Flower2,
+  X
+} from 'lucide-react';
+import { Violation } from './types';
+import { INITIAL_ROLE_DEFINITIONS, GUEST_USER } from './utils';
+import { useAppStore } from './contexts/AppContext';
+
+import EntryTab from './components/EntryTab';
+import ListTab from './components/ListTab';
+import RankingTab from './components/RankingTab';
+import ClassDetailTab from './components/ClassDetailTab';
+import SettingsTab from './components/SettingsTab';
+import TaskForceTab from './components/TaskForceTab';
+
+import ViewViolationModal from './components/modals/ViewViolationModal';
+import EditViolationModal from './components/modals/EditViolationModal';
+
+export default function App() {
+  const { 
+      currentUser, setCurrentUser, 
+      users, roleConfigs, 
+      appTheme, setAppTheme, 
+      isLoading, isRefreshing, refreshData,
+      deleteViolation, deleteViolations, updateViolation,
+      setViolations
+  } = useAppStore();
+
+  const [activeTab, setActiveTab] = useState<string>('list');
+  
+  // Local UI State
+  const [showGlobalSuccess, setShowGlobalSuccess] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [loginUsername, setLoginUsername] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginError, setLoginError] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
+
+  const [editingViolation, setEditingViolation] = useState<Violation | null>(null);
+  const [viewingViolation, setViewingViolation] = useState<Violation | null>(null);
+
+  // Auto Login Logic
+  useEffect(() => {
+     const savedUserJson = localStorage.getItem('nnp_user_creds');
+     if (savedUserJson) {
+         try {
+             const creds = JSON.parse(savedUserJson);
+             setLoginUsername(creds.username);
+             setLoginPassword(creds.password);
+             setRememberMe(true);
+         } catch (e) {
+             localStorage.removeItem('nnp_user_creds');
+         }
+     }
+  }, []);
+
+  useEffect(() => {
+     if (users.length > 0 && currentUser.role === 'GUEST' && loginUsername && loginPassword && rememberMe) {
+         const user = users.find(u => u.username === loginUsername && u.password === loginPassword);
+         if (user) {
+             setCurrentUser(user);
+             const userRoleKey = user.role.toUpperCase();
+             const roleConfig = roleConfigs[userRoleKey] || roleConfigs['GUEST'] || INITIAL_ROLE_DEFINITIONS[userRoleKey];
+             
+             if (roleConfig?.canEntry) setActiveTab('entry');
+             else if (roleConfig?.isAdmin) setActiveTab('settings');
+             else setActiveTab('list');
+         }
+     }
+  }, [users, loginUsername, loginPassword, rememberMe, currentUser.role, roleConfigs, setCurrentUser]);
+
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    const user = users.find(u => u.username === loginUsername && u.password === loginPassword);
+    
+    if (user) {
+      setCurrentUser(user);
+      setShowLoginModal(false);
+      setLoginError('');
+      
+      if (rememberMe) {
+          localStorage.setItem('nnp_user_creds', JSON.stringify({ username: loginUsername, password: loginPassword }));
+      } else {
+          localStorage.removeItem('nnp_user_creds');
+      }
+      
+      setLoginUsername('');
+      setLoginPassword('');
+      
+      const userRoleKey = user.role.toUpperCase();
+      const roleConfig = roleConfigs[userRoleKey] || roleConfigs['GUEST'];
+      
+      if (roleConfig.canEntry) {
+        setActiveTab('entry');
+      } else if (roleConfig.isAdmin) {
+        setActiveTab('settings');
+      } else {
+        setActiveTab('list');
+      }
+    } else {
+      setLoginError('Tên đăng nhập hoặc mật khẩu không đúng');
+    }
+  };
+
+  const handleLogout = () => {
+    if(confirm("Bạn có chắc muốn đăng xuất?")) {
+        setCurrentUser(GUEST_USER);
+        setActiveTab('list');
+        localStorage.removeItem('nnp_user_creds');
+    }
+  };
+
+  const handleEditClick = (e: React.MouseEvent, v: Violation) => {
+    e.stopPropagation();
+    setEditingViolation(v);
+  };
+
+  const onSaveEdit = async (updatedV: Violation) => {
+    await updateViolation(updatedV);
+    setEditingViolation(null);
+    setShowGlobalSuccess(true);
+    setTimeout(() => setShowGlobalSuccess(false), 1500);
+  };
+
+  const onDeleteViolation = async (id: string) => {
+    if (confirm("Xóa vĩnh viễn mục này trên hệ thống?")) {
+        if (viewingViolation?.id === id) setViewingViolation(null);
+        await deleteViolation(id);
+    }
+  };
+
+  const onBulkDelete = async (ids: string[]) => {
+      if (ids.length === 0) return;
+      if (!confirm(`Bạn có chắc muốn xóa ${ids.length} mục đã chọn?`)) return;
+      await deleteViolations(ids);
+  };
+
+  const isCurrentUserAdmin = () => {
+      const roleKey = currentUser.role.toUpperCase();
+      return roleConfigs[roleKey]?.isAdmin || false;
+  };
+
+  const canCurrentUserEntry = () => {
+      const roleKey = currentUser.role.toUpperCase();
+      return roleConfigs[roleKey]?.canEntry || false;
+  };
+
+  const toggleTheme = () => {
+      setAppTheme(appTheme === 'TET' ? 'WINTER' : 'TET');
+  };
+
+  if (isLoading) {
+      return (
+          <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center text-slate-500 gap-3">
+              <Loader2 className="animate-spin text-blue-600" size={40} />
+              <p className="font-medium">Đang tải dữ liệu từ hệ thống...</p>
+          </div>
+      );
+  }
+
+  const headerBgClass = appTheme === 'TET' ? 'bg-gradient-to-b from-red-800 to-red-900' : 'bg-blue-900';
+  const headerTextClass = appTheme === 'TET' ? 'text-yellow-100' : 'text-blue-100';
+  const primaryTitleColor = appTheme === 'TET' ? 'text-yellow-400' : 'text-white';
+  
+  return (
+    <div className="min-h-screen bg-slate-50 font-sans mx-auto max-w-md md:max-w-2xl lg:max-w-4xl shadow-2xl overflow-hidden flex flex-col relative">
+      <style>{`
+          @keyframes snowfall {
+            0% { transform: translateY(-10px) translateX(0px); opacity: 0; }
+            20% { opacity: 0.9; }
+            100% { transform: translateY(300px) translateX(20px); opacity: 0; }
+          }
+          @keyframes petal-fall {
+            0% { transform: translateY(-10px) translateX(0px) rotate(0deg); opacity: 0; }
+            20% { opacity: 0.9; }
+            50% { transform: translateY(150px) translateX(20px) rotate(180deg); opacity: 0.8; }
+            100% { transform: translateY(300px) translateX(-20px) rotate(360deg); opacity: 0; }
+          }
+          @keyframes twinkle {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.3; transform: scale(0.6); }
+          }
+          .snowflake {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            pointer-events: none;
+            animation: snowfall linear infinite;
+          }
+          .petal {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background: #fbcfe8; /* pink-200 */
+            border-radius: 60% 40% 40% 60% / 60% 40% 60% 40%;
+            pointer-events: none;
+            animation: petal-fall linear infinite;
+            box-shadow: 0 0 2px #f9a8d4;
+          }
+          .star-twinkle {
+            position: absolute;
+            width: 3px;
+            height: 3px;
+            background: white;
+            border-radius: 50%;
+            animation: twinkle 3s ease-in-out infinite;
+            box-shadow: 0 0 4px 1px rgba(255, 255, 255, 0.4);
+          }
+      `}</style>
+      
+      <header className={`${headerBgClass} text-white p-4 pt-8 pb-6 sticky top-0 z-20 shadow-lg rounded-b-[2rem] relative overflow-hidden transition-colors duration-500`}>
+        {/* --- EFFECTS --- */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+             {appTheme === 'WINTER' ? (
+                 <>
+                     {[...Array(15)].map((_, i) => (
+                       <div key={`snow-${i}`} className="snowflake" style={{ width: `${Math.random() * 4 + 2}px`, height: `${Math.random() * 4 + 2}px`, left: `${Math.random() * 100}%`, top: `-${Math.random() * 20}px`, animationDuration: `${Math.random() * 5 + 3}s`, animationDelay: `${Math.random() * 5}s`, opacity: Math.random() * 0.5 + 0.3 }}></div>
+                     ))}
+                     {[...Array(8)].map((_, i) => (
+                        <div key={`star-${i}`} className="star-twinkle" style={{ left: `${Math.random() * 90 + 5}%`, top: `${Math.random() * 60}%`, animationDelay: `${Math.random() * 2}s` }}></div>
+                     ))}
+                     <div className="absolute bottom-0 left-0 right-0 h-16 pointer-events-none z-0">
+                         <div className="absolute bottom-0 w-full h-full bg-gradient-to-t from-white/30 to-transparent"></div>
+                     </div>
+                 </>
+             ) : (
+                 <>
+                     {[...Array(20)].map((_, i) => (
+                       <div key={`petal-${i}`} className="petal" style={{ left: `${Math.random() * 100}%`, top: `-${Math.random() * 20}px`, animationDuration: `${Math.random() * 4 + 4}s`, animationDelay: `${Math.random() * 5}s`, backgroundColor: Math.random() > 0.5 ? '#fbcfe8' : '#f9a8d4', opacity: Math.random() * 0.4 + 0.6 }}></div>
+                     ))}
+                     <img src="https://doantruong.chuyennguyentrai.edu.vn/wp-content/uploads/2026/01/Canh-dao.png" className="absolute -top-4 -left-6 w-36 md:w-56 z-0 pointer-events-none opacity-90" style={{ transform: 'scaleX(-1) rotate(15deg)' }} alt="Dao Left" />
+                     <img src="https://doantruong.chuyennguyentrai.edu.vn/wp-content/uploads/2026/01/Chu-2026.png" className="absolute -top-1 right-12 md:right-24 w-16 md:w-24 z-0 pointer-events-none opacity-100 brightness-125 drop-shadow-sm" alt="2026" />
+                     <img src="https://doantruong.chuyennguyentrai.edu.vn/wp-content/uploads/2026/01/Thiet-ke-chua-co-ten.png" className="absolute bottom-0 right-0 w-12 md:w-16 z-0 pointer-events-none drop-shadow-md" alt="Horse" />
+                 </>
+             )}
+        </div>
+
+        <div className="flex justify-between items-start relative z-10">
+           <div className="flex flex-col">
+              <div className="flex items-center gap-3 mb-2">
+                 <div className="flex -space-x-2"> 
+                     <img src="https://upload.wikimedia.org/wikipedia/commons/7/70/THPT_Chuyen_Nguyen_Trai.png" alt="CNT" className="w-10 h-10 object-contain bg-white rounded-full p-0.5 shadow-md z-10" />
+                     <img src="https://upload.wikimedia.org/wikipedia/vi/0/09/Huy_Hi%E1%BB%87u_%C4%90o%C3%A0n.png" alt="Doan" className="w-10 h-10 object-contain drop-shadow-md z-0" />
+                 </div>
+                 
+                 <div>
+                     <h1 className={`text-2xl font-black tracking-tight leading-none ${primaryTitleColor}`}>NỀN NẾP CNT</h1>
+                     {appTheme === 'TET' ? (
+                         <div className="text-[10px] text-yellow-300 font-bold uppercase tracking-widest mt-0.5 flex items-center gap-1">
+                            <span>✨ Chúc Mừng Năm Mới</span>
+                         </div>
+                     ) : (
+                         <div className="text-[10px] text-blue-200 font-bold uppercase tracking-widest mt-0.5">THPT Chuyên Nguyễn Trãi</div>
+                     )}
+                 </div>
+              </div>
+              
+              <div className="pl-1 space-y-0.5">
+                  <p className={`${headerTextClass} text-xs opacity-90`}>
+                      {appTheme === 'TET' ? 'Xuân Bính Ngọ 2026 - An Khang Thịnh Vượng' : 'Hệ thống quản lí thi đua trường THPT Chuyên Nguyễn Trãi'}
+                  </p>
+                  <p className={`${appTheme === 'TET' ? 'text-yellow-500/80' : 'text-blue-400'} text-[10px] font-mono`}>Developed by Lương Hải Anh © 2026</p>
+              </div>
+           </div>
+           
+           <div className="flex flex-col items-end gap-3 pt-1">
+              <div className="relative group">
+                  {currentUser.role !== 'GUEST' ? (
+                    <button 
+                        onClick={handleLogout}
+                        className={`flex items-center gap-2 pl-3 pr-2 py-1.5 rounded-full text-xs font-medium transition-colors border ${appTheme === 'TET' ? 'bg-red-800/50 hover:bg-red-800 border-red-700 text-white' : 'bg-blue-800/50 hover:bg-blue-800 border-blue-700 text-white'}`}
+                    >
+                        <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold bg-white ${appTheme === 'TET' ? 'text-red-900' : 'text-blue-900'}`}>{currentUser.name.charAt(0)}</div>
+                        <span className="max-w-[80px] truncate">{currentUser.name}</span>
+                        <LogOut size={14} className="ml-1 opacity-70"/>
+                    </button>
+                  ) : (
+                    <button 
+                        onClick={() => setShowLoginModal(true)}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-colors shadow-md ${appTheme === 'TET' ? 'bg-yellow-400 text-red-900 hover:bg-yellow-300' : 'bg-white text-blue-900 hover:bg-blue-50'}`}
+                    >
+                        <LogIn size={16} /> Đăng nhập
+                    </button>
+                  )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                 <button
+                    onClick={toggleTheme}
+                    className={`p-2 rounded-full transition-all shadow-sm ${appTheme === 'TET' ? 'bg-red-800 text-yellow-200 hover:bg-red-700' : 'bg-blue-800 text-blue-200 hover:bg-blue-700'}`}
+                    title="Đổi giao diện"
+                  >
+                      {appTheme === 'TET' ? <Snowflake size={18} /> : <Flower2 size={18} />}
+                  </button>
+
+                  <button 
+                    onClick={refreshData} 
+                    disabled={isRefreshing}
+                    className={`p-2 rounded-full transition-colors disabled:opacity-50 ${appTheme === 'TET' ? 'bg-red-800 text-yellow-400 hover:bg-red-700 hover:text-white' : 'bg-blue-800 text-blue-200 hover:bg-blue-700 hover:text-white'}`}
+                    title="Làm mới dữ liệu từ Database"
+                  >
+                      <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} />
+                  </button>
+              </div>
+           </div>
+        </div>
+      </header>
+
+      <main className="flex-1 p-4 overflow-y-auto scroll-smooth">
+        {activeTab === 'entry' && currentUser.role !== 'GUEST' && canCurrentUserEntry() && (
+          <EntryTab />
+        )}
+        {activeTab === 'list' && (
+          <ListTab 
+            handleDeleteViolation={onDeleteViolation}
+            handleBulkDelete={onBulkDelete}
+            setViewingViolation={setViewingViolation}
+            handleEditClick={handleEditClick}
+          />
+        )}
+        {activeTab === 'ranking' && (
+          <RankingTab />
+        )}
+        {activeTab === 'detail' && (
+          <ClassDetailTab setViewingViolation={setViewingViolation} />
+        )}
+        {activeTab === 'taskforce' && (isCurrentUserAdmin() || ['BCH_PHU_TRACH', 'BCH', 'RED_FLAG', 'DISCIPLINE'].includes(currentUser.role)) && (
+          <TaskForceTab />
+        )}
+        {activeTab === 'settings' && isCurrentUserAdmin() && (
+            <SettingsTab />
+        )}
+         {activeTab === 'settings' && !isCurrentUserAdmin() && (
+            <div className="text-center py-20 text-slate-400">Bạn không có quyền truy cập.</div>
+        )}
+        
+      </main>
+
+      <nav className="bg-white border-t border-slate-200 fixed bottom-0 left-0 right-0 max-w-md md:max-w-2xl lg:max-w-4xl mx-auto z-10 pb-safe">
+        {/* Navigation Buttons */}
+        <div className="flex justify-around items-center">
+          {currentUser.role !== 'GUEST' && canCurrentUserEntry() && (
+            <button onClick={() => setActiveTab('entry')} className={`flex flex-col items-center py-3 px-2 flex-1 transition-colors ${activeTab === 'entry' ? 'text-blue-700' : 'text-slate-400 hover:text-slate-600'}`}>
+              <PlusCircle size={24} className={activeTab === 'entry' ? 'fill-blue-100' : ''} strokeWidth={activeTab === 'entry' ? 2.5 : 2} />
+              <span className="text-[10px] font-bold mt-1">Nhập Lỗi</span>
+            </button>
+          )}
+          <button onClick={() => setActiveTab('list')} className={`flex flex-col items-center py-3 px-2 flex-1 transition-colors ${activeTab === 'list' ? 'text-blue-700' : 'text-slate-400 hover:text-slate-600'}`}>
+            <List size={24} strokeWidth={activeTab === 'list' ? 2.5 : 2} /><span className="text-[10px] font-bold mt-1">Tra Cứu</span>
+          </button>
+          <button onClick={() => setActiveTab('ranking')} className={`flex flex-col items-center py-3 px-2 flex-1 transition-colors ${activeTab === 'ranking' ? 'text-blue-700' : 'text-slate-400 hover:text-slate-600'}`}>
+            <Trophy size={24} className={activeTab === 'ranking' ? 'fill-blue-100' : ''} strokeWidth={activeTab === 'ranking' ? 2.5 : 2} /><span className="text-[10px] font-bold mt-1">Xếp Hạng</span>
+          </button>
+          <button onClick={() => setActiveTab('detail')} className={`flex flex-col items-center py-3 px-2 flex-1 transition-colors ${activeTab === 'detail' ? 'text-blue-700' : 'text-slate-400 hover:text-slate-600'}`}>
+            <BarChart2 size={24} strokeWidth={activeTab === 'detail' ? 2.5 : 2} /><span className="text-[10px] font-bold mt-1">Lớp</span>
+          </button>
+          
+          {(isCurrentUserAdmin() || ['BCH_PHU_TRACH', 'BCH', 'RED_FLAG', 'DISCIPLINE'].includes(currentUser.role)) && (
+             <button onClick={() => setActiveTab('taskforce')} className={`flex flex-col items-center py-3 px-2 flex-1 transition-colors ${activeTab === 'taskforce' ? 'text-blue-700' : 'text-slate-400 hover:text-slate-600'}`}>
+               <Users size={24} strokeWidth={activeTab === 'taskforce' ? 2.5 : 2} /><span className="text-[10px] font-bold mt-1">Ban Nền Nếp</span>
+             </button>
+          )}
+
+          {isCurrentUserAdmin() && (
+            <button onClick={() => setActiveTab('settings')} className={`flex flex-col items-center py-3 px-2 flex-1 transition-colors ${activeTab === 'settings' ? 'text-blue-700' : 'text-slate-400 hover:text-slate-600'}`}>
+              <Settings size={24} strokeWidth={activeTab === 'settings' ? 2.5 : 2} /><span className="text-[10px] font-bold mt-1">Cấu Hình</span>
+            </button>
+          )}
+        </div>
+      </nav>
+
+      {/* Global Success Notification */}
+      {showGlobalSuccess && (
+         <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[60] animate-in zoom-in fade-in duration-200">
+             <div className="bg-black/80 text-white backdrop-blur-md px-6 py-4 rounded-2xl shadow-2xl flex flex-col items-center gap-2">
+                 <CheckCircle2 size={40} className="text-green-400" />
+                 <span className="font-bold text-lg">Đã lưu thành công!</span>
+             </div>
+         </div>
+      )}
+
+      {/* Login Modal */}
+      {showLoginModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-blue-900/80 backdrop-blur-sm p-6 animate-in fade-in">
+           <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl p-8 animate-in zoom-in-95 relative">
+              <button onClick={() => setShowLoginModal(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"><X size={24}/></button>
+              <div className="text-center mb-8">
+                 <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-600">
+                    <LogIn size={32} />
+                 </div>
+                 <h2 className="text-2xl font-bold text-slate-800">Đăng Nhập</h2>
+                 <p className="text-slate-500 text-sm mt-1">Vui lòng đăng nhập để tiếp tục</p>
+              </div>
+              <form onSubmit={handleLogin} className="space-y-4">
+                 <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-1">
+                        Tên đăng nhập <span className="text-xs font-normal text-slate-500 italic ml-1">(nhập email đã đăng kí)</span>
+                    </label>
+                    <input 
+                        type="text" 
+                        className="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" 
+                        value={loginUsername}
+                        onChange={e => setLoginUsername(e.target.value)}
+                        placeholder="admin"
+                        autoFocus
+                    />
+                 </div>
+                 <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-1">
+                        Mật khẩu <span className="text-xs font-normal text-slate-500 italic ml-1">(nhập pass đã được cấp dạng CNT@xxxx)</span>
+                    </label>
+                    <input 
+                        type="password" 
+                        className="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" 
+                        value={loginPassword}
+                        onChange={e => setLoginPassword(e.target.value)}
+                        placeholder="••••••"
+                    />
+                 </div>
+                 
+                 <div className="flex items-center gap-2">
+                    <input 
+                        type="checkbox" 
+                        id="rememberMe"
+                        checked={rememberMe}
+                        onChange={e => setRememberMe(e.target.checked)}
+                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <label htmlFor="rememberMe" className="text-sm text-slate-600 cursor-pointer select-none">
+                        Ghi nhớ đăng nhập
+                    </label>
+                 </div>
+
+                 {loginError && <div className="text-red-500 text-sm font-medium text-center">{loginError}</div>}
+                 <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-blue-200 transition-all active:scale-95">
+                    Đăng Nhập
+                 </button>
+              </form>
+           </div>
+        </div>
+      )}
+
+      {/* Modals using Store data internally */}
+      <EditViolationModal 
+        violation={editingViolation}
+        onClose={() => setEditingViolation(null)}
+        onSave={onSaveEdit}
+      />
+
+      <ViewViolationModal 
+        violation={viewingViolation}
+        onClose={() => setViewingViolation(null)}
+        onDelete={onDeleteViolation}
+      />
+    </div>
+  );
+}
