@@ -187,17 +187,6 @@ export default function App() {
   const toggleTheme = () => {
       setAppTheme(appTheme === 'TET' ? 'WINTER' : 'TET');
   };
-
-  if (isLoading) {
-      return (
-          <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center text-slate-500 gap-3">
-              <Loader2 className="animate-spin text-blue-600" size={40} />
-              <p className="font-medium">Đang tải dữ liệu từ hệ thống...</p>
-          </div>
-      );
-  }
-
-  // Snowflake / petal data — memoized to avoid re-creating on every render
   const snowflakes = useMemo(() => Array.from({ length: 15 }, (_, i) => ({
     key: `snow-${i}`,
     width: `${Math.random() * 4 + 2}px`,
@@ -226,6 +215,14 @@ export default function App() {
     opacity: Math.random() * 0.4 + 0.6,
   })), []);
 
+  if (isLoading) {
+      return (
+          <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center text-slate-500 gap-3">
+              <Loader2 className="animate-spin text-blue-600" size={40} />
+              <p className="font-medium">Đang tải dữ liệu từ hệ thống...</p>
+          </div>
+      );
+  }
   const headerBgClass = appTheme === 'TET' ? 'bg-gradient-to-b from-red-800 to-red-900' : 'bg-blue-900';
   const headerTextClass = appTheme === 'TET' ? 'text-yellow-100' : 'text-blue-100';
   const primaryTitleColor = appTheme === 'TET' ? 'text-yellow-400' : 'text-white';
