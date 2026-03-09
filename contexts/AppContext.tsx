@@ -96,15 +96,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Audit logs — loaded from localStorage
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>(loadAuditLogs);
+  // Audit logs — loaded from DB (và fallback localStorage)
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
 
   // ── Audit log helper ──────────────────────────────────────────────────────
   const logAction = useCallback((
     user: User,
     action: AuditAction,
     details: string,
-    targetId?: string
+    targetId?: string,
+    violationInfo?: {
+      violationId?: string;
+      violationDate?: string;
+      violationClass?: string;
+      violationCriteria?: string;
+      violationPoints?: number;
+    }
   ) => {
     const entry: AuditLog = {
       id: `LOG_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
@@ -115,12 +122,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       action,
       details,
       targetId,
+      ...(violationInfo || {}),
     };
+
+    // Cập nhật state local
     setAuditLogs(prev => {
       const updated = [...prev, entry].slice(-MAX_AUDIT_ENTRIES);
+      // Fallback: lưu localStorage nếu API chưa ready
       saveAuditLogs(updated);
       return updated;
     });
+
+    // ✅ Ghi lên DB (fire-and-forget, không block UI)
+    api.saveAuditLog(entry).catch(e => console.warn('saveAuditLog failed:', e));
   }, []);
 
   const clearAuditLogs = useCallback(() => {
@@ -149,7 +163,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (data.Violations) setViolations(data.Violations);
 
         if (data.TimeConfigs && data.TimeConfigs.length > 0) {
-          // Normalize date strings: cắt phần ISO timestamp, chỉ lấy YYYY-MM-DD
           const normalizeDate = (s: string) => (s && s.includes('T') ? s.split('T')[0] : s || '');
           const normalizedTimeConfigs = data.TimeConfigs.map((tc: TimeConfig) => ({
             ...tc,
@@ -158,6 +171,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           }));
           setTimeConfigs(normalizedTimeConfigs);
         }
+
+        // Load audit logs từ DB (cấp thấp hơn, không đợi)
+        api.getAuditLogs().then(logs => {
+          if (Array.isArray(logs) && logs.length > 0) {
+            setAuditLogs(logs.slice(-MAX_AUDIT_ENTRIES));
+          }
+        }).catch(() => {
+          // Fallback: dùng localStorage
+          setAuditLogs(loadAuditLogs());
+        });
       }
     } catch (e) {
       console.error('fetchData error:', e);
@@ -189,26 +212,57 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // ── CRUD with ROLLBACK on failure ─────────────────────────────────────────
 
   const deleteViolation = async (id: string) => {
-    // Snapshot current state for rollback
+    // Snapshot violation info TRƯỚC KHI XÓA — để audit log biết lỗi nào bị xóa
+    const targetViolation = violations.find(v => v.id === id);
     const snapshot = violations;
-    // Optimistic update
     setViolations(prev => prev.filter(v => v.id !== id));
     try {
       await api.deleteViolation(id);
-      logAction(currentUser, 'DELETE_VIOLATION', `Xóa 1 bản ghi vi phạm`, id);
+
+      // Build thông tin chi tiết về lỗi vừa bị xóa
+      logAction(
+        currentUser,
+        'DELETE_VIOLATION',
+        `Xóa vi phạm ngày ${targetViolation?.date || '?'} - Lớp ${targetViolation?.classId || '?'}`,
+        id,
+        {
+          violationId:       id,
+          violationDate:     targetViolation?.date,
+          violationClass:    targetViolation?.classId,
+          violationCriteria: targetViolation?.criteriaId,
+          violationPoints:   targetViolation?.points,
+        }
+      );
     } catch (e) {
-      // Rollback
       setViolations(snapshot);
-      throw e; // Let caller handle
+      throw e;
     }
   };
 
   const deleteViolations = async (ids: string[]) => {
+    // Snapshot TRƯỚC KHI XÓA — để biết các lỗi nào bị xóa
+    const targetViolations = violations.filter(v => ids.includes(v.id));
     const snapshot = violations;
     setViolations(prev => prev.filter(v => !ids.includes(v.id)));
     try {
       await api.deleteViolations(ids);
-      logAction(currentUser, 'BULK_DELETE', `Xóa hàng loạt ${ids.length} bản ghi`, ids.join(','));
+
+      // Log từng record riêng — mỗi lần xóa một dòng audit log
+      targetViolations.forEach(v => {
+        logAction(
+          currentUser,
+          'BULK_DELETE',
+          `Xóa hàng loạt (${ids.length} mục) - Lớp ${v.classId} ngày ${v.date}`,
+          v.id,
+          {
+            violationId:       v.id,
+            violationDate:     v.date,
+            violationClass:    v.classId,
+            violationCriteria: v.criteriaId,
+            violationPoints:   v.points,
+          }
+        );
+      });
     } catch (e) {
       setViolations(snapshot);
       throw e;

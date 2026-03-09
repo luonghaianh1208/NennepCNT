@@ -959,10 +959,13 @@ const SettingsTab: React.FC = () => {
                       <table className="w-full text-sm text-left">
                           <thead className="bg-slate-50 text-xs uppercase text-slate-500 sticky top-0">
                               <tr>
-                                  <th className="px-3 py-2">Thời gian</th>
+                                  <th className="px-3 py-2 whitespace-nowrap">Thời gian</th>
                                   <th className="px-3 py-2">Người thực hiện</th>
                                   <th className="px-3 py-2">Hành động</th>
-                                  <th className="px-3 py-2">Chi tiết</th>
+                                  <th className="px-3 py-2">Lớp</th>
+                                  <th className="px-3 py-2">Ngày VP</th>
+                                  <th className="px-3 py-2">Nội dung lỗi</th>
+                                  <th className="px-3 py-2 text-right">Điểm</th>
                               </tr>
                           </thead>
                           <tbody>
@@ -981,21 +984,39 @@ const SettingsTab: React.FC = () => {
                                       CREATE_VIOLATION: 'Tạo mới',
                                       SYNC_SETTINGS: 'Lưu cấu hình',
                                   };
-                                  const d = new Date(log.timestamp);
-                                  const timeStr = `${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+                                  let displayTime = log.timeStr || '';
+                                  if (!displayTime && log.timestamp) {
+                                      const d = new Date(log.timestamp);
+                                      const pad = (n: number) => String(n).padStart(2, '0');
+                                      displayTime = `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+                                  }
+                                  const isDelete = log.action === 'DELETE_VIOLATION' || log.action === 'BULK_DELETE';
                                   return (
-                                      <tr key={log.id} className="border-b last:border-0 hover:bg-slate-50">
-                                          <td className="px-3 py-2 text-slate-400 font-mono text-xs whitespace-nowrap">{timeStr}</td>
+                                      <tr key={log.id} className={`border-b last:border-0 hover:bg-slate-50 ${isDelete ? 'bg-red-50/30' : ''}`}>
+                                          <td className="px-3 py-2 text-slate-400 font-mono text-xs whitespace-nowrap">{displayTime}</td>
                                           <td className="px-3 py-2">
                                               <div className="font-medium text-slate-700 text-xs">{log.userName}</div>
                                               <div className="text-[10px] text-slate-400">{log.userRole}</div>
                                           </td>
-                                          <td className="px-3 py-2">
+                                          <td className="px-3 py-2 whitespace-nowrap">
                                               <span className={`text-[10px] px-2 py-0.5 rounded border font-bold ${actionColors[log.action] || 'text-slate-600 bg-slate-50 border-slate-200'}`}>
                                                   {actionLabels[log.action] || log.action}
                                               </span>
                                           </td>
-                                          <td className="px-3 py-2 text-slate-600 text-xs">{log.details}</td>
+                                          <td className="px-3 py-2 text-xs font-medium text-slate-700">
+                                              {log.violationClass || <span className="text-slate-300">—</span>}
+                                          </td>
+                                          <td className="px-3 py-2 text-xs text-slate-500 whitespace-nowrap">
+                                              {log.violationDate || <span className="text-slate-300">—</span>}
+                                          </td>
+                                          <td className="px-3 py-2 text-xs text-slate-600 max-w-[160px] truncate" title={log.violationCriteria || log.details}>
+                                              {log.violationCriteria || log.details}
+                                          </td>
+                                          <td className="px-3 py-2 text-right">
+                                              {log.violationPoints != null
+                                                  ? <span className="text-xs font-bold text-red-600">-{log.violationPoints}</span>
+                                                  : <span className="text-slate-300 text-xs">—</span>}
+                                          </td>
                                       </tr>
                                   );
                               })}
@@ -1003,7 +1024,7 @@ const SettingsTab: React.FC = () => {
                       </table>
                   </div>
               )}
-              <div className="mt-2 text-xs text-slate-400 text-right">Tổng: {auditLogs.length} bản ghi (lưu đến 500 gần nhất)</div>
+              <div className="mt-2 text-xs text-slate-400 text-right">Tổng: {auditLogs.length} bản ghi (lưu trên DB Google Sheets)</div>
           </div>
       )}
 

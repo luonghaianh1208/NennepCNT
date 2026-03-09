@@ -81,5 +81,13 @@ export interface AuditLog {
   action: AuditAction;
   details: string;
   targetId?: string;
+  // Thông tin bản ghi vi phạm bị xóa
+  violationId?: string;
+  violationDate?: string;
+  violationClass?: string;
+  violationCriteria?: string;
+  violationPoints?: number;
+  // Hướng hiển thị (lấy từ server khi load)
+  timeStr?: string;
 }
 

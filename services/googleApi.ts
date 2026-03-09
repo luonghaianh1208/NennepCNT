@@ -47,7 +47,23 @@ export const api = {
   // 6. Upload ảnh
   uploadImage: async (base64: string, fileNameInfo: any) => {
     return postData('uploadImage', { base64, fileNameInfo });
-  }
+  },
+
+  // 7. Lưu audit log lên DB (Google Sheets)
+  saveAuditLog: async (log: any) => {
+    return postData('saveAuditLog', log);
+  },
+
+  // 8. Lấy audit logs từ DB
+  getAuditLogs: async () => {
+    try {
+      const response = await fetch(`${API_URL}?action=getAuditLogs&t=${Date.now()}`);
+      return await response.json() as any[];
+    } catch (e) {
+      console.error('getAuditLogs error:', e);
+      return [];
+    }
+  },
 };
 
 async function postData(action: string, data: any) {
