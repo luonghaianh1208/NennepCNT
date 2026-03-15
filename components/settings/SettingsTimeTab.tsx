@@ -1,8 +1,8 @@
 
-import React, { useState } from 'react';
-import { PlusCircle, Trash2 } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { PlusCircle, Trash2, AlertTriangle } from 'lucide-react';
 import { useAppStore } from '../../contexts/AppContext';
-import { getLocalDateString } from '../../utils';
+import { getLocalDateString, detectOverlappingWeeks } from '../../utils';
 
 const SettingsTimeTab: React.FC = () => {
   const { timeConfigs, setTimeConfigs, setUnsavedChanges } = useAppStore();
@@ -12,6 +12,9 @@ const SettingsTimeTab: React.FC = () => {
     setUnsavedChanges(true);
     setTimeConfigs(timeConfigs.map(c => c.id === id ? { ...c, [field]: value } : c));
   };
+
+  // Phát hiện tuần trùng nhau
+  const overlappingWeeks = useMemo(() => detectOverlappingWeeks(timeConfigs), [timeConfigs]);
 
   const handleAddTimeConfig = () => {
     const newId = `${newTimeType.charAt(0)}${Date.now()}`;
@@ -30,6 +33,21 @@ const SettingsTimeTab: React.FC = () => {
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+      {/* Warning: Tuần trùng nhau */}
+      {overlappingWeeks.length > 0 && (
+        <div className="mb-4 p-3 bg-amber-50 border border-amber-300 rounded-lg flex items-start gap-2">
+          <AlertTriangle size={18} className="text-amber-500 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-sm font-bold text-amber-800">⚠️ Phát hiện {overlappingWeeks.length} cặp tuần bị trùng ngày!</p>
+            <p className="text-xs text-amber-700 mt-0.5">Các cặp tuần trùng sẽ gây tính điểm sai (vi phạm bị đếm nhiều lần):</p>
+            <ul className="mt-1 space-y-0.5">
+              {overlappingWeeks.map((pair, i) => (
+                <li key={i} className="text-xs text-amber-700 font-medium">• <strong>{pair.a}</strong> trùng với <strong>{pair.b}</strong></li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
       <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-2">
         <h3 className="font-bold text-lg text-slate-800">Quản lý Thời gian (Tuần/Tháng/Kỳ)</h3>
         <div className="flex gap-2">

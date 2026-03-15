@@ -185,6 +185,114 @@ export const isDateInRange = (targetDateStr: string, startStr: string, endStr: s
     return target >= start && target <= end;
 };
 
+// -----------------------------------------------------------------------
+// computeRankingContext — SINGLE SOURCE OF TRUTH cho logic tính xếp hạng
+// Dùng chung cho rankingData (hiển thị) và processExport (xuất Excel)
+// -----------------------------------------------------------------------
+export interface RankingContext {
+  relevantViolations: Violation[];
+  weeksCount: number;
+  isRangeMode: boolean;
+  periodStr: string;
+}
+
+export const computeRankingContext = (
+  violations: Violation[],
+  timeConfigs: TimeConfig[],
+  filterMode: 'WEEK' | 'MONTH' | 'SEMESTER' | 'ALL',
+  filterConfigId: string
+): RankingContext => {
+  const allConfiguredWeeks = timeConfigs.filter(c => c.type === 'WEEK');
+
+  if (filterMode === 'ALL') {
+    if (allConfiguredWeeks.length > 0) {
+      const rv = violations.filter(v =>
+        allConfiguredWeeks.some(week => isDateInRange(v.date, week.startDate, week.endDate))
+      );
+      return {
+        relevantViolations: rv,
+        weeksCount: allConfiguredWeeks.length,
+        isRangeMode: true,
+        periodStr: `Toàn thời gian (${allConfiguredWeeks.length} tuần cấu hình)`,
+      };
+    } else {
+      // Fallback: chưa cài tuần nào
+      const minDate = getEarliestViolationDate(violations);
+      const maxDate = getLatestViolationDate(violations);
+      return {
+        relevantViolations: violations,
+        weeksCount: getUniqueWeeksCount(minDate, maxDate),
+        isRangeMode: true,
+        periodStr: '',
+      };
+    }
+  }
+
+  if (filterMode === 'WEEK') {
+    const config = timeConfigs.find(c => c.id === filterConfigId);
+    if (!config) return { relevantViolations: [], weeksCount: 1, isRangeMode: false, periodStr: '' };
+    return {
+      relevantViolations: violations.filter(v => isDateInRange(v.date, config.startDate, config.endDate)),
+      weeksCount: 1,
+      isRangeMode: false,
+      periodStr: `${config.name} (${config.startDate} - ${config.endDate})`,
+    };
+  }
+
+  // MONTH hoặc SEMESTER — overlap check
+  const config = timeConfigs.find(c => c.id === filterConfigId);
+  if (!config) return { relevantViolations: [], weeksCount: 1, isRangeMode: true, periodStr: '' };
+
+  const weeksInRange = allConfiguredWeeks.filter(week =>
+    isDateInRange(week.startDate, config.startDate, config.endDate) ||
+    isDateInRange(config.startDate, week.startDate, week.endDate)
+  );
+
+  if (weeksInRange.length > 0) {
+    return {
+      relevantViolations: violations.filter(v =>
+        weeksInRange.some(week => isDateInRange(v.date, week.startDate, week.endDate))
+      ),
+      weeksCount: weeksInRange.length,
+      isRangeMode: true,
+      periodStr: `${config.name} (${config.startDate} - ${config.endDate})`,
+    };
+  } else {
+    // Fallback: chưa cài tuần trong khoảng này
+    return {
+      relevantViolations: violations.filter(v => isDateInRange(v.date, config.startDate, config.endDate)),
+      weeksCount: getUniqueWeeksCount(config.startDate, config.endDate),
+      isRangeMode: true,
+      periodStr: `${config.name} (${config.startDate} - ${config.endDate})`,
+    };
+  }
+};
+
+// -----------------------------------------------------------------------
+// detectOverlappingWeeks — phát hiện các cặp tuần WEEK bị trùng ngày
+// Trả về mảng các cặp tên tuần bị overlap: [{a: 'Tuần 4', b: 'Tuần 5'}]
+// -----------------------------------------------------------------------
+export const detectOverlappingWeeks = (
+  timeConfigs: TimeConfig[]
+): { a: string; b: string }[] => {
+  const weeks = timeConfigs.filter(c => c.type === 'WEEK');
+  const overlaps: { a: string; b: string }[] = [];
+
+  for (let i = 0; i < weeks.length; i++) {
+    for (let j = i + 1; j < weeks.length; j++) {
+      const w1 = weeks[i];
+      const w2 = weeks[j];
+      // Overlap nếu: w1.start <= w2.end AND w2.start <= w1.end
+      const w1StartInW2 = isDateInRange(w1.startDate, w2.startDate, w2.endDate);
+      const w2StartInW1 = isDateInRange(w2.startDate, w1.startDate, w1.endDate);
+      if (w1StartInW2 || w2StartInW1) {
+        overlaps.push({ a: w1.name, b: w2.name });
+      }
+    }
+  }
+  return overlaps;
+};
+
 export const calculateScore = (violations: Violation[], base = 500, weeksCount = 1, isRangeMode = false) => {
   // Logic chuẩn toán học theo yêu cầu:
   // Công thức: (500 * Số_tuần - Tổng_trừ + Tổng_cộng)
