@@ -1,8 +1,9 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Trophy, Download, X, FileSpreadsheet, Layers } from 'lucide-react';
+import { Trophy, Download, X, FileSpreadsheet, Layers, FileText } from 'lucide-react';
 import { Violation } from '../types';
 import { calculateScore, getEarliestViolationDate, getLatestViolationDate, formatDateDisplay, exportToExcel, computeRankingContext } from '../utils';
+import { generateWeeklyReport } from '../utils/reportGenerator';
 import { useAppStore } from '../contexts/AppContext';
 import { useModal } from '../contexts/ModalContext';
 
@@ -25,8 +26,34 @@ const RankingTab: React.FC<RankingTabProps> = ({
   setGradeTab: setRankingGradeTab,
   onNavigateToList,
 }) => {
-  const { classes, violations, criteria, timeConfigs, roleConfigs } = useAppStore();
+  const { classes, violations, criteria, students, timeConfigs, roleConfigs, currentUser } = useAppStore();
   const { showToast } = useModal();
+
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+
+  // Kiểm tra quyền xuất báo cáo Word
+  const canExportReport = useMemo(() => {
+    const role = currentUser.role.toUpperCase();
+    return ['ADMIN', 'BCH', 'BCH_PHU_TRACH'].includes(role);
+  }, [currentUser.role]);
+
+  const handleExportWordReport = async () => {
+    if (rankingFilterMode !== 'WEEK') {
+      return showToast('Vui lòng chọn chế độ "Theo Tuần" để xuất báo cáo.', 'error');
+    }
+    const weekConfig = timeConfigs.find(c => c.id === rankingFilterConfigId);
+    if (!weekConfig) return showToast('Vui lòng chọn tuần cụ thể.', 'error');
+    setIsGeneratingReport(true);
+    try {
+      await generateWeeklyReport({ weekConfig, violations, classes, students, criteria, currentUser });
+      showToast(`Đã xuất báo cáo ${weekConfig.name} thành công!`, 'success');
+    } catch (err) {
+      showToast('Lỗi khi tạo file DOCX. Vui lòng thử lại.', 'error');
+      console.error(err);
+    } finally {
+      setIsGeneratingReport(false);
+    }
+  };
 
   // State cho Modal chọn xuất Excel
   const [showExportModal, setShowExportModal] = useState(false);
@@ -301,6 +328,23 @@ const RankingTab: React.FC<RankingTabProps> = ({
          >
             <Download size={16} /> Xuất Excel
          </button>
+
+         {/* Nút xuất báo cáo Word — chỉ BCH/BCH_PHU_TRACH/ADMIN */}
+         {canExportReport && (
+           <button
+             onClick={handleExportWordReport}
+             disabled={isGeneratingReport || rankingFilterMode !== 'WEEK'}
+             title={rankingFilterMode !== 'WEEK' ? 'Chọn chế độ "Theo Tuần" để xuất báo cáo' : 'Xuất báo cáo thi đua tuần (.docx)'}
+             className={`flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-bold shadow transition-all whitespace-nowrap
+               ${rankingFilterMode === 'WEEK'
+                 ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                 : 'bg-slate-200 text-slate-400 cursor-not-allowed'}
+               disabled:opacity-60`}
+           >
+             <FileText size={16} />
+             {isGeneratingReport ? 'Đang tạo...' : 'Báo cáo DOCX'}
+           </button>
+         )}
       </div>
 
       {rankingData.length > 0 ? (
