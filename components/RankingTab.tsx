@@ -34,7 +34,7 @@ const RankingTab: React.FC<RankingTabProps> = ({
   // Kiểm tra quyền xuất báo cáo Word
   const canExportReport = useMemo(() => {
     const role = currentUser.role.toUpperCase();
-    return ['ADMIN', 'BCH', 'BCH_PHU_TRACH'].includes(role);
+    return ['ADMIN', 'BCH', 'BCH_PHU_TRACH', 'LEADER'].includes(role);
   }, [currentUser.role]);
 
   const handleExportWordReport = async () => {
@@ -45,7 +45,7 @@ const RankingTab: React.FC<RankingTabProps> = ({
     if (!weekConfig) return showToast('Vui lòng chọn tuần cụ thể.', 'error');
     setIsGeneratingReport(true);
     try {
-      await generateWeeklyReport({ weekConfig, violations, classes, students, criteria, currentUser });
+      await generateWeeklyReport({ weekConfig, allWeekConfigs: timeConfigs, violations, classes, students, criteria, currentUser });
       showToast(`Đã xuất báo cáo ${weekConfig.name} thành công!`, 'success');
     } catch (err) {
       showToast('Lỗi khi tạo file DOCX. Vui lòng thử lại.', 'error');

@@ -1,9 +1,3 @@
-/**
- * reportGenerator.ts
- * Tạo báo cáo thi đua nề nếp tuần định dạng Word (.docx)
- * Chỉ dành cho BCH, BCH_PHU_TRACH, ADMIN
- */
-
 import {
   Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
   HeadingLevel, AlignmentType, WidthType, BorderStyle, ShadingType,
@@ -15,6 +9,7 @@ import { calculateScore, isDateInRange } from '../utils';
 
 interface ReportInput {
   weekConfig: TimeConfig;           // Tuần được chọn
+  allWeekConfigs: TimeConfig[];     // Tất cả cấu hình tuần (để tính streak)
   violations: Violation[];          // Toàn bộ vi phạm
   classes: ClassEntity[];           // Danh sách lớp
   students: Student[];              // Danh sách học sinh
@@ -132,9 +127,34 @@ const buildRankingTable = (
   });
 };
 
+/** Tính streak tuần liên tiếp không vi phạm (kể cả tuần hiện tại) */
+const computeStreak = (
+  classId: string,
+  currentWeek: TimeConfig,
+  allWeekConfigs: TimeConfig[],
+  allViolations: Violation[],
+): number => {
+  const sortedWeeks = [...allWeekConfigs]
+    .filter(w => w.type === 'WEEK')
+    .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
+  const currentIdx = sortedWeeks.findIndex(w => w.id === currentWeek.id);
+  if (currentIdx === -1) return 1;
+  let streak = 0;
+  for (let i = currentIdx; i < sortedWeeks.length; i++) {
+    const week = sortedWeeks[i];
+    const hasViolation = allViolations.some(v =>
+      v.classId === classId && v.points > 0 &&
+      isDateInRange(v.date, week.startDate, week.endDate)
+    );
+    if (hasViolation) break;
+    streak++;
+  }
+  return Math.max(streak, 1);
+};
+
 /** Main export function */
 export const generateWeeklyReport = async (input: ReportInput): Promise<void> => {
-  const { weekConfig, violations, classes, students, criteria, currentUser } = input;
+  const { weekConfig, allWeekConfigs, violations, classes, students, criteria, currentUser } = input;
 
   // Vi phạm trong tuần
   const weeklyViolations = violations.filter(v =>
@@ -145,13 +165,17 @@ export const generateWeeklyReport = async (input: ReportInput): Promise<void> =>
   const userClass = classes.find(c => c.id === currentUser.className);
   const userClassName = userClass?.name || currentUser.className || '';
 
-  // 1. Lớp không vi phạm (ưu điểm)
+  // 1. Lớp không vi phạm (ưu điểm) + streak
   const classesWithViolations = new Set(
     weeklyViolations.filter(v => v.points > 0).map(v => v.classId)
   );
-  const perfectClasses = classes
+  // Tính streak cho mỗi lớp không vi phạm
+  const perfectClassesText = classes
     .filter(c => !classesWithViolations.has(c.id))
-    .map(c => c.name)
+    .map(c => {
+      const streak = computeStreak(c.id, weekConfig, allWeekConfigs, violations);
+      return streak > 1 ? `${c.name} (${streak})` : c.name;
+    })
     .join(', ');
 
   // 2. Nhược điểm: nhóm theo tiêu chí → theo lớp → học sinh
@@ -262,7 +286,7 @@ export const generateWeeklyReport = async (input: ReportInput): Promise<void> =>
         sectionHeader('1. ƯU ĐIỂM'),
         para([
           run('- Nhiều lớp thực hiện rất tốt nề nếp thi đua như lớp '),
-          new TextRun({ text: perfectClasses || 'không có lớp nào', color: RED, size: 24 }),
+          new TextRun({ text: perfectClassesText || 'không có lớp nào', color: RED, size: 24 }),
         ]),
 
         // 2. NHƯỢC ĐIỂM

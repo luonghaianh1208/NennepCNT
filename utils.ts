@@ -10,7 +10,7 @@ export const INITIAL_ROLE_DEFINITIONS: Record<string, RoleConfig> = {
   RED_FLAG: { label: 'Cờ đỏ', color: 'red', canEntry: true, isAdmin: false },
   DISCIPLINE: { label: 'Nền nếp', color: 'orange', canEntry: true, isAdmin: false },
   TEACHER: { label: 'Giáo viên CN', color: 'green', canEntry: false, isAdmin: false },
-  LEADER: { label: 'Lãnh đạo', color: 'indigo', canEntry: false, isAdmin: true },
+  LEADER: { label: 'Lãnh đạo', color: 'indigo', canEntry: true, isAdmin: true },
   GUEST: { label: 'Khách', color: 'gray', canEntry: false, isAdmin: false },
 };
 
