@@ -2,7 +2,7 @@
 import React, { useState, useRef } from 'react';
 import { Save, PlusCircle, Trash2, Plus, Upload, Users, GraduationCap, Calendar, X, Settings, AlertTriangle, Star, UserPlus, Edit, Check, Shield, LayoutTemplate, ClipboardList } from 'lucide-react';
 import { User, ClassEntity, Student, Criteria, RoleConfig } from '../types';
-import { parseCSVLine, removeVietnameseTones } from '../utils';
+import { parseCSVLine, removeVietnameseTones, getLocalDateString } from '../utils';
 import { useAppStore } from '../contexts/AppContext';
 import { useModal } from '../contexts/ModalContext';
 
@@ -584,7 +584,8 @@ const SettingsTab: React.FC = () => {
                     <button onClick={() => { 
                         const newId = `${newTimeType.charAt(0)}${Date.now()}`;
                         const name = newTimeType === 'WEEK' ? 'Tuần Mới' : (newTimeType === 'MONTH' ? 'Tháng Mới' : 'Học Kỳ Mới');
-                        setTimeConfigs([...timeConfigs, { id: newId, name: name, type: newTimeType, startDate: new Date().toISOString().slice(0, 10), endDate: new Date().toISOString().slice(0, 10) }]);
+                        const todayLocal = getLocalDateString(); // ✅ Local Time Việt Nam, tránh lệch UTC+7
+                        setTimeConfigs([...timeConfigs, { id: newId, name: name, type: newTimeType, startDate: todayLocal, endDate: todayLocal }]);
                         setUnsavedChanges(true);
                     }} className="bg-blue-600 hover:bg-blue-700 text-white p-1.5 rounded-lg transition-colors flex items-center gap-1 text-sm px-3 font-bold">
                         <PlusCircle size={16} /> Thêm

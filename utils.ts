@@ -88,6 +88,17 @@ const parseLocalEndOfDay = (dateStr: string): Date => {
 };
 // --- END: DATE HANDLING HELPERS ---
 
+/**
+ * Lấy ngày hôm nay theo Local Time (Việt Nam, UTC+7) dưới dạng "YYYY-MM-DD".
+ * KHÔNG dùng new Date().toISOString() vì trả về UTC, gây lệch ngày sau 17h giờ VN.
+ */
+export const getLocalDateString = (date: Date = new Date()): string => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+};
+
 
 // Tìm ngày sớm nhất trong danh sách vi phạm
 export const getEarliestViolationDate = (violations: Violation[]): Date => {
