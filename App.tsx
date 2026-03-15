@@ -43,6 +43,24 @@ export default function App() {
   } = useAppStore();
 
   const [activeTab, setActiveTab] = useState<string>('list');
+
+  // ─── Persist filter state across tab switches ─────────────────────────────
+  const [listFilterMode, setListFilterMode] = useState<'MONTH' | 'WEEK' | 'SEMESTER' | 'ALL'>('ALL');
+  const [listFilterConfigId, setListFilterConfigId] = useState<string>('');
+  const [listFilterClassId, setListFilterClassId] = useState<string>('ALL');
+  const [listFilterCriteriaType, setListFilterCriteriaType] = useState<'ALL' | 'MINUS' | 'PLUS'>('ALL');
+
+  const [rankingFilterMode, setRankingFilterMode] = useState<'WEEK' | 'MONTH' | 'SEMESTER' | 'ALL'>('ALL');
+  const [rankingFilterConfigId, setRankingFilterConfigId] = useState<string>('');
+  const [rankingGradeTab, setRankingGradeTab] = useState<'10' | '11' | '12'>('10');
+
+  // Navigate to ListTab with specific filters (called from RankingTab click on class)
+  const navigateToList = (classId: string, mode: 'MONTH' | 'WEEK' | 'SEMESTER' | 'ALL', configId: string) => {
+    setListFilterClassId(classId);
+    setListFilterMode(mode);
+    setListFilterConfigId(configId);
+    setActiveTab('list');
+  };
   
   // Local UI State
   const [showGlobalSuccess, setShowGlobalSuccess] = useState(false);
@@ -376,15 +394,31 @@ export default function App() {
           <EntryTab />
         )}
         {activeTab === 'list' && (
-          <ListTab 
+          <ListTab
             onDeleteViolation={onDeleteViolation}
             onBulkDelete={onBulkDelete}
             setViewingViolation={setViewingViolation}
             setEditingViolation={setEditingViolation}
+            filterMode={listFilterMode}
+            setFilterMode={setListFilterMode}
+            filterConfigId={listFilterConfigId}
+            setFilterConfigId={setListFilterConfigId}
+            filterClassId={listFilterClassId}
+            setFilterClassId={setListFilterClassId}
+            filterCriteriaType={listFilterCriteriaType}
+            setFilterCriteriaType={setListFilterCriteriaType}
           />
         )}
         {activeTab === 'ranking' && (
-          <RankingTab />
+          <RankingTab
+            filterMode={rankingFilterMode}
+            setFilterMode={setRankingFilterMode}
+            filterConfigId={rankingFilterConfigId}
+            setFilterConfigId={setRankingFilterConfigId}
+            gradeTab={rankingGradeTab}
+            setGradeTab={setRankingGradeTab}
+            onNavigateToList={navigateToList}
+          />
         )}
         {activeTab === 'detail' && (
           <ClassDetailTab setViewingViolation={setViewingViolation} />

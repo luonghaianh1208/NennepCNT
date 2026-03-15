@@ -11,26 +11,33 @@ interface ListTabProps {
   onBulkDelete: (ids: string[]) => void;
   setViewingViolation: (v: Violation | null) => void;
   setEditingViolation: (v: Violation | null) => void;
+  // Filter state lifted to App.tsx for persistence across tab switches
+  filterMode: 'MONTH' | 'WEEK' | 'SEMESTER' | 'ALL';
+  setFilterMode: (m: 'MONTH' | 'WEEK' | 'SEMESTER' | 'ALL') => void;
+  filterConfigId: string;
+  setFilterConfigId: (id: string) => void;
+  filterClassId: string;
+  setFilterClassId: (id: string) => void;
+  filterCriteriaType: 'ALL' | 'MINUS' | 'PLUS';
+  setFilterCriteriaType: (t: 'ALL' | 'MINUS' | 'PLUS') => void;
 }
 
 const ITEMS_PER_PAGE = 50;
 
-const ListTab: React.FC<ListTabProps> = ({ setViewingViolation, setEditingViolation, onDeleteViolation, onBulkDelete }) => {
+const ListTab: React.FC<ListTabProps> = ({
+  setViewingViolation, setEditingViolation, onDeleteViolation, onBulkDelete,
+  filterMode, setFilterMode,
+  filterConfigId, setFilterConfigId,
+  filterClassId, setFilterClassId,
+  filterCriteriaType, setFilterCriteriaType,
+}) => {
   const { currentUser, violations, classes, students, criteria, users, roleConfigs, timeConfigs } = useAppStore();
   const { showToast } = useModal();
 
-  const [filterMode, setFilterMode] = useState<'MONTH' | 'WEEK' | 'SEMESTER' | 'ALL'>('ALL');
-  const [filterCriteriaType, setFilterCriteriaType] = useState<'ALL' | 'MINUS' | 'PLUS'>('ALL');
-  
-  const [filterConfigId, setFilterConfigId] = useState('');
-  const [filterClassId, setFilterClassId] = useState('ALL');
-  
-  // State mới cho bộ lọc trùng lặp
+  // Local-only state (không cần persist)
   const [showDuplicatesOnly, setShowDuplicatesOnly] = useState(false);
-
   const [selectedViolationIds, setSelectedViolationIds] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
-
   // Pagination State
   const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
 

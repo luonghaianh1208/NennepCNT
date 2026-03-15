@@ -6,14 +6,28 @@ import { calculateScore, getEarliestViolationDate, getLatestViolationDate, forma
 import { useAppStore } from '../contexts/AppContext';
 import { useModal } from '../contexts/ModalContext';
 
-const RankingTab: React.FC = () => {
+interface RankingTabProps {
+  filterMode: 'WEEK' | 'MONTH' | 'SEMESTER' | 'ALL';
+  setFilterMode: (mode: 'WEEK' | 'MONTH' | 'SEMESTER' | 'ALL') => void;
+  filterConfigId: string;
+  setFilterConfigId: (id: string) => void;
+  gradeTab: '10' | '11' | '12';
+  setGradeTab: (g: '10' | '11' | '12') => void;
+  onNavigateToList: (classId: string, mode: 'MONTH' | 'WEEK' | 'SEMESTER' | 'ALL', configId: string) => void;
+}
+
+const RankingTab: React.FC<RankingTabProps> = ({
+  filterMode: rankingFilterMode,
+  setFilterMode: setRankingFilterMode,
+  filterConfigId: rankingFilterConfigId,
+  setFilterConfigId: setRankingFilterConfigId,
+  gradeTab: rankingGradeTab,
+  setGradeTab: setRankingGradeTab,
+  onNavigateToList,
+}) => {
   const { classes, violations, criteria, timeConfigs, roleConfigs } = useAppStore();
   const { showToast } = useModal();
 
-  const [rankingGradeTab, setRankingGradeTab] = useState<'10' | '11' | '12'>('10');
-  const [rankingFilterMode, setRankingFilterMode] = useState<'WEEK' | 'MONTH' | 'SEMESTER' | 'ALL'>('ALL');
-  const [rankingFilterConfigId, setRankingFilterConfigId] = useState<string>('');
-  
   // State cho Modal chọn xuất Excel
   const [showExportModal, setShowExportModal] = useState(false);
 
@@ -294,21 +308,24 @@ const RankingTab: React.FC = () => {
           {podiumOrder.map(idx => {
               const item = top3[idx];
               if (!item) return <div key={idx} className="w-full"></div>;
-              
-              const isCenter = idx === 0; 
-              const isLeft = idx === 1;   
-              const isRight = idx === 2;  
-
+              const isCenter = idx === 0;
+              const isLeft = idx === 1;
+              const isRight = idx === 2;
               return (
                 <div key={item.id} className={`${isCenter ? 'order-2' : isLeft ? 'order-1' : 'order-3'} flex flex-col items-center`}>
                   <div className="mb-2 text-center">
                       <Trophy className={`w-8 h-8 mx-auto ${getRankColor(item.rank)} drop-shadow-sm`} fill="currentColor" />
                       <div className={`text-xs font-bold mt-1 ${getRankColor(item.rank)}`}>Hạng {item.rank}</div>
                   </div>
-                  <div className={`w-full rounded-t-xl border-t-4 shadow-sm flex flex-col items-center justify-end pb-4 ${getPodiumBg(item.rank)}`}>
+                  <button
+                    onClick={() => onNavigateToList(item.id, rankingFilterMode, rankingFilterConfigId)}
+                    title="Xem chi tiết vi phạm lớp này"
+                    className={`w-full rounded-t-xl border-t-4 shadow-sm flex flex-col items-center justify-end pb-4 ${getPodiumBg(item.rank)} hover:brightness-95 active:scale-95 transition-all cursor-pointer`}
+                  >
                     <span className="text-xl font-black text-slate-800">{item.name}</span>
                     <span className="text-sm font-semibold text-blue-600">{item.score}đ</span>
-                  </div>
+                    <span className="text-[10px] text-slate-400 mt-0.5">Nhấn để xem chi tiết →</span>
+                  </button>
                 </div>
               );
           })}
@@ -319,18 +336,25 @@ const RankingTab: React.FC = () => {
 
       <div className="space-y-2">
         {rankingData.slice(3).map((item) => (
-          <div key={item.id} className="bg-white p-4 rounded-lg shadow-sm border border-slate-100 flex items-center justify-between">
+          <button
+            key={item.id}
+            onClick={() => onNavigateToList(item.id, rankingFilterMode, rankingFilterConfigId)}
+            className="w-full bg-white p-4 rounded-lg shadow-sm border border-slate-100 flex items-center justify-between hover:border-blue-300 hover:bg-blue-50/50 active:scale-[0.99] transition-all text-left group"
+          >
             <div className="flex items-center gap-4">
               <span className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center text-sm font-bold border border-slate-200">
                   {item.rank}
               </span>
-              <span className="font-bold text-slate-700">{item.name}</span>
+              <div>
+                <span className="font-bold text-slate-700 group-hover:text-blue-700 transition-colors">{item.name}</span>
+                <div className="text-[10px] text-slate-400">Nhấn để xem chi tiết →</div>
+              </div>
             </div>
             <div className="flex items-center gap-6">
               <div className="text-xs text-slate-400 text-right"><div>{item.totalViolations} lỗi</div><div>GV: {item.homeroomTeacher}</div></div>
               <span className="font-bold text-blue-600 w-12 text-right">{item.score}</span>
             </div>
-          </div>
+          </button>
         ))}
       </div>
     </div>
