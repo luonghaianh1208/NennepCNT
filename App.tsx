@@ -15,7 +15,7 @@ import {
   RefreshCw,
   CheckCircle2,
   Snowflake,
-  Flower2,
+  Star,
   X
 } from 'lucide-react';
 import { Violation } from './types';
@@ -203,7 +203,7 @@ export default function App() {
   };
 
   const toggleTheme = () => {
-      setAppTheme(appTheme === 'TET' ? 'WINTER' : 'TET');
+      setAppTheme(appTheme === 'DOAN' ? 'WINTER' : 'DOAN');
   };
   const snowflakes = useMemo(() => Array.from({ length: 15 }, (_, i) => ({
     key: `snow-${i}`,
@@ -223,14 +223,15 @@ export default function App() {
     delay: `${Math.random() * 2}s`,
   })), []);
 
-  const petals = useMemo(() => Array.from({ length: 20 }, (_, i) => ({
-    key: `petal-${i}`,
+  // Ngôi sao vàng rơi (effect Đoàn)
+  const doanStars = useMemo(() => Array.from({ length: 18 }, (_, i) => ({
+    key: `dstar-${i}`,
     left: `${Math.random() * 100}%`,
     top: `-${Math.random() * 20}px`,
     duration: `${Math.random() * 4 + 4}s`,
-    delay: `${Math.random() * 5}s`,
-    color: Math.random() > 0.5 ? '#fbcfe8' : '#f9a8d4',
-    opacity: Math.random() * 0.4 + 0.6,
+    delay: `${Math.random() * 6}s`,
+    size: `${Math.random() * 6 + 6}px`,
+    opacity: Math.random() * 0.5 + 0.5,
   })), []);
 
   if (isLoading) {
@@ -241,9 +242,9 @@ export default function App() {
           </div>
       );
   }
-  const headerBgClass = appTheme === 'TET' ? 'bg-gradient-to-b from-red-800 to-red-900' : 'bg-blue-900';
-  const headerTextClass = appTheme === 'TET' ? 'text-yellow-100' : 'text-blue-100';
-  const primaryTitleColor = appTheme === 'TET' ? 'text-yellow-400' : 'text-white';
+  const headerBgClass = appTheme === 'DOAN' ? 'bg-gradient-to-b from-red-700 to-red-900' : 'bg-blue-900';
+  const headerTextClass = appTheme === 'DOAN' ? 'text-yellow-100' : 'text-blue-100';
+  const primaryTitleColor = appTheme === 'DOAN' ? 'text-yellow-300' : 'text-white';
   
   return (
     <div className="min-h-screen bg-slate-50 font-sans mx-auto max-w-md md:max-w-2xl lg:max-w-4xl shadow-2xl overflow-hidden flex flex-col relative">
@@ -253,11 +254,11 @@ export default function App() {
             20% { opacity: 0.9; }
             100% { transform: translateY(300px) translateX(20px); opacity: 0; }
           }
-          @keyframes petal-fall {
-            0% { transform: translateY(-10px) translateX(0px) rotate(0deg); opacity: 0; }
+          @keyframes star-fall {
+            0% { transform: translateY(-10px) translateX(0px) rotate(0deg) scale(0.5); opacity: 0; }
             20% { opacity: 0.9; }
-            50% { transform: translateY(150px) translateX(20px) rotate(180deg); opacity: 0.8; }
-            100% { transform: translateY(300px) translateX(-20px) rotate(360deg); opacity: 0; }
+            60% { transform: translateY(160px) translateX(15px) rotate(180deg) scale(1.2); opacity: 0.8; }
+            100% { transform: translateY(320px) translateX(-10px) rotate(360deg) scale(0.8); opacity: 0; }
           }
           @keyframes twinkle {
             0%, 100% { opacity: 1; transform: scale(1); }
@@ -270,15 +271,12 @@ export default function App() {
             pointer-events: none;
             animation: snowfall linear infinite;
           }
-          .petal {
+          .doan-star {
             position: absolute;
-            width: 8px;
-            height: 8px;
-            background: #fbcfe8; /* pink-200 */
-            border-radius: 60% 40% 40% 60% / 60% 40% 60% 40%;
+            clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+            background: #FDE047;
             pointer-events: none;
-            animation: petal-fall linear infinite;
-            box-shadow: 0 0 2px #f9a8d4;
+            animation: star-fall linear infinite;
           }
           .star-twinkle {
             position: absolute;
@@ -308,12 +306,12 @@ export default function App() {
                  </>
              ) : (
                  <>
-                     {petals.map(p => (
-                       <div key={p.key} className="petal" style={{ left: p.left, top: p.top, animationDuration: p.duration, animationDelay: p.delay, backgroundColor: p.color, opacity: p.opacity }}></div>
+                     {/* Ngôi sao vàng rơi — Đoàn TNCS */}
+                     {doanStars.map(s => (
+                       <div key={s.key} className="doan-star" style={{ width: s.size, height: s.size, left: s.left, top: s.top, animationDuration: s.duration, animationDelay: s.delay, opacity: s.opacity }}></div>
                      ))}
-                     <img src="https://doantruong.chuyennguyentrai.edu.vn/wp-content/uploads/2026/01/Canh-dao.png" className="absolute -top-4 -left-6 w-36 md:w-56 z-0 pointer-events-none opacity-90" style={{ transform: 'scaleX(-1) rotate(15deg)' }} alt="Dao Left" />
-                     <img src="https://doantruong.chuyennguyentrai.edu.vn/wp-content/uploads/2026/01/Chu-2026.png" className="absolute -top-1 right-12 md:right-24 w-16 md:w-24 z-0 pointer-events-none opacity-100 brightness-125 drop-shadow-sm" alt="2026" />
-                     <img src="https://doantruong.chuyennguyentrai.edu.vn/wp-content/uploads/2026/01/Thiet-ke-chua-co-ten.png" className="absolute bottom-0 right-0 w-12 md:w-16 z-0 pointer-events-none drop-shadow-md" alt="Horse" />
+                     {/* Logo emblem Đoàn */}
+                     <img src="https://upload.wikimedia.org/wikipedia/vi/0/09/Huy_Hi%E1%BB%87u_%C4%90o%C3%A0n.png" className="absolute -top-2 -right-2 w-28 md:w-36 z-0 pointer-events-none opacity-20" alt="Huy hiệu Đoàn" />
                  </>
              )}
         </div>
@@ -328,7 +326,7 @@ export default function App() {
                  
                  <div>
                      <h1 className={`text-2xl font-black tracking-tight leading-none ${primaryTitleColor}`}>NỀN NẾP CNT</h1>
-                     {appTheme === 'TET' ? (
+                     {appTheme === 'DOAN' ? (
                          <div className="text-[10px] text-yellow-300 font-bold uppercase tracking-widest mt-0.5 flex items-center gap-1">
                             <span>✨ Chúc Mừng Năm Mới</span>
                          </div>
@@ -340,9 +338,9 @@ export default function App() {
               
               <div className="pl-1 space-y-0.5">
                   <p className={`${headerTextClass} text-xs opacity-90`}>
-                      {appTheme === 'TET' ? 'Xuân Bính Ngọ 2026 - An Khang Thịnh Vượng' : 'Hệ thống quản lí thi đua trường THPT Chuyên Nguyễn Trãi'}
+                      {appTheme === 'DOAN' ? 'Xuân Bính Ngọ 2026 - An Khang Thịnh Vượng' : 'Hệ thống quản lí thi đua trường THPT Chuyên Nguyễn Trãi'}
                   </p>
-                  <p className={`${appTheme === 'TET' ? 'text-yellow-500/80' : 'text-blue-400'} text-[10px] font-mono`}>Developed by Lương Hải Anh © 2026</p>
+                  <p className={`${appTheme === 'DOAN' ? 'text-yellow-500/80' : 'text-blue-400'} text-[10px] font-mono`}>Developed by Lương Hải Anh © 2026</p>
               </div>
            </div>
            
@@ -351,16 +349,16 @@ export default function App() {
                   {currentUser.role !== 'GUEST' ? (
                     <button 
                         onClick={handleLogout}
-                        className={`flex items-center gap-2 pl-3 pr-2 py-1.5 rounded-full text-xs font-medium transition-colors border ${appTheme === 'TET' ? 'bg-red-800/50 hover:bg-red-800 border-red-700 text-white' : 'bg-blue-800/50 hover:bg-blue-800 border-blue-700 text-white'}`}
+                        className={`flex items-center gap-2 pl-3 pr-2 py-1.5 rounded-full text-xs font-medium transition-colors border ${appTheme === 'DOAN' ? 'bg-red-800/50 hover:bg-red-800 border-red-700 text-white' : 'bg-blue-800/50 hover:bg-blue-800 border-blue-700 text-white'}`}
                     >
-                        <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold bg-white ${appTheme === 'TET' ? 'text-red-900' : 'text-blue-900'}`}>{currentUser.name.charAt(0)}</div>
+                        <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold bg-white ${appTheme === 'DOAN' ? 'text-red-900' : 'text-blue-900'}`}>{currentUser.name.charAt(0)}</div>
                         <span className="max-w-[80px] truncate">{currentUser.name}</span>
                         <LogOut size={14} className="ml-1 opacity-70"/>
                     </button>
                   ) : (
                     <button 
                         onClick={() => setShowLoginModal(true)}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-colors shadow-md ${appTheme === 'TET' ? 'bg-yellow-400 text-red-900 hover:bg-yellow-300' : 'bg-white text-blue-900 hover:bg-blue-50'}`}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-colors shadow-md ${appTheme === 'DOAN' ? 'bg-yellow-400 text-red-900 hover:bg-yellow-300' : 'bg-white text-blue-900 hover:bg-blue-50'}`}
                     >
                         <LogIn size={16} /> Đăng nhập
                     </button>
@@ -370,16 +368,16 @@ export default function App() {
               <div className="flex items-center gap-2">
                  <button
                     onClick={toggleTheme}
-                    className={`p-2 rounded-full transition-all shadow-sm ${appTheme === 'TET' ? 'bg-red-800 text-yellow-200 hover:bg-red-700' : 'bg-blue-800 text-blue-200 hover:bg-blue-700'}`}
+                    className={`p-2 rounded-full transition-all shadow-sm ${appTheme === 'DOAN' ? 'bg-red-800 text-yellow-200 hover:bg-red-700' : 'bg-blue-800 text-blue-200 hover:bg-blue-700'}`}
                     title="Đổi giao diện"
                   >
-                      {appTheme === 'TET' ? <Snowflake size={18} /> : <Flower2 size={18} />}
+                      {appTheme === 'DOAN' ? <Snowflake size={18} /> : <Star size={18} />}
                   </button>
 
                   <button 
                     onClick={refreshData} 
                     disabled={isRefreshing}
-                    className={`p-2 rounded-full transition-colors disabled:opacity-50 ${appTheme === 'TET' ? 'bg-red-800 text-yellow-400 hover:bg-red-700 hover:text-white' : 'bg-blue-800 text-blue-200 hover:bg-blue-700 hover:text-white'}`}
+                    className={`p-2 rounded-full transition-colors disabled:opacity-50 ${appTheme === 'DOAN' ? 'bg-red-800 text-yellow-400 hover:bg-red-700 hover:text-white' : 'bg-blue-800 text-blue-200 hover:bg-blue-700 hover:text-white'}`}
                     title="Làm mới dữ liệu từ Database"
                   >
                       <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} />

@@ -8,13 +8,14 @@ import { Violation, ClassEntity, Student, Criteria, TimeConfig, User } from '../
 import { calculateScore, isDateInRange } from '../utils';
 
 interface ReportInput {
-  weekConfig: TimeConfig;           // Tuần được chọn
-  allWeekConfigs: TimeConfig[];     // Tất cả cấu hình tuần (để tính streak)
-  violations: Violation[];          // Toàn bộ vi phạm
-  classes: ClassEntity[];           // Danh sách lớp
-  students: Student[];              // Danh sách học sinh
-  criteria: Criteria[];             // Tiêu chí
-  currentUser: User;                // Người xuất file
+  weekConfig: TimeConfig;
+  allWeekConfigs: TimeConfig[];
+  violations: Violation[];
+  classes: ClassEntity[];
+  students: Student[];
+  criteria: Criteria[];
+  currentUser: User;
+  isLeader: boolean;       // true nếu xuất dưới tư cách Lãnh đạo
 }
 
 // Màu đỏ đậm dùng cho phần NHƯỢC ĐIỂM và heading phụ
@@ -154,7 +155,7 @@ const computeStreak = (
 
 /** Main export function */
 export const generateWeeklyReport = async (input: ReportInput): Promise<void> => {
-  const { weekConfig, allWeekConfigs, violations, classes, students, criteria, currentUser } = input;
+  const { weekConfig, allWeekConfigs, violations, classes, students, criteria, currentUser, isLeader } = input;
 
   // Vi phạm trong tuần
   const weeklyViolations = violations.filter(v =>
@@ -270,17 +271,31 @@ export const generateWeeklyReport = async (input: ReportInput): Promise<void> =>
         mainTitle(`BÁO CÁO THI ĐUA NỀ NẾP ${weekConfig.name.toUpperCase()}`),
         subtitle(`${formatDate(weekConfig.startDate)} – ${formatDate(weekConfig.endDate)}`),
 
-        // Phần mở đầu
-        para([run('Kính thưa các thầy cô giáo và các bạn học sinh!')]),
-        para([
-          run('Tên em là '),
-          run(currentUser.name, true),
-          run(', chi đoàn '),
-          run(userClassName, true),
+        // ==== OPENING PARAGRAPH (phân biệt LEADER vs BCH) ====
+        ...(isLeader ? [
+          // Lãnh đạo: lời chào mừng, không xưng em
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            children: [
+              new TextRun({ text: `Kính chào Thầy/Cô `, size: 24 }),
+              new TextRun({ text: currentUser.name, bold: true, size: 24 }),
+              new TextRun({ text: ' đến kiểm tra công tác nề nếp thi đua nhà trường!', size: 24 }),
+            ],
+            spacing: { before: 120, after: 120 },
+          }),
+        ] : [
+          // BCH / BCH_PHU_TRACH / ADMIN: giữ nguyên lời chào + giới thiệu
+          para([run('Kính thưa các thầy cô giáo và các bạn học sinh!')]),
+          para([
+            run('Tên em là '),
+            run(currentUser.name, true),
+            run(', chi đoàn '),
+            run(userClassName, true),
+          ]),
+          para([
+            run(`Sau đây, đại diện Ban nề nếp, em xin báo cáo công tác nề nếp thi đua ${weekConfig.name} vừa qua như sau:`),
+          ], 200),
         ]),
-        para([
-          run(`Sau đây, đại diện Ban nề nếp, em xin báo cáo công tác nề nếp thi đua ${weekConfig.name} vừa qua như sau:`),
-        ], 200),
 
         // 1. ƯU ĐIỂM
         sectionHeader('1. ƯU ĐIỂM'),
@@ -298,26 +313,28 @@ export const generateWeeklyReport = async (input: ReportInput): Promise<void> =>
         rankingTable,
         afterTable,
 
-        // Kết luận
-        new Paragraph({
-          alignment: AlignmentType.JUSTIFIED,
-          children: [
-            new TextRun({
-              text: `    Trên đây là bản báo cáo thi đua nề nếp của 36 chi đoàn ${weekConfig.name} vừa qua.`,
-              size: 24,
-            }),
-          ],
-          spacing: { before: 160, after: 120 },
-        }),
-        new Paragraph({
-          alignment: AlignmentType.JUSTIFIED,
-          children: [
-            new TextRun({
-              text: '    Lời cuối, em xin kính chúc các thầy cô cùng các bạn học sinh có một tuần học mới vui vẻ và đầy thành tích tốt. Em xin cảm ơn!',
-              size: 24,
-            }),
-          ],
-        }),
+        // Kết luận — chỉ hiển thị với BCH/ADMIN, không dùng cho Lãnh đạo
+        ...(isLeader ? [] : [
+          new Paragraph({
+            alignment: AlignmentType.JUSTIFIED,
+            children: [
+              new TextRun({
+                text: `    Trên đây là bản báo cáo thi đua nề nếp của 36 chi đoàn ${weekConfig.name} vừa qua.`,
+                size: 24,
+              }),
+            ],
+            spacing: { before: 160, after: 120 },
+          }),
+          new Paragraph({
+            alignment: AlignmentType.JUSTIFIED,
+            children: [
+              new TextRun({
+                text: '    Lời cuối, em xin kính chúc các thầy cô cùng các bạn học sinh có một tuần học mới vui vẻ và đầy thành tích tốt. Em xin cảm ơn!',
+                size: 24,
+              }),
+            ],
+          }),
+        ]),
       ],
     }],
   });

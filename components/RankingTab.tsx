@@ -45,7 +45,8 @@ const RankingTab: React.FC<RankingTabProps> = ({
     if (!weekConfig) return showToast('Vui lòng chọn tuần cụ thể.', 'error');
     setIsGeneratingReport(true);
     try {
-      await generateWeeklyReport({ weekConfig, allWeekConfigs: timeConfigs, violations, classes, students, criteria, currentUser });
+      const isLeader = currentUser.role.toUpperCase() === 'LEADER';
+      await generateWeeklyReport({ weekConfig, allWeekConfigs: timeConfigs, violations, classes, students, criteria, currentUser, isLeader });
       showToast(`Đã xuất báo cáo ${weekConfig.name} thành công!`, 'success');
     } catch (err) {
       showToast('Lỗi khi tạo file DOCX. Vui lòng thử lại.', 'error');
