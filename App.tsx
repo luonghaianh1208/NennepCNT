@@ -328,7 +328,7 @@ export default function App() {
                      <h1 className={`text-2xl font-black tracking-tight leading-none ${primaryTitleColor}`}>NỀN NẾP CNT</h1>
                      {appTheme === 'DOAN' ? (
                          <div className="text-[10px] text-yellow-300 font-bold uppercase tracking-widest mt-0.5 flex items-center gap-1">
-                            <span>✨ Chúc Mừng Năm Mới</span>
+                            <span>★ 95 năm Đoàn TNCS Hồ Chí Minh</span>
                          </div>
                      ) : (
                          <div className="text-[10px] text-blue-200 font-bold uppercase tracking-widest mt-0.5">THPT Chuyên Nguyễn Trãi</div>
@@ -338,9 +338,10 @@ export default function App() {
               
               <div className="pl-1 space-y-0.5">
                   <p className={`${headerTextClass} text-xs opacity-90`}>
-                      {appTheme === 'DOAN' ? 'Xuân Bính Ngọ 2026 - An Khang Thịnh Vượng' : 'Hệ thống quản lí thi đua trường THPT Chuyên Nguyễn Trãi'}
+                      {appTheme === 'DOAN' ? 'Chào mừng Kỷ niệm 95 năm Ngày thành lập Đoàn TNCS Hồ Chí Minh' : 'Hệ thống quản lí thi đua trường THPT Chuyên Nguyễn Trãi'}
                   </p>
-                  <p className={`${appTheme === 'DOAN' ? 'text-yellow-500/80' : 'text-blue-400'} text-[10px] font-mono`}>Developed by Lương Hải Anh © 2026</p>
+                  {appTheme === 'DOAN' && <p className="text-yellow-300/90 text-[10px] font-semibold">(26/3/1931 – 26/3/2026)</p>}
+                   <p className={`${appTheme === 'DOAN' ? 'text-yellow-500/80' : 'text-blue-400'} text-[10px] font-mono`}>Developed by Lương Hải Anh © 2026</p>
               </div>
            </div>
            
