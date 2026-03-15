@@ -34,24 +34,51 @@ const RankingTab: React.FC = () => {
     let weeksCount = 1;
     let isRangeMode = false;
 
+    // Lấy tất cả tuần đã được admin cấu hình (dùng chung cho mọi mode)
+    const allConfiguredWeeks = timeConfigs.filter(c => c.type === 'WEEK');
+
     if (rankingFilterMode === 'ALL') {
-        relevantViolations = violations;
-        const minDate = getEarliestViolationDate(violations);
-        const maxDate = getLatestViolationDate(violations);
-        weeksCount = getUniqueWeeksCount(minDate, maxDate);
+        if (allConfiguredWeeks.length > 0) {
+            // ✅ Chỉ tính vi phạm nằm trong các tuần admin đã cài
+            relevantViolations = violations.filter(v =>
+                allConfiguredWeeks.some(week => isDateInRange(v.date, week.startDate, week.endDate))
+            );
+            weeksCount = allConfiguredWeeks.length;
+        } else {
+            // Fallback: chưa cài tuần nào → dùng toàn bộ dữ liệu + calendar weeks
+            relevantViolations = violations;
+            const minDate = getEarliestViolationDate(violations);
+            const maxDate = getLatestViolationDate(violations);
+            weeksCount = getUniqueWeeksCount(minDate, maxDate);
+        }
         isRangeMode = true;
     } else if (rankingFilterMode === 'WEEK') {
         const config = timeConfigs.find(c => c.id === rankingFilterConfigId);
         if (config) {
-             relevantViolations = violations.filter(v => isDateInRange(v.date, config.startDate, config.endDate));
+            relevantViolations = violations.filter(v => isDateInRange(v.date, config.startDate, config.endDate));
         }
-        weeksCount = 1; 
+        weeksCount = 1;
         isRangeMode = false;
     } else {
+        // MONTH hoặc SEMESTER
         const config = timeConfigs.find(c => c.id === rankingFilterConfigId);
         if (config) {
-            relevantViolations = violations.filter(v => isDateInRange(v.date, config.startDate, config.endDate));
-            weeksCount = getUniqueWeeksCount(config.startDate, config.endDate);
+            // ✅ Tìm các tuần WEEK admin đã cài nằm trong khoảng MONTH/SEMESTER này
+            const weeksInRange = allConfiguredWeeks.filter(week =>
+                isDateInRange(week.startDate, config.startDate, config.endDate)
+            );
+
+            if (weeksInRange.length > 0) {
+                // Chỉ tính vi phạm trong các tuần đó
+                relevantViolations = violations.filter(v =>
+                    weeksInRange.some(week => isDateInRange(v.date, week.startDate, week.endDate))
+                );
+                weeksCount = weeksInRange.length;
+            } else {
+                // Fallback: chưa cài tuần trong khoảng này → dùng calendar weeks
+                relevantViolations = violations.filter(v => isDateInRange(v.date, config.startDate, config.endDate));
+                weeksCount = getUniqueWeeksCount(config.startDate, config.endDate);
+            }
         } else {
             relevantViolations = [];
             weeksCount = 1;
@@ -133,23 +160,46 @@ const RankingTab: React.FC = () => {
       let isRangeMode = false;
       let periodStr = "Toàn thời gian";
 
-      // Lọc vi phạm theo thời gian
+      // Lấy tất cả tuần admin đã cài (nhất quán với rankingData)
+      const allConfiguredWeeks = timeConfigs.filter(c => c.type === 'WEEK');
+
+      // Lọc vi phạm theo thời gian — logic giống rankingData
       if (rankingFilterMode === 'ALL') {
-          relevantViolations = violations;
-          const minDate = getEarliestViolationDate(violations);
-          const maxDate = getLatestViolationDate(violations);
-          weeksCount = getUniqueWeeksCount(minDate, maxDate);
+          if (allConfiguredWeeks.length > 0) {
+              relevantViolations = violations.filter(v =>
+                  allConfiguredWeeks.some(week => isDateInRange(v.date, week.startDate, week.endDate))
+              );
+              weeksCount = allConfiguredWeeks.length;
+              periodStr = `Toàn thời gian (${allConfiguredWeeks.length} tuần cấu hình)`;
+          } else {
+              relevantViolations = violations;
+              const minDate = getEarliestViolationDate(violations);
+              const maxDate = getLatestViolationDate(violations);
+              weeksCount = getUniqueWeeksCount(minDate, maxDate);
+              periodStr = `Toàn thời gian (${formatDateDisplay(minDate.toISOString())} - Nay)`;
+          }
           isRangeMode = true;
-          periodStr = `Toàn thời gian (${formatDateDisplay(minDate.toISOString())} - Nay)`;
       } else {
           const config = timeConfigs.find(c => c.id === rankingFilterConfigId);
           if (config) {
-              relevantViolations = violations.filter(v => isDateInRange(v.date, config.startDate, config.endDate));
               if (rankingFilterMode === 'WEEK') {
+                  relevantViolations = violations.filter(v => isDateInRange(v.date, config.startDate, config.endDate));
                   weeksCount = 1;
                   isRangeMode = false;
               } else {
-                  weeksCount = getUniqueWeeksCount(config.startDate, config.endDate);
+                  // MONTH hoặc SEMESTER: tìm tuần cấu hình trong khoảng
+                  const weeksInRange = allConfiguredWeeks.filter(week =>
+                      isDateInRange(week.startDate, config.startDate, config.endDate)
+                  );
+                  if (weeksInRange.length > 0) {
+                      relevantViolations = violations.filter(v =>
+                          weeksInRange.some(week => isDateInRange(v.date, week.startDate, week.endDate))
+                      );
+                      weeksCount = weeksInRange.length;
+                  } else {
+                      relevantViolations = violations.filter(v => isDateInRange(v.date, config.startDate, config.endDate));
+                      weeksCount = getUniqueWeeksCount(config.startDate, config.endDate);
+                  }
                   isRangeMode = true;
               }
               periodStr = `${config.name} (${formatDateDisplay(config.startDate)} - ${formatDateDisplay(config.endDate)})`;
