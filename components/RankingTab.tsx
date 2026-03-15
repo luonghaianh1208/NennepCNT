@@ -63,13 +63,16 @@ const RankingTab: React.FC = () => {
         // MONTH hoặc SEMESTER
         const config = timeConfigs.find(c => c.id === rankingFilterConfigId);
         if (config) {
-            // ✅ Tìm các tuần WEEK admin đã cài nằm trong khoảng MONTH/SEMESTER này
+            // ✅ OVERLAP CHECK: tuần có giao nhau với MONTH/SEMESTER không?
+            // Ví dụ: Tuần 4 (29/09–05/10) OVERLAP với Tháng 10 (01/10–31/10) → được tính
+            // Điều kiện overlap: week.startDate <= config.endDate VÀ config.startDate <= week.endDate
             const weeksInRange = allConfiguredWeeks.filter(week =>
-                isDateInRange(week.startDate, config.startDate, config.endDate)
+                isDateInRange(week.startDate, config.startDate, config.endDate) ||
+                isDateInRange(config.startDate, week.startDate, week.endDate)
             );
 
             if (weeksInRange.length > 0) {
-                // Chỉ tính vi phạm trong các tuần đó
+                // Tính vi phạm trong các tuần có giao nhau
                 relevantViolations = violations.filter(v =>
                     weeksInRange.some(week => isDateInRange(v.date, week.startDate, week.endDate))
                 );
@@ -187,9 +190,10 @@ const RankingTab: React.FC = () => {
                   weeksCount = 1;
                   isRangeMode = false;
               } else {
-                  // MONTH hoặc SEMESTER: tìm tuần cấu hình trong khoảng
+                  // ✅ OVERLAP CHECK: tuần có giao nhau với MONTH/SEMESTER không?
                   const weeksInRange = allConfiguredWeeks.filter(week =>
-                      isDateInRange(week.startDate, config.startDate, config.endDate)
+                      isDateInRange(week.startDate, config.startDate, config.endDate) ||
+                      isDateInRange(config.startDate, week.startDate, week.endDate)
                   );
                   if (weeksInRange.length > 0) {
                       relevantViolations = violations.filter(v =>
