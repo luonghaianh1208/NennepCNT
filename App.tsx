@@ -338,9 +338,9 @@ export default function App() {
               
               <div className="pl-1 space-y-0.5">
                   <p className={`${headerTextClass} text-xs opacity-90`}>
-                      {appTheme === 'DOAN' ? 'Chào mừng Kỷ niệm 95 năm Ngày thành lập Đoàn TNCS Hồ Chí Minh' : 'Hệ thống quản lí thi đua trường THPT Chuyên Nguyễn Trãi'}
+                      'Chào mừng Kỷ niệm 95 năm Ngày thành lập Đoàn TNCS Hồ Chí Minh'
                   </p>
-                  {appTheme === 'DOAN' && <p className="text-yellow-300/90 text-[10px] font-semibold">(26/3/1931 – 26/3/2026)</p>}
+                  <p className={`${appTheme === 'DOAN' ? 'text-yellow-300/90' : 'text-blue-300/90'} text-[10px] font-semibold`}>(26/3/1931 – 26/3/2026)</p>
                    <p className={`${appTheme === 'DOAN' ? 'text-yellow-500/80' : 'text-blue-400'} text-[10px] font-mono`}>Developed by Lương Hải Anh © 2026</p>
               </div>
            </div>
