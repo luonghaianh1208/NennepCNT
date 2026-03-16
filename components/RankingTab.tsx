@@ -60,12 +60,12 @@ const RankingTab: React.FC<RankingTabProps> = ({
   const [showExportModal, setShowExportModal] = useState(false);
 
   useEffect(() => {
-     if (rankingFilterMode !== 'ALL') {
-        const availableConfigs = timeConfigs.filter(c => c.type === rankingFilterMode);
-        const currentIsValid = availableConfigs.find(c => c.id === rankingFilterConfigId);
-        if (!currentIsValid && availableConfigs.length > 0) {
-            setRankingFilterConfigId(availableConfigs[0].id);
-        }
+     const availableConfigs = timeConfigs.filter(c => c.type === rankingFilterMode);
+     const currentIsValid = availableConfigs.find(c => c.id === rankingFilterConfigId);
+     if (!currentIsValid && availableConfigs.length > 0) {
+         // Chọn mới nhất (sort giảm theo startDate)
+         const sorted = [...availableConfigs].sort((a, b) => b.startDate.localeCompare(a.startDate));
+         setRankingFilterConfigId(sorted[0].id);
      }
   }, [rankingFilterMode, timeConfigs, rankingFilterConfigId]);
 
@@ -303,24 +303,19 @@ const RankingTab: React.FC<RankingTabProps> = ({
                 value={rankingFilterMode} 
                 onChange={(e) => setRankingFilterMode(e.target.value as any)}
             >
-            <option value="ALL">Toàn thời gian (Tất cả)</option>
             <option value="WEEK">Theo Tuần (Cấu hình)</option>
             <option value="MONTH">Theo Tháng</option>
             <option value="SEMESTER">Theo Học kỳ</option>
             </select>
             
-            {rankingFilterMode === 'ALL' ? (
-                <div className="flex-1 px-2 py-2 text-sm text-slate-500 italic bg-slate-50 border border-slate-300 rounded-lg">Dữ liệu tổng hợp từ toàn bộ Database</div>
-            ) : (
             <select 
                     className="bg-slate-50 border border-slate-300 rounded-lg px-2 py-2 text-sm outline-none font-medium flex-1 w-full" 
                     value={rankingFilterConfigId} 
                     onChange={(e) => setRankingFilterConfigId(e.target.value)}
             >
                 {timeConfigs.filter(c => c.type === rankingFilterMode).length === 0 && <option value="">Chưa có cấu hình</option>}
-                {timeConfigs.filter(c => c.type === rankingFilterMode).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                {[...timeConfigs.filter(c => c.type === rankingFilterMode)].sort((a, b) => b.startDate.localeCompare(a.startDate)).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
-            )}
          </div>
 
          <button 

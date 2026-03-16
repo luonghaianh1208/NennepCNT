@@ -50,7 +50,7 @@ export default function App() {
   const [listFilterClassId, setListFilterClassId] = useState<string>('ALL');
   const [listFilterCriteriaType, setListFilterCriteriaType] = useState<'ALL' | 'MINUS' | 'PLUS'>('ALL');
 
-  const [rankingFilterMode, setRankingFilterMode] = useState<'WEEK' | 'MONTH' | 'SEMESTER' | 'ALL'>('ALL');
+  const [rankingFilterMode, setRankingFilterMode] = useState<'WEEK' | 'MONTH' | 'SEMESTER' | 'ALL'>('WEEK');
   const [rankingFilterConfigId, setRankingFilterConfigId] = useState<string>('');
   const [rankingGradeTab, setRankingGradeTab] = useState<'10' | '11' | '12'>('10');
   const [classDetailSelectedId, setClassDetailSelectedId] = useState<string>('');

@@ -44,7 +44,7 @@ const ListTab: React.FC<ListTabProps> = ({
 
   useEffect(() => {
      if (filterMode !== 'ALL') {
-         const configs = timeConfigs.filter(c => c.type === filterMode);
+         const configs = [...timeConfigs.filter(c => c.type === filterMode)].sort((a, b) => b.startDate.localeCompare(a.startDate));
          const currentIsValid = configs.find(c => c.id === filterConfigId);
          if (!currentIsValid && configs.length > 0) {
              setFilterConfigId(configs[0].id);
@@ -266,7 +266,8 @@ const ListTab: React.FC<ListTabProps> = ({
   };
 
   const getTimeOptions = () => {
-      return timeConfigs.filter(c => c.type === filterMode);
+      // Sắp xếp từ mới nhất xuống (startDate giảm dần)
+      return [...timeConfigs.filter(c => c.type === filterMode)].sort((a, b) => b.startDate.localeCompare(a.startDate));
   };
 
   return (
