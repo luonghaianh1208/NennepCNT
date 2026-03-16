@@ -21,6 +21,7 @@ import {
 import { Violation } from './types';
 import { INITIAL_ROLE_DEFINITIONS, GUEST_USER } from './utils';
 import { useAppStore } from './contexts/AppContext';
+import { api } from './services/googleApi';
 
 import EntryTab from './components/EntryTab';
 import ListTab from './components/ListTab';
@@ -94,32 +95,39 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-     if (users.length > 0 && currentUser.role === 'GUEST' && loginUsername && loginPassword && rememberMe) {
-         const user = users.find(u => u.username === loginUsername && u.password === loginPassword);
-         if (user) {
-             setCurrentUser(user);
-             const userRoleKey = user.role.toUpperCase();
-             const roleConfig = roleConfigs[userRoleKey] || roleConfigs['GUEST'] || INITIAL_ROLE_DEFINITIONS[userRoleKey];
-             
-             if (roleConfig?.canEntry) setActiveTab('entry');
-             else if (roleConfig?.isAdmin) setActiveTab('settings');
-             else setActiveTab('list');
-         }
+     // Auto-login: gọi server-side verifyLogin, không còn so sánh password local
+     if (currentUser.role === 'GUEST' && loginUsername && loginPassword && rememberMe) {
+         (async () => {
+             const result = await api.verifyLogin(loginUsername, loginPassword);
+             if (result?.success && result.user) {
+                 setCurrentUser(result.user);
+                 const userRoleKey = result.user.role.toUpperCase();
+                 const roleConfig = roleConfigs[userRoleKey] || roleConfigs['GUEST'] || INITIAL_ROLE_DEFINITIONS[userRoleKey];
+                 if (roleConfig?.canEntry) setActiveTab('entry');
+                 else if (roleConfig?.isAdmin) setActiveTab('settings');
+                 else setActiveTab('list');
+             } else {
+                 // Credentials saved nhưng GAS trả lỗi → xóa session
+                 localStorage.removeItem('nnp_user_creds');
+             }
+         })();
      }
-  }, [users, loginUsername, loginPassword, rememberMe, currentUser.role, roleConfigs, setCurrentUser]);
+  }, [loginUsername, loginPassword, rememberMe, currentUser.role, roleConfigs, setCurrentUser]);
 
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const user = users.find(u => u.username === loginUsername && u.password === loginPassword);
+    setLoginError('');
+    // Gọi server-side verifyLogin, password được so sánh trên GAS, không trả về browser
+    const result = await api.verifyLogin(loginUsername, loginPassword);
     
-    if (user) {
+    if (result?.success && result.user) {
+      const user = result.user;
       setCurrentUser(user);
       setShowLoginModal(false);
-      setLoginError('');
       
       if (rememberMe) {
-          // Encode username:password bằng base64 thay vì lưu JSON plaintext
+          // Encode username:password bằng base64 để auto-login lần sau
           const encoded = btoa(`${loginUsername}:${loginPassword}`);
           localStorage.setItem('nnp_user_creds', encoded);
       } else {
@@ -140,7 +148,7 @@ export default function App() {
         setActiveTab('list');
       }
     } else {
-      setLoginError('Tên đăng nhập hoặc mật khẩu không đúng');
+      setLoginError(result?.error || 'Tên đăng nhập hoặc mật khẩu không đúng');
     }
   };
 

@@ -1,6 +1,6 @@
 // =========================================================
 // NỀN NẾP CNT — Google Apps Script Backend
-// Phiên bản: 1.3 (Cập nhật lần cuối: 2026-03-15)
+// Phiên bản: 1.4 (Cập nhật lần cuối: 2026-03-16)
 // Tác giả: Lương Hải Anh
 // Mô tả: Backend xử lý CRUD cho Google Sheets
 // =========================================================
@@ -109,6 +109,10 @@ function handleRequest(e) {
       case 'getAuditLogs':
         result = getAuditLogs();
         break;
+      // ✅ Xác thực server-side (password không bao giờ rời khỏi server)
+      case 'verifyLogin':
+        result = verifyLogin(data.username, data.password);
+        break;
       default:
         result = { error: 'Unknown action: ' + action };
     }
@@ -125,6 +129,7 @@ function handleRequest(e) {
 // --- CORE FUNCTIONS ---
 
 // 1. Lấy dữ liệu (Gộp cả Violations và Achievements vào mảng Violations trả về)
+// ⚠️ BẢO MẬT: Trường 'password' bị loại bỏ khỏi mảng Users trước khi trả về client
 function getAllData() {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const result = {};
@@ -152,16 +157,58 @@ function getAllData() {
            const achHeaders = SCHEMA['Achievements'];
            const achRawData = achSheet.getRange(2, 1, achSheet.getLastRow() - 1, achHeaders.length).getValues();
            const achData = mapDataToObjects(achRawData, achHeaders);
-           
-           // Gộp dữ liệu
            sheetData = sheetData.concat(achData);
        }
+    }
+
+    // ⚠️ BẢO MẬT: Xóa trường password khỏi dữ liệu Users trước khi gửi về client
+    // Password chỉ được dùng trong verifyLogin() — so sánh hoàn toàn trên server
+    if (sheetName === 'Users') {
+      sheetData = sheetData.map(function(u) {
+        var safe = {};
+        Object.keys(u).forEach(function(k) { if (k !== 'password') safe[k] = u[k]; });
+        return safe;
+      });
     }
 
     result[sheetName] = sheetData;
   });
   
   return result;
+}
+
+// ✅ Xác thực đăng nhập server-side
+// Password so sánh hoàn toàn trên GAS, KHÔNG gửi password về browser
+// Trả về: { success: true, user: {...} } hoặc { success: false, error: '...' }
+function verifyLogin(username, password) {
+  if (!username || !password) {
+    return { success: false, error: 'Thiếu thông tin đăng nhập' };
+  }
+  
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName('Users');
+  if (!sheet || sheet.getLastRow() <= 1) {
+    return { success: false, error: 'Không tìm thấy dữ liệu người dùng' };
+  }
+  
+  const headers = SCHEMA['Users'];
+  const rawData = sheet.getRange(2, 1, sheet.getLastRow() - 1, headers.length).getValues();
+  const users = mapDataToObjects(rawData, headers);
+  
+  // Tìm user khớp username + password (so sánh trên server)
+  const matched = users.find(function(u) {
+    return u.username === username && u.password === password;
+  });
+  
+  if (!matched) {
+    return { success: false, error: 'Tên đăng nhập hoặc mật khẩu không đúng' };
+  }
+  
+  // Trả về user object KHÔNG có trường password
+  var safeUser = {};
+  Object.keys(matched).forEach(function(k) { if (k !== 'password') safeUser[k] = matched[k]; });
+  
+  return { success: true, user: safeUser };
 }
 
 /**

@@ -64,6 +64,13 @@ export const api = {
       return [];
     }
   },
+
+  // 9. Xác thực đăng nhập server-side
+  // ✅ BẢO MẬT: Password được gửi lên GAS để so sánh, KHÔNG bao giờ trả về client
+  // Trả về: { success: true, user: {...} } hoặc { success: false, error: '...' }
+  verifyLogin: async (username: string, password: string): Promise<{ success: boolean; user?: any; error?: string }> => {
+    return postData('verifyLogin', { username, password });
+  },
 };
 
 async function postData(action: string, data: any) {
