@@ -215,7 +215,7 @@ const ListTab: React.FC<ListTabProps> = ({
 
   const handleExportFilteredData = () => {
     if (filteredViolations.length === 0) {
-      return showToast('Không có dữ liệu nào để xuất!', 'error');
+      showToast('Không có dữ liệu nào để xuất!', 'error');
       return;
     }
 

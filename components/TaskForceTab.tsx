@@ -7,6 +7,7 @@ import { useAppStore } from '../contexts/AppContext';
 import { useModal } from '../contexts/ModalContext';
 
 const TaskForceTab: React.FC = () => {
+  const { showConfirm } = useModal();
   const { currentUser, users, violations, students, roleConfigs, setUsers, setUnsavedChanges, syncSettings, unsavedChanges, classes, timeConfigs } = useAppStore();
   const { showToast } = useModal();
 
@@ -22,7 +23,8 @@ const TaskForceTab: React.FC = () => {
   };
 
   const onSave = async () => {
-    if(!confirm("Lưu thay đổi lên hệ thống?")) return;
+    const ok = await showConfirm({ title: 'Xác nhận lưu', message: 'Lưu thay đổi lên hệ thống?' });
+    if (!ok) return;
     await syncSettings();
   };
 
@@ -140,7 +142,7 @@ const TaskForceTab: React.FC = () => {
 
   const handleExportExcel = () => {
       if (stats.length === 0) {
-          return showToast('Không có dữ liệu để xuất.', 'error');
+          showToast('Không có dữ liệu để xuất.', 'error');
           return;
       }
       

@@ -374,9 +374,19 @@ export const safeParseImages = (imgField: string[] | string | undefined): string
 export const formatDateDisplay = (dateStr: string): string => {
     if (!dateStr) return '';
     try {
+        // Sử dụng parseLocalStartOfDay để tránh lệch ngày do UTC offset
+        // "YYYY-MM-DD" qua new Date() sẽ parse thành UTC 00:00, có thể hiển thị sai ngày ở UTC+7
+        const clean = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
+        const parts = clean.split('-');
+        if (parts.length === 3) {
+            const day = parts[2].padStart(2, '0');
+            const month = parts[1].padStart(2, '0');
+            const year = parts[0];
+            return `${day}/${month}/${year}`;
+        }
+        // Fallback: với các định dạng khác (ISO full, ...) dùng local time
         const d = new Date(dateStr);
         if (isNaN(d.getTime())) return dateStr;
-        
         const day = d.getDate().toString().padStart(2, '0');
         const month = (d.getMonth() + 1).toString().padStart(2, '0');
         const year = d.getFullYear();

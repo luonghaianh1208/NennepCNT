@@ -124,7 +124,7 @@ const RankingTab: React.FC<RankingTabProps> = ({
 
   const handleOpenExportModal = () => {
       if (violations.length === 0 && rankingFilterMode === 'ALL') {
-          return showToast('Hệ thống chưa có dữ liệu vi phạm nào.', 'error');
+          showToast('Hệ thống chưa có dữ liệu vi phạm nào.', 'error');
           return;
       }
       setShowExportModal(true);

@@ -2,10 +2,12 @@
 import React, { useState, useMemo } from 'react';
 import { PlusCircle, Trash2, AlertTriangle } from 'lucide-react';
 import { useAppStore } from '../../contexts/AppContext';
+import { useModal } from '../../contexts/ModalContext';
 import { getLocalDateString, detectOverlappingWeeks } from '../../utils';
 
 const SettingsTimeTab: React.FC = () => {
   const { timeConfigs, setTimeConfigs, setUnsavedChanges } = useAppStore();
+  const { showConfirm } = useModal();
   const [newTimeType, setNewTimeType] = useState<'WEEK' | 'MONTH' | 'SEMESTER'>('WEEK');
 
   const handleUpdateTimeConfig = (id: string, field: 'startDate' | 'endDate' | 'name' | 'type', value: string) => {
@@ -24,11 +26,11 @@ const SettingsTimeTab: React.FC = () => {
     setUnsavedChanges(true);
   };
 
-  const handleDeleteTimeConfig = (id: string) => {
-    if (confirm('Xóa mốc thời gian này?')) {
-      setTimeConfigs(timeConfigs.filter(c => c.id !== id));
-      setUnsavedChanges(true);
-    }
+  const handleDeleteTimeConfig = async (id: string) => {
+    const ok = await showConfirm({ title: 'Xóa mốc thời gian', message: 'Xóa mốc thời gian này?' });
+    if (!ok) return;
+    setTimeConfigs(timeConfigs.filter(c => c.id !== id));
+    setUnsavedChanges(true);
   };
 
   return (
