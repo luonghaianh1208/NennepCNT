@@ -186,17 +186,24 @@ export const generateWeeklyReport = async (input: ReportInput): Promise<void> =>
     classLines: string[];
   }
 
-  const criteriaMap = new Map<string, Map<string, string[]>>(); // criteriaId → classId → [studentNames]
+  // criteriaId → classId → { studentCounts: Map<name, count>, collectiveCount: number }
+  interface ClassData { studentCounts: Map<string, number>; collectiveCount: number; }
+  const criteriaMap = new Map<string, Map<string, ClassData>>();
 
   weeklyViolations
     .filter(v => v.points > 0)
     .forEach(v => {
       if (!criteriaMap.has(v.criteriaId)) criteriaMap.set(v.criteriaId, new Map());
       const classMap = criteriaMap.get(v.criteriaId)!;
-      if (!classMap.has(v.classId)) classMap.set(v.classId, []);
+      if (!classMap.has(v.classId)) classMap.set(v.classId, { studentCounts: new Map(), collectiveCount: 0 });
+      const classData = classMap.get(v.classId)!;
       if (v.studentId) {
         const student = students.find(s => s.id === v.studentId);
-        if (student) classMap.get(v.classId)!.push(student.name);
+        if (student) {
+          classData.studentCounts.set(student.name, (classData.studentCounts.get(student.name) || 0) + 1);
+        }
+      } else {
+        classData.collectiveCount++;
       }
     });
 
@@ -205,13 +212,20 @@ export const generateWeeklyReport = async (input: ReportInput): Promise<void> =>
     const crit = criteria.find(c => c.id === criteriaId);
     const criteriaName = crit?.content || criteriaId;
     const classLines: string[] = [];
-    classMap.forEach((studentNames, classId) => {
+    classMap.forEach((classData, classId) => {
       const cls = classes.find(c => c.id === classId);
       const clsName = cls?.name || classId;
-      if (studentNames.length > 0) {
-        classLines.push(`${clsName}: ${studentNames.join(', ')}`);
+      if (classData.studentCounts.size > 0) {
+        // Vi phạm cá nhân: liệt kê học sinh, thêm số lượt nếu > 1
+        const studentParts: string[] = [];
+        classData.studentCounts.forEach((count, name) => {
+          studentParts.push(count > 1 ? `${name} (${count} lượt)` : name);
+        });
+        classLines.push(`${clsName}: ${studentParts.join(', ')}`);
       } else {
-        classLines.push(`${clsName}`);
+        // Vi phạm tập thể: chỉ ghi tên lớp, thêm số lượt nếu > 1
+        const suffix = classData.collectiveCount > 1 ? ` (${classData.collectiveCount} lượt)` : '';
+        classLines.push(`${clsName}${suffix}`);
       }
     });
     criteriaGroups.push({ criteriaName, classLines });
