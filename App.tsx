@@ -71,84 +71,75 @@ export default function App() {
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   const [editingViolation, setEditingViolation] = useState<Violation | null>(null);
   const [viewingViolation, setViewingViolation] = useState<Violation | null>(null);
 
   const { showConfirm, showAlert, showToast } = useModal();
 
-  // Auto Login Logic — decode encoded session (btoa)
+  // ✅ Auto Login: khôi phục phiên tức thì từ localStorage (không cần gọi GAS)
+  // User object được lưu sau khi đăng nhập thành công (không có password)
   useEffect(() => {
-     const savedSession = localStorage.getItem('nnp_user_creds');
-     if (savedSession) {
+     const savedUser = localStorage.getItem('nnp_user_session');
+     if (savedUser) {
          try {
-             const decoded = atob(savedSession);
-             const [username, ...rest] = decoded.split(':');
-             const password = rest.join(':'); // password may contain ':'
-             setLoginUsername(username);
-             setLoginPassword(password);
-             setRememberMe(true);
-         } catch (e) {
-             localStorage.removeItem('nnp_user_creds');
-         }
-     }
-  }, []);
-
-  useEffect(() => {
-     // Auto-login: gọi server-side verifyLogin, không còn so sánh password local
-     if (currentUser.role === 'GUEST' && loginUsername && loginPassword && rememberMe) {
-         (async () => {
-             const result = await api.verifyLogin(loginUsername, loginPassword);
-             if (result?.success && result.user) {
-                 setCurrentUser(result.user);
-                 const userRoleKey = result.user.role.toUpperCase();
+             const user = JSON.parse(savedUser);
+             if (user && user.role && user.role !== 'GUEST') {
+                 setCurrentUser(user);
+                 const userRoleKey = user.role.toUpperCase();
                  const roleConfig = roleConfigs[userRoleKey] || roleConfigs['GUEST'] || INITIAL_ROLE_DEFINITIONS[userRoleKey];
                  if (roleConfig?.canEntry) setActiveTab('entry');
                  else if (roleConfig?.isAdmin) setActiveTab('settings');
                  else setActiveTab('list');
-             } else {
-                 // Credentials saved nhưng GAS trả lỗi → xóa session
-                 localStorage.removeItem('nnp_user_creds');
              }
-         })();
+         } catch (e) {
+             localStorage.removeItem('nnp_user_session');
+         }
      }
-  }, [loginUsername, loginPassword, rememberMe, currentUser.role, roleConfigs, setCurrentUser]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Chỉ chạy 1 lần khi mount, không cần GAS call
 
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoggingIn) return; // Chặn double-submit
     setLoginError('');
-    // Gọi server-side verifyLogin, password được so sánh trên GAS, không trả về browser
-    const result = await api.verifyLogin(loginUsername, loginPassword);
-    
-    if (result?.success && result.user) {
-      const user = result.user;
-      setCurrentUser(user);
-      setShowLoginModal(false);
+    setIsLoggingIn(true);
+    try {
+      // Gọi server-side verifyLogin, password được so sánh trên GAS, không trả về browser
+      const result = await api.verifyLogin(loginUsername, loginPassword);
       
-      if (rememberMe) {
-          // Encode username:password bằng base64 để auto-login lần sau
-          const encoded = btoa(`${loginUsername}:${loginPassword}`);
-          localStorage.setItem('nnp_user_creds', encoded);
+      if (result?.success && result.user) {
+        const user = result.user;
+        setCurrentUser(user);
+        setShowLoginModal(false);
+        
+        // Lưu user object (không có password) vào localStorage — dùng để auto-login nhanh lần sau
+        localStorage.setItem('nnp_user_session', JSON.stringify(user));
+        // Giữ lại nnp_user_creds nếu rememberMe (dùng để re-verify sau này nếu cần)
+        if (rememberMe) {
+            localStorage.setItem('nnp_user_creds', btoa(`${loginUsername}:${loginPassword}`));
+        } else {
+            localStorage.removeItem('nnp_user_creds');
+        localStorage.removeItem('nnp_user_session');
+            // Không rememberMe → xóa cả session khi đăng xuất
+        }
+        
+        setLoginUsername('');
+        setLoginPassword('');
+        
+        const userRoleKey = user.role.toUpperCase();
+        const roleConfig = roleConfigs[userRoleKey] || roleConfigs['GUEST'];
+        
+        if (roleConfig.canEntry) setActiveTab('entry');
+        else if (roleConfig.isAdmin) setActiveTab('settings');
+        else setActiveTab('list');
       } else {
-          localStorage.removeItem('nnp_user_creds');
+        setLoginError(result?.error || 'Tên đăng nhập hoặc mật khẩu không đúng');
       }
-      
-      setLoginUsername('');
-      setLoginPassword('');
-      
-      const userRoleKey = user.role.toUpperCase();
-      const roleConfig = roleConfigs[userRoleKey] || roleConfigs['GUEST'];
-      
-      if (roleConfig.canEntry) {
-        setActiveTab('entry');
-      } else if (roleConfig.isAdmin) {
-        setActiveTab('settings');
-      } else {
-        setActiveTab('list');
-      }
-    } else {
-      setLoginError(result?.error || 'Tên đăng nhập hoặc mật khẩu không đúng');
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 
@@ -531,8 +522,20 @@ export default function App() {
                  </div>
 
                  {loginError && <div className="text-red-500 text-sm font-medium text-center">{loginError}</div>}
-                 <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-blue-200 transition-all active:scale-95">
-                    Đăng Nhập
+                 <button
+                    type="submit"
+                    disabled={isLoggingIn}
+                    className={`w-full text-white font-bold py-3.5 rounded-xl shadow-lg shadow-blue-200 transition-all flex items-center justify-center gap-2 ${isLoggingIn ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 active:scale-95'}`}
+                 >
+                    {isLoggingIn ? (
+                      <>
+                        <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                        </svg>
+                        Đang xác thực...
+                      </>
+                    ) : 'Đăng Nhập'}
                  </button>
               </form>
            </div>
