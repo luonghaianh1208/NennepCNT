@@ -215,18 +215,15 @@ export const generateWeeklyReport = async (input: ReportInput): Promise<void> =>
     classMap.forEach((classData, classId) => {
       const cls = classes.find(c => c.id === classId);
       const clsName = cls?.name || classId;
-      if (classData.studentCounts.size > 0) {
-        // Vi phạm cá nhân: liệt kê học sinh, thêm số lượt nếu > 1
-        const studentParts: string[] = [];
-        classData.studentCounts.forEach((count, name) => {
-          studentParts.push(count > 1 ? `${name} (${count} lượt)` : name);
-        });
-        classLines.push(`${clsName}: ${studentParts.join(', ')}`);
-      } else {
-        // Vi phạm tập thể: chỉ ghi tên lớp, thêm số lượt nếu > 1
-        const suffix = classData.collectiveCount > 1 ? ` (${classData.collectiveCount} lượt)` : '';
-        classLines.push(`${clsName}${suffix}`);
+      // Gộp cả tập thể và cá nhân vào 1 dòng (tránh mất vi phạm khi cùng tồn tại)
+      const parts: string[] = [];
+      if (classData.collectiveCount > 0) {
+        parts.push(classData.collectiveCount > 1 ? `Tập thể (${classData.collectiveCount} lượt)` : 'Tập thể');
       }
+      classData.studentCounts.forEach((count, name) => {
+        parts.push(count > 1 ? `${name} (${count} lượt)` : name);
+      });
+      classLines.push(`${clsName}: ${parts.join(', ')}`);
     });
     criteriaGroups.push({ criteriaName, classLines });
   });

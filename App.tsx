@@ -53,6 +53,7 @@ export default function App() {
   const [rankingFilterMode, setRankingFilterMode] = useState<'WEEK' | 'MONTH' | 'SEMESTER' | 'ALL'>('ALL');
   const [rankingFilterConfigId, setRankingFilterConfigId] = useState<string>('');
   const [rankingGradeTab, setRankingGradeTab] = useState<'10' | '11' | '12'>('10');
+  const [classDetailSelectedId, setClassDetailSelectedId] = useState<string>('');
 
   // Navigate to ListTab with specific filters (called from RankingTab click on class)
   const navigateToList = (classId: string, mode: 'MONTH' | 'WEEK' | 'SEMESTER' | 'ALL', configId: string) => {
@@ -420,7 +421,7 @@ export default function App() {
           />
         )}
         {activeTab === 'detail' && (
-          <ClassDetailTab setViewingViolation={setViewingViolation} />
+          <ClassDetailTab setViewingViolation={setViewingViolation} selectedClassId={classDetailSelectedId} setSelectedClassId={setClassDetailSelectedId} />
         )}
         {activeTab === 'taskforce' && (isCurrentUserAdmin() || ['BCH_PHU_TRACH', 'BCH', 'RED_FLAG', 'DISCIPLINE'].includes(currentUser.role)) && (
           <TaskForceTab />

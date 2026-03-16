@@ -9,13 +9,15 @@ import { useModal } from '../contexts/ModalContext';
 
 interface ClassDetailTabProps {
   setViewingViolation: (v: Violation | null) => void;
+  selectedClassId: string;
+  setSelectedClassId: (id: string) => void;
 }
 
-const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ setViewingViolation }) => {
+const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ setViewingViolation, selectedClassId, setSelectedClassId }) => {
   const { currentUser, classes, violations, criteria, students, timeConfigs } = useAppStore();
   const { showToast } = useModal();
 
-  const [selectedClassId, setSelectedClassId] = useState('');
+  // selectedClassId is lifted to App.tsx for tab persistence
 
   const isRestrictedUser = (currentUser.role === 'TEACHER' || currentUser.role === 'RED_FLAG' || currentUser.role === 'DISCIPLINE') && currentUser.className;
   
