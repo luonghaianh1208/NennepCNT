@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Download, Filter, Search, CheckSquare, Square, Trash2, Edit, Link2, ListChecks, ChevronDown, Copy, RefreshCw } from 'lucide-react';
+import { Download, Filter, Search, CheckSquare, Square, Trash2, Edit, Link2, ListChecks, ChevronDown, Copy, RefreshCw, AlertTriangle } from 'lucide-react';
 import { Violation } from '../types';
 import { safeParseImages, formatDateDisplay, isDateInRange, exportToExcel } from '../utils';
 import { useAppStore } from '../contexts/AppContext';
@@ -36,6 +36,7 @@ const ListTab: React.FC<ListTabProps> = ({
 
   // Local-only state (không cần persist)
   const [showDuplicatesOnly, setShowDuplicatesOnly] = useState(false);
+  const [showOutOfConfig, setShowOutOfConfig] = useState(false);
   const [selectedViolationIds, setSelectedViolationIds] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
   // Pagination State
@@ -54,14 +55,41 @@ const ListTab: React.FC<ListTabProps> = ({
   // Reset pagination when filters change
   useEffect(() => {
       setVisibleCount(ITEMS_PER_PAGE);
-  }, [filterMode, filterCriteriaType, filterConfigId, filterClassId, searchTerm, showDuplicatesOnly]);
+  }, [filterMode, filterCriteriaType, filterConfigId, filterClassId, searchTerm, showDuplicatesOnly, showOutOfConfig]);
 
   const isAdmin = useMemo(() => {
      const roleKey = currentUser.role.toUpperCase();
      return roleConfigs[roleKey]?.isAdmin || false;
   }, [currentUser, roleConfigs]);
+  // Tính violations nằm ngoài tất cả timeConfig (chỉ admin cần)
+  const outOfConfigViolations = useMemo(() => {
+    if (!isAdmin) return [];
+    if (timeConfigs.length === 0) return []; // Chưa có cấu hình nào thì không hiển thị cảnh báo
+    return violations.filter(v => {
+      return !timeConfigs.some(tc => isDateInRange(v.date, tc.startDate, tc.endDate));
+    });
+  }, [violations, timeConfigs, isAdmin]);
 
   const filteredViolations = useMemo(() => {
+    // --- LOGIC LỌC NGOÀI CẤU HÌNH (Chỉ admin) ---
+    if (showOutOfConfig && isAdmin) {
+      let list = outOfConfigViolations;
+      if (filterCriteriaType === 'MINUS') list = list.filter(v => v.points > 0);
+      else if (filterCriteriaType === 'PLUS') list = list.filter(v => v.points < 0);
+      if (searchTerm.trim()) {
+        const term = searchTerm.toLowerCase();
+        list = list.filter(v => {
+          const studentName = v.studentId ? students.find(s => s.id === v.studentId && s.classId === v.classId)?.name : 'Tập thể';
+          const className = classes.find(c => c.id === v.classId)?.name;
+          const criteriaContent = criteria.find(c => c.id === v.criteriaId)?.content;
+          return (studentName && studentName.toLowerCase().includes(term)) ||
+                 (className && className.toLowerCase().includes(term)) ||
+                 (criteriaContent && criteriaContent.toLowerCase().includes(term));
+        });
+      }
+      return list.sort((a, b) => b.timestamp - a.timestamp);
+    }
+
     let list = violations;
 
     // --- LOGIC LỌC TRÙNG LẶP (Dành cho Admin) ---
@@ -147,7 +175,7 @@ const ListTab: React.FC<ListTabProps> = ({
     }
 
     return list;
-  }, [violations, filterClassId, filterMode, filterConfigId, filterCriteriaType, searchTerm, timeConfigs, classes, students, criteria, users, showDuplicatesOnly, isAdmin]);
+  }, [violations, filterClassId, filterMode, filterConfigId, filterCriteriaType, searchTerm, timeConfigs, classes, students, criteria, users, showDuplicatesOnly, isAdmin, showOutOfConfig, outOfConfigViolations]);
 
   // Thông báo khi lọc xong (Chỉ chạy khi showDuplicatesOnly chuyển sang true)
   useEffect(() => {
@@ -257,6 +285,20 @@ const ListTab: React.FC<ListTabProps> = ({
                         <span className="hidden sm:inline">{showDuplicatesOnly ? 'Đang lọc trùng' : 'Lọc trùng lặp'}</span>
                     </button>
                 )}
+                {isAdmin && outOfConfigViolations.length > 0 && (
+                  <button
+                    onClick={() => {
+                      setShowOutOfConfig(!showOutOfConfig);
+                      setShowDuplicatesOnly(false);
+                      setFilterMode('ALL');
+                    }}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium shadow transition-all active:scale-95 ${showOutOfConfig ? 'bg-yellow-500 text-white' : 'bg-yellow-50 text-yellow-700 border border-yellow-300 hover:bg-yellow-100'}`}
+                    title="Vi phạm nằm ngoài khoảng thời gian cấu hình"
+                  >
+                    <AlertTriangle size={15} />
+                    <span>{outOfConfigViolations.length} ngoài cấu hình</span>
+                  </button>
+                )}
                 <button 
                     onClick={handleExportFilteredData} 
                     className="flex items-center gap-2 bg-green-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium shadow hover:bg-green-700 active:scale-95 transition-transform"
@@ -285,6 +327,11 @@ const ListTab: React.FC<ListTabProps> = ({
             {showDuplicatesOnly && (
                 <span className="text-orange-600 font-bold text-xs bg-orange-50 px-2 py-1 rounded border border-orange-100 animate-pulse">
                     Đang xem chế độ trùng lặp
+                </span>
+            )}
+            {showOutOfConfig && (
+                <span className="text-yellow-700 font-bold text-xs bg-yellow-50 px-2 py-1 rounded border border-yellow-200 animate-pulse flex items-center gap-1">
+                  <AlertTriangle size={12} /> Đang xem lỗi ngoài cấu hình
                 </span>
             )}
         </div>
