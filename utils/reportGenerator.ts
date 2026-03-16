@@ -198,7 +198,7 @@ export const generateWeeklyReport = async (input: ReportInput): Promise<void> =>
       if (!classMap.has(v.classId)) classMap.set(v.classId, { studentCounts: new Map(), collectiveCount: 0 });
       const classData = classMap.get(v.classId)!;
       if (v.studentId) {
-        const student = students.find(s => s.id === v.studentId);
+        const student = students.find(s => s.id === v.studentId && s.classId === v.classId);
         if (student) {
           classData.studentCounts.set(student.name, (classData.studentCounts.get(student.name) || 0) + 1);
         }
