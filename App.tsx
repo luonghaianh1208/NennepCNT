@@ -17,7 +17,7 @@ import {
   Snowflake,
   Star,
   X
-} from 'lucide-react';
+, Info} from 'lucide-react';
 import { Violation } from './types';
 import { INITIAL_ROLE_DEFINITIONS, GUEST_USER } from './utils';
 import { useAppStore } from './contexts/AppContext';
@@ -25,6 +25,7 @@ import { api } from './services/googleApi';
 
 import EntryTab from './components/EntryTab';
 import ListTab from './components/ListTab';
+import AboutModal from './components/AboutModal';
 import RankingTab from './components/RankingTab';
 import ClassDetailTab from './components/ClassDetailTab';
 import SettingsTab from './components/SettingsTab';
@@ -73,6 +74,7 @@ export default function App() {
   const [loginError, setLoginError] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [showAbout, setShowAbout] = useState(false);
 
   const [editingViolation, setEditingViolation] = useState<Violation | null>(null);
   const [viewingViolation, setViewingViolation] = useState<Violation | null>(null);
@@ -529,6 +531,8 @@ export default function App() {
       {/* Global Success Notification — now handled by Toast */}
 
       {/* Login Modal */}
+      <AboutModal isOpen={showAbout} onClose={() => setShowAbout(false)} />
+
       {showLoginModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-blue-900/80 backdrop-blur-sm p-6 animate-in fade-in">
            <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl p-8 animate-in zoom-in-95 relative">
