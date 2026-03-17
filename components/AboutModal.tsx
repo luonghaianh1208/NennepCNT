@@ -1,7 +1,7 @@
 // components/AboutModal.tsx
-import React, { useState } from 'react';
-import { X, Info, Download, Loader2, ExternalLink, Shield, Users, BarChart3, FileText } from 'lucide-react';
-import { generateProductPdf } from '../utils/generatePdf';
+import React from 'react';
+import { X, Download, ExternalLink, Shield, Users, BarChart3, FileText } from 'lucide-react';
+import { generateProductHtml } from '../utils/generateHtml';
 
 interface AboutModalProps {
   isOpen: boolean;
@@ -9,17 +9,8 @@ interface AboutModalProps {
 }
 
 const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
-  const [isGenerating, setIsGenerating] = useState(false);
-
-  const handleDownloadPdf = async () => {
-    setIsGenerating(true);
-    try {
-      await generateProductPdf();
-    } catch (e) {
-      console.error('PDF generation error:', e);
-    } finally {
-      setIsGenerating(false);
-    }
+  const handleDownload = () => {
+    generateProductHtml();
   };
 
   if (!isOpen) return null;
@@ -119,24 +110,14 @@ const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
           {/* PDF Button */}
           <div className="px-4 mt-3 pb-8">
             <button
-              onClick={handleDownloadPdf}
-              disabled={isGenerating}
-              className="w-full bg-gradient-to-r from-red-600 to-red-800 hover:from-red-700 hover:to-red-900 disabled:opacity-60 text-white font-bold py-3.5 rounded-2xl shadow-lg shadow-red-200 transition-all active:scale-95 flex items-center justify-center gap-2"
+              onClick={handleDownload}
+              className="w-full bg-gradient-to-r from-red-600 to-red-800 hover:from-red-700 hover:to-red-900 text-white font-bold py-3.5 rounded-2xl shadow-lg shadow-red-200 transition-all active:scale-95 flex items-center justify-center gap-2"
             >
-              {isGenerating ? (
-                <>
-                  <Loader2 size={18} className="animate-spin" />
-                  Đang tạo PDF...
-                </>
-              ) : (
-                <>
-                  <Download size={18} />
-                  Tải tài liệu giới thiệu sản phẩm (PDF)
-                </>
-              )}
+              <Download size={18} />
+              Tải tài liệu giới thiệu sản phẩm (HTML)
             </button>
             <p className="text-center text-xs text-slate-400 mt-2">
-              Tài liệu 9 trang · A4 · Màu sắc chuyên nghiệp
+              File HTML đẹp · 9 trang · Có nút tải ảnh ZIP
             </p>
           </div>
 
