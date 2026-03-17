@@ -133,7 +133,7 @@ tr:nth-child(even) td{background:#f8f5ef;}
       <div class="cover-divider"></div>
       <div class="cover-tagline">"Số hoá toàn bộ quy trình theo dõi, đánh giá và xếp hạng<br>nền nếp học sinh — chính xác, minh bạch, tức thì."</div>
       <div class="cover-badges">
-        <div class="badge"><span class="bico">📅</span><div class="blbl">Phiên bản</div><div class="bval">1.0 · 2026</div></div>
+        <div class="badge"><span class="bico">📅</span><div class="blbl">Phiên bản</div><div class="bval">3.1.0 · 2026</div></div>
         <div class="badge"><span class="bico">🏫</span><div class="blbl">Đối tượng</div><div class="bval">Trường THPT</div></div>
         <div class="badge"><span class="bico">📱</span><div class="blbl">Truy cập</div><div class="bval">Web / Mobile</div></div>
       </div>
