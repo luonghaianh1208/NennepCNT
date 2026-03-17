@@ -90,6 +90,10 @@ function handleRequest(e) {
          // Thử update ở Violations trước, nếu không thấy thì tìm ở Achievements
          result = updateRecordMultiSheet(['Violations', 'Achievements'], data);
          break;
+      case 'batchUpdateViolations':
+         // Cập nhật nhiều violations trong 1 request (tối ưu hiệu suất)
+         result = batchUpdateViolations(data.records);
+         break;
       case 'deleteViolation':
         result = deleteRecordMultiSheet(['Violations', 'Achievements'], data.id);
         break;
@@ -289,6 +293,46 @@ function updateRecordMultiSheet(sheetNames, record) {
   }
   return { status: 'error', message: 'ID not found in any sheet' };
 }
+
+// 3b. Cập nhật nhiều records trong 1 request (batch) — hiệu quả hơn N request riêng lẻ
+// Đọc mỗi sheet 1 lần, tìm & update tất cả rows cần thiết rồi flush 1 lần
+function batchUpdateViolations(records) {
+  if (!records || records.length === 0) return { status: 'success', updated: 0 };
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheetNames = ['Violations', 'Achievements'];
+  const recordMap = {};
+  records.forEach(function(r) { recordMap[r.id] = r; });
+  let updatedCount = 0;
+
+  for (const sheetName of sheetNames) {
+      const sheet = ss.getSheetByName(sheetName);
+      if (!sheet) continue;
+      const headers = SCHEMA[sheetName];
+      const data = sheet.getDataRange().getValues();
+      const updatesNeeded = []; // { rowIndex, newRow }
+
+      for (let i = 1; i < data.length; i++) {
+        const rowId = String(data[i][0]);
+        if (recordMap[rowId]) {
+          const record = recordMap[rowId];
+          const newRow = headers.map(function(header) {
+            let val = record[header];
+            if (header === 'images' && Array.isArray(val)) val = JSON.stringify(val);
+            return (val !== undefined) ? val : data[i][headers.indexOf(header)];
+          });
+          updatesNeeded.push({ rowIndex: i + 1, newRow: newRow });
+          updatedCount++;
+        }
+      }
+
+      // Flush tất cả updates của sheet này
+      updatesNeeded.forEach(function(u) {
+        sheet.getRange(u.rowIndex, 1, 1, u.newRow.length).setValues([u.newRow]);
+      });
+  }
+  return { status: 'success', action: 'batch_updated', updated: updatedCount };
+}
+
 
 // 4. Xóa đơn (Đa bảng)
 function deleteRecordMultiSheet(sheetNames, id) {

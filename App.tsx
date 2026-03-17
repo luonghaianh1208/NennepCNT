@@ -76,6 +76,9 @@ export default function App() {
 
   const [editingViolation, setEditingViolation] = useState<Violation | null>(null);
   const [viewingViolation, setViewingViolation] = useState<Violation | null>(null);
+  // Undo state — lưu snapshot trước bulk operation để có thể hoàn tác
+  const [undoSnapshot, setUndoSnapshot] = useState<import('./types').Violation[] | null>(null);
+  const undoTimerRef = (typeof window !== 'undefined' ? { current: null as ReturnType<typeof setTimeout> | null } : { current: null });
 
   const { showConfirm, showAlert, showToast } = useModal();
 
@@ -193,12 +196,55 @@ export default function App() {
       }
   };
 
-  const onBulkUpdate = async (ids: string[], patch: Partial<import('./types').Violation>) => {
+  const onBulkUpdate = async (ids: string[], patch: Partial<import('./types').Violation>, onProgress?: (done: number, total: number) => void) => {
       if (ids.length === 0) return;
-      for (const id of ids) {
-          const existing = violations.find(v => v.id === id);
-          if (!existing) continue;
-          await updateViolation({ ...existing, ...patch });
+
+      // Lưu snapshot trước khi sửa (để undo)
+      const snapshot = violations.filter(v => ids.includes(v.id));
+      setUndoSnapshot(snapshot);
+
+      // Build full records với patch áp dụng
+      const updatedRecords = snapshot.map(v => ({ ...v, ...patch }));
+
+      // Cập nhật state local ngay lập tức (optimistic)
+      setViolations(prev => prev.map(v => {
+          const updated = updatedRecords.find(u => u.id === v.id);
+          return updated || v;
+      }));
+
+      // Gọi batch API GAS (1 request cho N records)
+      try {
+          await api.batchUpdateViolations(updatedRecords);
+      } catch {
+          // Nếu lỗi, rollback state
+          setViolations(prev => prev.map(v => {
+              const original = snapshot.find(s => s.id === v.id);
+              return original || v;
+          }));
+          showToast('Lỗi khi cập nhật. Đã hoàn hồi dữ liệu.', 'error');
+          return;
+      }
+
+      // Hiện undo toast trong 8 giây
+      if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+      undoTimerRef.current = setTimeout(() => setUndoSnapshot(null), 8000);
+  };
+
+  // Hoàn tác bulk edit
+  const onUndoBulkUpdate = async () => {
+      if (!undoSnapshot || undoSnapshot.length === 0) return;
+      if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+      const toRestore = undoSnapshot;
+      setUndoSnapshot(null);
+      setViolations(prev => prev.map(v => {
+          const original = toRestore.find(s => s.id === v.id);
+          return original || v;
+      }));
+      try {
+          await api.batchUpdateViolations(toRestore);
+          showToast('Đã hoàn tác thành công!', 'success');
+      } catch {
+          showToast('Lỗi khi hoàn tác.', 'error');
       }
   };
 
@@ -407,6 +453,8 @@ export default function App() {
             onDeleteViolation={onDeleteViolation}
             onBulkDelete={onBulkDelete}
             onBulkUpdate={onBulkUpdate}
+            onUndoBulkUpdate={onUndoBulkUpdate}
+            undoSnapshot={undoSnapshot}
             setViewingViolation={setViewingViolation}
             setEditingViolation={setEditingViolation}
             filterMode={listFilterMode}

@@ -34,9 +34,14 @@ export const api = {
     return postData('deleteViolations', { ids });
   },
 
-  // 4. Cập nhật Vi phạm
+  // 4. Cập nhật Vi phạm (Đơn lẻ)
   updateViolation: async (violation: any) => {
     return postData('updateViolation', violation);
+  },
+
+  // 4b. Cập nhật nhiều Vi phạm trong 1 request (Batch) — hiệu quả hơn gọi N lần đơn lẻ
+  batchUpdateViolations: async (records: any[]) => {
+    return postData('batchUpdateViolations', { records });
   },
 
   // 5. Đồng bộ Settings

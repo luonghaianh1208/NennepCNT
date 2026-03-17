@@ -9,7 +9,9 @@ import { useModal } from '../contexts/ModalContext';
 interface ListTabProps {
   onDeleteViolation: (id: string) => void;
   onBulkDelete: (ids: string[]) => void;
-  onBulkUpdate: (ids: string[], patch: Partial<Violation>) => Promise<void>;
+  onBulkUpdate: (ids: string[], patch: Partial<Violation>, onProgress?: (done: number, total: number) => void) => Promise<void>;
+  onUndoBulkUpdate: () => void;
+  undoSnapshot: Violation[] | null;
   setViewingViolation: (v: Violation | null) => void;
   setEditingViolation: (v: Violation | null) => void;
   // Filter state lifted to App.tsx for persistence across tab switches
@@ -26,7 +28,7 @@ interface ListTabProps {
 const ITEMS_PER_PAGE = 50;
 
 const ListTab: React.FC<ListTabProps> = ({
-  setViewingViolation, setEditingViolation, onDeleteViolation, onBulkDelete, onBulkUpdate,
+  setViewingViolation, setEditingViolation, onDeleteViolation, onBulkDelete, onBulkUpdate, onUndoBulkUpdate, undoSnapshot,
   filterMode, setFilterMode,
   filterConfigId, setFilterConfigId,
   filterClassId, setFilterClassId,
@@ -41,9 +43,10 @@ const ListTab: React.FC<ListTabProps> = ({
   const [selectedViolationIds, setSelectedViolationIds] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
   const [showBulkEdit, setShowBulkEdit] = useState(false);
-  const [bulkEditField, setBulkEditField] = useState<'date' | 'note' | ''>('');
+  const [bulkEditField, setBulkEditField] = useState<'date' | 'note' | 'criteriaId' | ''>('');
   const [bulkEditValue, setBulkEditValue] = useState('');
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
   // Pagination State
   const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
 
@@ -272,17 +275,21 @@ const ListTab: React.FC<ListTabProps> = ({
 
   const handleBulkEdit = async () => {
     if (!bulkEditField || !bulkEditValue.trim()) return;
+    const count = selectedViolationIds.size;
     setIsBulkUpdating(true);
+    setBulkProgress({ done: 0, total: count });
     const patch: Partial<Violation> = {};
     if (bulkEditField === 'date') patch.date = bulkEditValue;
     if (bulkEditField === 'note') patch.note = bulkEditValue;
-    await onBulkUpdate(Array.from(selectedViolationIds), patch);
+    if (bulkEditField === 'criteriaId') patch.criteriaId = bulkEditValue;
+    await onBulkUpdate(Array.from(selectedViolationIds), patch, (done, total) => setBulkProgress({ done, total }));
     setIsBulkUpdating(false);
+    setBulkProgress({ done: 0, total: 0 });
     setShowBulkEdit(false);
     setBulkEditField('');
     setBulkEditValue('');
     setSelectedViolationIds(new Set());
-    showToast(`Đã cập nhật ${selectedViolationIds.size} mục thành công!`, 'success');
+    showToast(`Đã cập nhật ${count} mục thành công! Có thể hoàn tác trong 8 giây.`, 'success');
   };
 
   const getTimeOptions = () => {
@@ -537,6 +544,13 @@ const ListTab: React.FC<ListTabProps> = ({
            </div>
         </div>
       )}
+    {/* ---- Undo Toast ---- */}
+    {undoSnapshot && undoSnapshot.length > 0 && (
+      <div className="fixed bottom-36 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:max-w-sm bg-slate-700 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center justify-between z-40 animate-in slide-in-from-bottom-3">
+        <span className="text-sm">✏️ Đã sửa {undoSnapshot.length} mục</span>
+        <button onClick={onUndoBulkUpdate} className="ml-4 px-3 py-1.5 bg-yellow-400 text-slate-900 text-xs font-bold rounded-lg hover:bg-yellow-300 transition-colors whitespace-nowrap">↩ Hoàn tác</button>
+      </div>
+    )}
     {/* ---- Bulk Edit Modal ---- */}
     {showBulkEdit && (
       <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4">
@@ -555,6 +569,9 @@ const ListTab: React.FC<ListTabProps> = ({
                 <button onClick={() => { setBulkEditField('note'); setBulkEditValue(''); }} className={`py-2.5 px-3 rounded-xl border-2 text-sm font-bold transition-all ${bulkEditField === 'note' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-500 hover:border-slate-300'}`}>
                   📝 Ghi chú
                 </button>
+                <button onClick={() => { setBulkEditField('criteriaId'); setBulkEditValue(''); }} className={`py-2.5 px-3 rounded-xl border-2 text-sm font-bold transition-all col-span-2 ${bulkEditField === 'criteriaId' ? 'border-purple-500 bg-purple-50 text-purple-700' : 'border-slate-200 text-slate-500 hover:border-slate-300'}`}>
+                  🏷️ Tiêu chí vi phạm
+                </button>
               </div>
             </div>
 
@@ -568,6 +585,15 @@ const ListTab: React.FC<ListTabProps> = ({
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1.5">Ghi chú mới</label>
                 <textarea value={bulkEditValue} onChange={e => setBulkEditValue(e.target.value)} rows={3} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-400 resize-none" placeholder="Ghi chú cho tất cả mục được chọn..." />
+              </div>
+            )}
+            {bulkEditField === 'criteriaId' && (
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Tiêu chí mới</label>
+                <select value={bulkEditValue} onChange={e => setBulkEditValue(e.target.value)} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-purple-400">
+                  <option value="">-- Chọn tiêu chí --</option>
+                  {criteria.map(cr => <option key={cr.id} value={cr.id}>{cr.type === 'MINUS' ? '🔴' : '🟢'} {cr.content} ({cr.points} điểm)</option>)}
+                </select>
               </div>
             )}
 
