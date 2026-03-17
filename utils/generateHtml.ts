@@ -149,7 +149,7 @@ tr:nth-child(even) td{background:#f8f5ef;}
   </div>
   <div class="cover-footer">
     <p>Tài liệu bảo mật – Vui lòng không phát tán khi chưa được phép</p>
-    <div class="copy">© 2026 Lương Hải Anh · THPT Chuyên Nguyễn Trãi · Hải Dương</div>
+    <div class="copy">© 2026 Lương Hải Anh · THPT Chuyên Nguyễn Trãi · Hải Phòng</div>
   </div>
 </div>
 </div>
@@ -159,7 +159,7 @@ tr:nth-child(even) td{background:#f8f5ef;}
 <div class="page-header"><span class="ph-name">HỆ THỐNG QUẢN LÝ NỀN NẾP CNT – TÀI LIỆU GIỚI THIỆU SẢN PHẨM</span><span class="ph-right">Tổng quan sản phẩm</span></div>
 <div class="content">
   <div class="section-hdr"><span>🌟</span> I. TỔNG QUAN SẢN PHẨM</div>
-  <p class="body-txt">Hệ thống Quản lý Nền nếp CNT là nền tảng <strong>số hoá toàn bộ quy trình theo dõi, đánh giá và xếp hạng nền nếp học sinh</strong> dành cho các trường THPT. Được phát triển bởi <strong>Lương Hải Anh</strong> tại THPT Chuyên Nguyễn Trãi (Hải Dương), hệ thống giải quyết triệt để bài toán ghi chép thủ công bằng sổ sách, giúp Ban Đoàn – Ban Nề Nếp vận hành hiệu quả, minh bạch và tiết kiệm thời gian.</p>
+  <p class="body-txt">Hệ thống Quản lý Nền nếp CNT là nền tảng <strong>số hoá toàn bộ quy trình theo dõi, đánh giá và xếp hạng nền nếp học sinh</strong> dành cho các trường THPT. Được phát triển bởi <strong>Lương Hải Anh</strong> tại THPT Chuyên Nguyễn Trãi (Hải Phòng), hệ thống giải quyết triệt để bài toán ghi chép thủ công bằng sổ sách, giúp Ban Đoàn – Ban Nề Nếp vận hành hiệu quả, minh bạch và tiết kiệm thời gian.</p>
   <div class="sub-hdr">❓ Bài toán đặt ra</div>
   ${['Ghi chép vi phạm thủ công qua sổ giấy dễ thất lạc, sai sót, khó tổng hợp','Tính điểm thi đua cuối tuần/tháng/học kỳ tốn nhiều giờ tra cứu và tính toán bằng tay','Không có kênh thông tin minh bạch để học sinh, phụ huynh tra cứu tình hình nề nếp','Báo cáo DOCX/Excel cho cấp trên phải làm thủ công sau mỗi kỳ đánh giá','Không lưu trữ lịch sử dữ liệu qua các năm học để phân tích xu hướng'].map(t=>`<div class="bullet">${t}</div>`).join('')}
   <div class="sub-hdr">✅ Giải pháp cung cấp</div>
@@ -256,7 +256,7 @@ tr:nth-child(even) td{background:#f8f5ef;}
   </tbody></table>
   <div class="sub-hdr">⚙️ Yêu cầu tối thiểu</div>
   ${['Tài khoản Google (Gmail hoặc Google Workspace for Education của trường)','Kết nối Internet ổn định (để đồng bộ dữ liệu khi nhập liệu)','Thiết bị nhập liệu: smartphone hoặc máy tính (không cần cài đặt gì)','Ít nhất 1 người phụ trách kỹ thuật tại trường để phối hợp cài đặt'].map(t=>`<div class="bullet">${t}</div>`).join('')}
-  <div class="highlight"><h3>🏫 Mục tiêu nhân rộng</h3><p>Từ mô hình thành công tại THPT Chuyên Nguyễn Trãi, hướng tới triển khai tại<br><strong style="color:#CF2A2A">tất cả các trường THPT</strong> trên địa bàn tỉnh Hải Dương và các tỉnh lân cận.</p></div>
+  <div class="highlight"><h3>🏫 Mục tiêu nhân rộng</h3><p>Từ mô hình thành công tại THPT Chuyên Nguyễn Trãi, hướng tới triển khai tại<br><strong style="color:#CF2A2A">tất cả các trường THPT</strong> trên địa bàn TP. Hải Phòng và các tỉnh lân cận.</p></div>
 </div>
 <div class="page-footer"><span class="pf-l">© 2026 Lương Hải Anh – Hệ thống Quản lý Nền nếp CNT</span><span class="pf-r">Trang 8 / 9</span></div>
 </div>
@@ -270,7 +270,7 @@ tr:nth-child(even) td{background:#f8f5ef;}
     <p style="color:rgba(255,255,255,.7);font-size:13px">Để được tư vấn, báo giá hoặc triển khai thử nghiệm</p>
   </div>
   <div class="contact-box">
-    ${[['👤 Tác giả','Lương Hải Anh'],['🏫 Đơn vị','THPT Chuyên Nguyễn Trãi – TP. Hải Dương'],['📧 Email','luonghaianh1208@gmail.com'],['📞 SĐT / Zalo','0328 186 264'],['🌐 Demo live','https://nennepcnt.netlify.app']].map(([l,v])=>`<div class="contact-row"><span class="c-lbl">${l}</span><span class="c-val">${v}</span></div>`).join('')}
+    ${[['👤 Tác giả','Lương Hải Anh'],['🏫 Đơn vị','THPT Chuyên Nguyễn Trãi – TP. Hải Phòng'],['📧 Email','luonghaianh1208@gmail.com'],['📞 SĐT / Zalo','0328 186 264'],['🌐 Demo live','https://nennepcnt.netlify.app']].map(([l,v])=>`<div class="contact-row"><span class="c-lbl">${l}</span><span class="c-val">${v}</span></div>`).join('')}
   </div>
   <div style="margin:12px 0 8px"><div style="color:#FABD32;font-weight:700;font-size:14px;text-align:center;margin-bottom:10px;text-transform:uppercase;letter-spacing:2px">Cam kết của tác giả</div>
   <div class="commit-box">

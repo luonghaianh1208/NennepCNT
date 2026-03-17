@@ -171,7 +171,7 @@ function cover(): string { return `
 
   <div class="cover-footer">
     <p>Tài liệu này được bảo mật. Vui lòng không phát tán khi chưa được phép.</p>
-    <div class="copy">© 2026 Lương Hải Anh  ·  THPT Chuyên Nguyễn Trãi  ·  Hải Dương</div>
+    <div class="copy">© 2026 Lương Hải Anh  ·  THPT Chuyên Nguyễn Trãi  ·  Hải Phòng</div>
   </div>
 </div>`; }
 
@@ -181,7 +181,7 @@ function p2(): string { return `
   ${pageHeader('Tổng quan sản phẩm')}
   <div class="content">
     ${sectionHdr('🌟','I. TỔNG QUAN SẢN PHẨM')}
-    <p class="body-txt">Hệ thống Quản lý Nền nếp CNT là nền tảng <strong>số hoá toàn bộ quy trình theo dõi, đánh giá và xếp hạng nền nếp học sinh</strong> dành cho các trường THPT. Được phát triển bởi <strong>Lương Hải Anh</strong> tại THPT Chuyên Nguyễn Trãi (Hải Dương), hệ thống giải quyết triệt để bài toán ghi chép thủ công bằng sổ sách, giúp Ban Đoàn – Ban Nề Nếp vận hành hiệu quả, minh bạch và tiết kiệm thời gian.</p>
+    <p class="body-txt">Hệ thống Quản lý Nền nếp CNT là nền tảng <strong>số hoá toàn bộ quy trình theo dõi, đánh giá và xếp hạng nền nếp học sinh</strong> dành cho các trường THPT. Được phát triển bởi <strong>Lương Hải Anh</strong> tại THPT Chuyên Nguyễn Trãi (Hải Phòng), hệ thống giải quyết triệt để bài toán ghi chép thủ công bằng sổ sách, giúp Ban Đoàn – Ban Nề Nếp vận hành hiệu quả, minh bạch và tiết kiệm thời gian.</p>
 
     ${sectionHdr('❓','BÀI TOÁN ĐẶT RA')}
     ${[
@@ -416,7 +416,7 @@ function p8(): string { return `
 
     <div class="highlight">
       <h3>🏫 Mục tiêu nhân rộng</h3>
-      <p>Từ mô hình thành công tại THPT Chuyên Nguyễn Trãi, hệ thống hướng tới<br>triển khai tại <strong style="color:#CF2A2A;">tất cả các trường THPT</strong> trên địa bàn tỉnh Hải Dương<br>và các tỉnh lân cận.</p>
+      <p>Từ mô hình thành công tại THPT Chuyên Nguyễn Trãi, hệ thống hướng tới<br>triển khai tại <strong style="color:#CF2A2A;">tất cả các trường THPT</strong> trên địa bàn TP. Hải Phòng<br>và các tỉnh lân cận.</p>
     </div>
   </div>
   ${pageFooter(8,9)}
@@ -434,7 +434,7 @@ function p9(total: number): string { return `
   <div class="contact-box">
     ${[
       ['👤 Tác giả','Lương Hải Anh'],
-      ['🏫 Đơn vị','THPT Chuyên Nguyễn Trãi – TP. Hải Dương'],
+      ['🏫 Đơn vị','THPT Chuyên Nguyễn Trãi – TP. Hải Phòng'],
       ['📧 Email','luonghaianh1208@gmail.com'],
       ['📞 SĐT / Zalo','0328 186 264'],
       ['🌐 Demo live','https://nennepcnt.netlify.app'],

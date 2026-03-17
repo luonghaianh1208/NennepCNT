@@ -84,7 +84,7 @@ const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
             {[
               ['Phiên bản', '1.0 — Tháng 3/2026'],
               ['Tác giả', 'Lương Hải Anh'],
-              ['Đơn vị', 'THPT Chuyên Nguyễn Trãi – Hải Dương'],
+              ['Đơn vị', 'THPT Chuyên Nguyễn Trãi – Hải Phòng'],
               ['Nền tảng', 'Web App (iOS · Android · Desktop)'],
             ].map(([label, val]) => (
               <div key={label} className="flex items-center justify-between py-1.5 border-b border-slate-100 last:border-0">
@@ -124,7 +124,7 @@ const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
           {/* Copyright */}
           <div className="border-t border-slate-100 px-4 py-3 text-center bg-slate-50 rounded-none">
             <p className="text-[10px] text-slate-400">
-              © 2026 Lương Hải Anh · THPT Chuyên Nguyễn Trãi · Hải Dương
+              © 2026 Lương Hải Anh · THPT Chuyên Nguyễn Trãi · Hải Phòng
             </p>
             <p className="text-[10px] text-slate-400 mt-0.5">
               Bảo lưu mọi quyền — Không sao chép khi chưa được phép
