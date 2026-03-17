@@ -39,6 +39,7 @@ export default function App() {
       users, roleConfigs, 
       appTheme, setAppTheme, 
       isLoading, isRefreshing, refreshData,
+      violations,
       deleteViolation, deleteViolations, updateViolation,
       setViolations
   } = useAppStore();
@@ -189,6 +190,15 @@ export default function App() {
         showToast(`Đã xóa ${ids.length} mục thành công.`, 'success');
       } catch {
         showToast('Lỗi khi xóa hàng loạt. Vui lòng thử lại.', 'error');
+      }
+  };
+
+  const onBulkUpdate = async (ids: string[], patch: Partial<import('./types').Violation>) => {
+      if (ids.length === 0) return;
+      for (const id of ids) {
+          const existing = violations.find(v => v.id === id);
+          if (!existing) continue;
+          await updateViolation({ ...existing, ...patch });
       }
   };
 
@@ -396,6 +406,7 @@ export default function App() {
           <ListTab
             onDeleteViolation={onDeleteViolation}
             onBulkDelete={onBulkDelete}
+            onBulkUpdate={onBulkUpdate}
             setViewingViolation={setViewingViolation}
             setEditingViolation={setEditingViolation}
             filterMode={listFilterMode}

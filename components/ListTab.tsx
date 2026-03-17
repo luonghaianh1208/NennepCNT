@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Download, Filter, Search, CheckSquare, Square, Trash2, Edit, Link2, ListChecks, ChevronDown, Copy, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Download, Filter, Search, CheckSquare, Square, Trash2, Edit, Link2, ListChecks, ChevronDown, Copy, RefreshCw, AlertTriangle, X } from 'lucide-react';
 import { Violation } from '../types';
 import { safeParseImages, formatDateDisplay, isDateInRange, exportToExcel } from '../utils';
 import { useAppStore } from '../contexts/AppContext';
@@ -9,6 +9,7 @@ import { useModal } from '../contexts/ModalContext';
 interface ListTabProps {
   onDeleteViolation: (id: string) => void;
   onBulkDelete: (ids: string[]) => void;
+  onBulkUpdate: (ids: string[], patch: Partial<Violation>) => Promise<void>;
   setViewingViolation: (v: Violation | null) => void;
   setEditingViolation: (v: Violation | null) => void;
   // Filter state lifted to App.tsx for persistence across tab switches
@@ -25,7 +26,7 @@ interface ListTabProps {
 const ITEMS_PER_PAGE = 50;
 
 const ListTab: React.FC<ListTabProps> = ({
-  setViewingViolation, setEditingViolation, onDeleteViolation, onBulkDelete,
+  setViewingViolation, setEditingViolation, onDeleteViolation, onBulkDelete, onBulkUpdate,
   filterMode, setFilterMode,
   filterConfigId, setFilterConfigId,
   filterClassId, setFilterClassId,
@@ -39,6 +40,10 @@ const ListTab: React.FC<ListTabProps> = ({
   const [showOutOfConfig, setShowOutOfConfig] = useState(false);
   const [selectedViolationIds, setSelectedViolationIds] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
+  const [showBulkEdit, setShowBulkEdit] = useState(false);
+  const [bulkEditField, setBulkEditField] = useState<'date' | 'note' | ''>('');
+  const [bulkEditValue, setBulkEditValue] = useState('');
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
   // Pagination State
   const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
 
@@ -263,6 +268,21 @@ const ListTab: React.FC<ListTabProps> = ({
 
     const fullData = [headerRow, ...dataRows];
     exportToExcel(fullData, `Du_lieu_thi_dua_${new Date().toISOString().slice(0,10)}`);
+  };
+
+  const handleBulkEdit = async () => {
+    if (!bulkEditField || !bulkEditValue.trim()) return;
+    setIsBulkUpdating(true);
+    const patch: Partial<Violation> = {};
+    if (bulkEditField === 'date') patch.date = bulkEditValue;
+    if (bulkEditField === 'note') patch.note = bulkEditValue;
+    await onBulkUpdate(Array.from(selectedViolationIds), patch);
+    setIsBulkUpdating(false);
+    setShowBulkEdit(false);
+    setBulkEditField('');
+    setBulkEditValue('');
+    setSelectedViolationIds(new Set());
+    showToast(`Đã cập nhật ${selectedViolationIds.size} mục thành công!`, 'success');
   };
 
   const getTimeOptions = () => {
@@ -508,12 +528,66 @@ const ListTab: React.FC<ListTabProps> = ({
            <div className="font-bold pl-2">Đã chọn {selectedViolationIds.size} mục</div>
            <div className="flex gap-2">
               <button onClick={() => setSelectedViolationIds(new Set())} className="px-4 py-2 text-slate-300 hover:text-white font-medium">Hủy</button>
+              <button onClick={() => { setShowBulkEdit(true); setBulkEditField(''); setBulkEditValue(''); }} className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-lg flex items-center gap-2">
+                 <Edit size={16} /> Sửa
+              </button>
               <button onClick={() => { onBulkDelete(Array.from(selectedViolationIds)); setSelectedViolationIds(new Set()); }} className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg flex items-center gap-2">
                  <Trash2 size={16} /> Xóa
               </button>
            </div>
         </div>
       )}
+    {/* ---- Bulk Edit Modal ---- */}
+    {showBulkEdit && (
+      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+        <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden">
+          <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+            <h3 className="font-bold text-slate-800">Ấp dụng cho {selectedViolationIds.size} mục</h3>
+            <button onClick={() => setShowBulkEdit(false)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+          </div>
+          <div className="p-5 space-y-4">
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1.5">Chọn trường cần sửa</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button onClick={() => { setBulkEditField('date'); setBulkEditValue(new Date().toISOString().slice(0,10)); }} className={`py-2.5 px-3 rounded-xl border-2 text-sm font-bold transition-all ${bulkEditField === 'date' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-500 hover:border-slate-300'}`}>
+                  📅 Ngày vi phạm
+                </button>
+                <button onClick={() => { setBulkEditField('note'); setBulkEditValue(''); }} className={`py-2.5 px-3 rounded-xl border-2 text-sm font-bold transition-all ${bulkEditField === 'note' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-500 hover:border-slate-300'}`}>
+                  📝 Ghi chú
+                </button>
+              </div>
+            </div>
+
+            {bulkEditField === 'date' && (
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Ngày mới</label>
+                <input type="date" value={bulkEditValue} onChange={e => setBulkEditValue(e.target.value)} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-400" />
+              </div>
+            )}
+            {bulkEditField === 'note' && (
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Ghi chú mới</label>
+                <textarea value={bulkEditValue} onChange={e => setBulkEditValue(e.target.value)} rows={3} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-400 resize-none" placeholder="Ghi chú cho tất cả mục được chọn..." />
+              </div>
+            )}
+
+            {bulkEditField && (
+              <button
+                onClick={handleBulkEdit}
+                disabled={!bulkEditValue.trim() || isBulkUpdating}
+                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2"
+              >
+                {isBulkUpdating ? (
+                  <><svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> Đang lưu...</>
+                ) : (
+                  <>✅ Ấp dụng cho {selectedViolationIds.size} mục</>
+                )}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    )}
     </div>
   );
 };

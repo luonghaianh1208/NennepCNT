@@ -172,7 +172,15 @@ const EntryTab: React.FC = () => {
           return;
       }
 
-      const confirmed = await showConfirm({ title: 'Xác nhận Import', message: `Tìm thấy ${recordsToProcess.length} dòng hợp lệ. Bắt đầu lưu vào hệ thống?`, confirmText: 'Import' });
+      // ✅ Kiểm tra ngày ngoài config trước khi xác nhận
+      const outOfConfigCount = timeConfigs.length > 0
+          ? recordsToProcess.filter(r => !timeConfigs.some(cfg => isDateInRange(r.date, cfg.startDate, cfg.endDate))).length
+          : 0;
+      const warningNote = outOfConfigCount > 0
+          ? `\n\n⚠️ Cảnh báo: ${outOfConfigCount}/${recordsToProcess.length} dòng có ngày vi phạm nằm ngoài tất cả cấu hình thời gian. Các dữ liệu này sẽ không xuất hiện trong bộ lọc tuần/tháng/học kỳ.`
+          : '';
+
+      const confirmed = await showConfirm({ title: 'Xác nhận Import', message: `Tìm thấy ${recordsToProcess.length} dòng hợp lệ.${warningNote}\n\nBắt đầu lưu vào hệ thống?`, confirmText: 'Import' });
       if (!confirmed) {
           if (csvInputRef.current) csvInputRef.current.value = '';
           return;
