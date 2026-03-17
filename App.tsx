@@ -433,6 +433,14 @@ export default function App() {
                       {appTheme === 'DOAN' ? <Snowflake size={18} /> : <Star size={18} />}
                   </button>
 
+                  <button
+                    onClick={() => setShowAbout(true)}
+                    className={`p-2 rounded-full transition-all shadow-sm ${appTheme === 'DOAN' ? 'bg-red-800 text-yellow-200 hover:bg-red-700' : 'bg-blue-800 text-blue-200 hover:bg-blue-700'}`}
+                    title="Giới thiệu sản phẩm"
+                  >
+                    <Info size={18} />
+                  </button>
+
                   <button 
                     onClick={refreshData} 
                     disabled={isRefreshing}
