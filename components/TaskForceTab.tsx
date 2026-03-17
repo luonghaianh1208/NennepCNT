@@ -53,9 +53,21 @@ const TaskForceTab: React.FC = () => {
       });
   }, [users, roleConfigs, filterRole, isManager, currentUser.id]);
 
+  // Năm học = khoảng min(startDate) → max(endDate) của tất cả timeConfigs
+  const academicYear = useMemo(() => {
+      if (timeConfigs.length === 0) return null;
+      const starts = timeConfigs.map(c => c.startDate).sort();
+      const ends = timeConfigs.map(c => c.endDate).sort();
+      return { start: starts[0], end: ends[ends.length - 1] };
+  }, [timeConfigs]);
+
   const stats = useMemo(() => {
       return taskForceUsers.map(u => {
-          const reportedCount = violations.filter(v => v.reportedBy === u.id).length;
+          // Chỉ đếm vi phạm trong khoảng năm học
+          const yearViolations = academicYear
+              ? violations.filter(v => v.date >= academicYear.start && v.date <= academicYear.end)
+              : violations;
+          const reportedCount = yearViolations.filter(v => v.reportedBy === u.id).length;
           const summaryMeetings = u.summaryMeetings || 0;
 
           let personalViolationsCount = 0;
@@ -66,7 +78,7 @@ const TaskForceTab: React.FC = () => {
               );
 
               if (matchedStudent) {
-                  personalViolationsCount = violations.filter(v => 
+                  personalViolationsCount = yearViolations.filter(v => 
                     v.studentId === matchedStudent.id && 
                     v.classId === u.className && 
                     v.points > 0

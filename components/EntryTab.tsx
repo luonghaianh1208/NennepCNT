@@ -3,12 +3,12 @@ import React, { useState, useRef, useMemo } from 'react';
 import { AlertTriangle, Star, ChevronDown, Camera, X, CheckCircle2, Upload, Info, Loader2, StopCircle } from 'lucide-react';
 import { Violation } from '../types';
 import { api } from '../services/googleApi';
-import { parseCSVLine, removeVietnameseTones } from '../utils';
+import { isDateInRange, parseCSVLine, removeVietnameseTones } from '../utils';
 import { useAppStore } from '../contexts/AppContext';
 import { useModal } from '../contexts/ModalContext';
 
 const EntryTab: React.FC = () => {
-  const { currentUser, classes, students, criteria, violations, setViolations, roleConfigs, users, createViolation } = useAppStore();
+  const { currentUser, classes, students, criteria, violations, setViolations, roleConfigs, users, createViolation, timeConfigs } = useAppStore();
   const { showConfirm, showAlert, showToast } = useModal();
 
   const [entryMode, setEntryMode] = useState<'VIOLATION' | 'ACHIEVEMENT'>('VIOLATION');
@@ -276,6 +276,11 @@ const EntryTab: React.FC = () => {
         };
 
         await createViolation(newViolation);
+        // Cảnh báo nếu ngày vi phạm nằm ngoài tất cả timeConfig
+        const inAnyConfig = timeConfigs.some(cfg => isDateInRange(entryDate, cfg.startDate, cfg.endDate));
+        if (!inAnyConfig && timeConfigs.length > 0) {
+            showToast('⚠️ Ngày vi phạm nằm ngoài tất cả cấu hình thời gian — sẽ không xuất hiện trong bộ lọc tuần/tháng/học kỳ.', 'info');
+        }
         setShowSuccessModal(true);
         
         setSelectedStudentId('');
