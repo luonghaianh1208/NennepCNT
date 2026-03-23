@@ -3,7 +3,7 @@ import React, { useState, useRef, useMemo } from 'react';
 import { AlertTriangle, Star, ChevronDown, Camera, X, CheckCircle2, Loader2, StopCircle, FileSpreadsheet, Download, Settings } from 'lucide-react';
 import { Violation } from '../types';
 import { api } from '../services/googleApi';
-import { isDateInRange, removeVietnameseTones, exportToExcel, getLocalDateString } from '../utils';
+import { isDateInRange, removeVietnameseTones, exportToExcel, getLocalDateString, matchVietnamese } from '../utils';
 import { useAppStore } from '../contexts/AppContext';
 import { useModal } from '../contexts/ModalContext';
 import * as XLSX from 'xlsx';
@@ -146,8 +146,8 @@ const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
             }
 
             const targetClass = classes.find(c =>
-              c.name.toLowerCase() === String(tenLop).toLowerCase().trim() ||
-              c.id.toLowerCase() === String(tenLop).toLowerCase().trim()
+              matchVietnamese(c.name, String(tenLop)) ||
+              matchVietnamese(c.id, String(tenLop))
             );
             if (!targetClass) continue;
 
@@ -155,13 +155,13 @@ const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
             if (tenHS && String(tenHS).trim()) {
               const student = students.find(s =>
                 s.classId === targetClass.id &&
-                s.name.toLowerCase() === String(tenHS).toLowerCase().trim()
+                matchVietnamese(s.name, String(tenHS).trim())
               );
               targetStudentId = student?.id;
             }
 
             const foundCriteria = criteria.find(c =>
-              c.content.toLowerCase() === String(noiDungLoi).toLowerCase().trim() &&
+              matchVietnamese(c.content, String(noiDungLoi).trim()) &&
               c.type === 'MINUS'
             );
             if (!foundCriteria) continue; // Bỏ qua nếu không tìm thấy tiêu chí hợp lệ
@@ -207,8 +207,8 @@ const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
             }
 
             const targetClass = classes.find(c =>
-              c.name.toLowerCase() === String(tenLop).toLowerCase().trim() ||
-              c.id.toLowerCase() === String(tenLop).toLowerCase().trim()
+              matchVietnamese(c.name, String(tenLop)) ||
+              matchVietnamese(c.id, String(tenLop))
             );
             if (!targetClass) continue;
 
@@ -216,13 +216,13 @@ const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
             if (tenHS && String(tenHS).trim()) {
               const student = students.find(s =>
                 s.classId === targetClass.id &&
-                s.name.toLowerCase() === String(tenHS).toLowerCase().trim()
+                matchVietnamese(s.name, String(tenHS).trim())
               );
               targetStudentId = student?.id;
             }
 
             const foundCriteria = criteria.find(c =>
-              c.content.toLowerCase() === String(loaiThanhTich).toLowerCase().trim() &&
+              matchVietnamese(c.content, String(loaiThanhTich).trim()) &&
               c.type === 'PLUS'
             );
             if (!foundCriteria) continue;

@@ -63,28 +63,28 @@ export const getSchoolYearStart = (): Date => {
 
 // Chuyển string YYYY-MM-DD thành Date object vào lúc 00:00:00 giờ địa phương
 const parseLocalStartOfDay = (dateStr: string): Date => {
-    if (!dateStr) return new Date();
-    // Xử lý chuỗi ISO full nếu có
-    const cleanStr = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
-    const parts = cleanStr.split('-');
-    if (parts.length === 3) {
-        // new Date(y, m, d) tạo date theo giờ địa phương
-        return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), 0, 0, 0, 0);
-    }
-    return new Date(dateStr); // Fallback
+  if (!dateStr) return new Date();
+  // Xử lý chuỗi ISO full nếu có
+  const cleanStr = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
+  const parts = cleanStr.split('-');
+  if (parts.length === 3) {
+    // new Date(y, m, d) tạo date theo giờ địa phương
+    return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), 0, 0, 0, 0);
+  }
+  return new Date(dateStr); // Fallback
 };
 
 // Chuyển string YYYY-MM-DD thành Date object vào lúc 23:59:59.999 giờ địa phương
 const parseLocalEndOfDay = (dateStr: string): Date => {
-    if (!dateStr) return new Date();
-    const cleanStr = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
-    const parts = cleanStr.split('-');
-    if (parts.length === 3) {
-        return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), 23, 59, 59, 999);
-    }
-    const d = new Date(dateStr);
-    d.setHours(23, 59, 59, 999);
-    return d;
+  if (!dateStr) return new Date();
+  const cleanStr = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
+  const parts = cleanStr.split('-');
+  if (parts.length === 3) {
+    return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), 23, 59, 59, 999);
+  }
+  const d = new Date(dateStr);
+  d.setHours(23, 59, 59, 999);
+  return d;
 };
 // --- END: DATE HANDLING HELPERS ---
 
@@ -93,40 +93,40 @@ const parseLocalEndOfDay = (dateStr: string): Date => {
  * KHÔNG dùng new Date().toISOString() vì trả về UTC, gây lệch ngày sau 17h giờ VN.
  */
 export const getLocalDateString = (date: Date = new Date()): string => {
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const d = String(date.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 };
 
 
 // Tìm ngày sớm nhất trong danh sách vi phạm
 export const getEarliestViolationDate = (violations: Violation[]): Date => {
-    if (!violations || violations.length === 0) return getSchoolYearStart();
-    
-    // Khởi tạo minDate bằng ngày của vi phạm đầu tiên
-    let minDate = parseLocalStartOfDay(violations[0].date);
+  if (!violations || violations.length === 0) return getSchoolYearStart();
 
-    for (const v of violations) {
-        const d = parseLocalStartOfDay(v.date);
-        if (d < minDate) minDate = d;
-    }
-    return minDate;
+  // Khởi tạo minDate bằng ngày của vi phạm đầu tiên
+  let minDate = parseLocalStartOfDay(violations[0].date);
+
+  for (const v of violations) {
+    const d = parseLocalStartOfDay(v.date);
+    if (d < minDate) minDate = d;
+  }
+  return minDate;
 };
 
 // Tìm ngày muộn nhất
 export const getLatestViolationDate = (violations: Violation[]): Date => {
-    if (!violations || violations.length === 0) return new Date();
-    
-    let maxDate = parseLocalEndOfDay(violations[0].date);
+  if (!violations || violations.length === 0) return new Date();
 
-    for (const v of violations) {
-        const d = parseLocalEndOfDay(v.date);
-        if (d > maxDate) maxDate = d;
-    }
-    
-    const now = new Date();
-    return maxDate > now ? maxDate : now;
+  let maxDate = parseLocalEndOfDay(violations[0].date);
+
+  for (const v of violations) {
+    const d = parseLocalEndOfDay(v.date);
+    if (d > maxDate) maxDate = d;
+  }
+
+  const now = new Date();
+  return maxDate > now ? maxDate : now;
 };
 
 export const getWeekNumber = (d: Date) => {
@@ -140,49 +140,49 @@ export const getWeekNumber = (d: Date) => {
 
 // Helper để lấy định dạng YYYY-Www
 export const getYearWeekKey = (d: Date) => {
-    const w = getWeekNumber(d);
-    const y = d.getFullYear();
-    // Xử lý trường hợp tuần 1 rơi vào cuối năm trước hoặc tuần 52 rơi vào đầu năm sau
-    // Tuy nhiên với mục đích thống kê đơn giản, ta dùng year của date gốc
-    return `${y}-W${w.toString().padStart(2, '0')}`;
+  const w = getWeekNumber(d);
+  const y = d.getFullYear();
+  // Xử lý trường hợp tuần 1 rơi vào cuối năm trước hoặc tuần 52 rơi vào đầu năm sau
+  // Tuy nhiên với mục đích thống kê đơn giản, ta dùng year của date gốc
+  return `${y}-W${w.toString().padStart(2, '0')}`;
 };
 
 // Đếm số tuần duy nhất giữa 2 mốc thời gian (Bao gồm cả tuần bắt đầu và kết thúc)
 export const getUniqueWeeksCount = (startDateStr: string | Date, endDateStr: string | Date): number => {
-    if (!startDateStr || !endDateStr) return 1;
+  if (!startDateStr || !endDateStr) return 1;
 
-    // Chuyển đổi input về Date object chuẩn (Local Time)
-    const start = typeof startDateStr === 'string' ? parseLocalStartOfDay(startDateStr) : startDateStr;
-    const end = typeof endDateStr === 'string' ? parseLocalEndOfDay(endDateStr) : endDateStr;
+  // Chuyển đổi input về Date object chuẩn (Local Time)
+  const start = typeof startDateStr === 'string' ? parseLocalStartOfDay(startDateStr) : startDateStr;
+  const end = typeof endDateStr === 'string' ? parseLocalEndOfDay(endDateStr) : endDateStr;
 
-    // Đảm bảo start <= end
-    if (start > end) return 1;
+  // Đảm bảo start <= end
+  if (start > end) return 1;
 
-    const uniqueWeeks = new Set<string>();
-    const current = new Date(start); // Clone start để loop
-    
-    // Loop qua từng ngày để add week key
-    // Vì end đã được set là 23:59:59 nên loop này sẽ bao gồm cả ngày cuối cùng
-    while (current <= end) {
-        uniqueWeeks.add(getYearWeekKey(current));
-        current.setDate(current.getDate() + 1); // Tăng 1 ngày
-    }
-    
-    return Math.max(1, uniqueWeeks.size);
+  const uniqueWeeks = new Set<string>();
+  const current = new Date(start); // Clone start để loop
+
+  // Loop qua từng ngày để add week key
+  // Vì end đã được set là 23:59:59 nên loop này sẽ bao gồm cả ngày cuối cùng
+  while (current <= end) {
+    uniqueWeeks.add(getYearWeekKey(current));
+    current.setDate(current.getDate() + 1); // Tăng 1 ngày
+  }
+
+  return Math.max(1, uniqueWeeks.size);
 };
 
 // Kiểm tra xem một ngày có nằm trong khoảng không (Chính xác tuyệt đối theo Local Time)
 export const isDateInRange = (targetDateStr: string, startStr: string, endStr: string): boolean => {
-    if (!targetDateStr || !startStr || !endStr) return false;
-    
-    // Chuyển target về giữa ngày để so sánh an toàn, hoặc đầu ngày
-    const target = parseLocalStartOfDay(targetDateStr).getTime();
-    
-    const start = parseLocalStartOfDay(startStr).getTime(); // 00:00:00 ngày bắt đầu
-    const end = parseLocalEndOfDay(endStr).getTime();       // 23:59:59 ngày kết thúc
+  if (!targetDateStr || !startStr || !endStr) return false;
 
-    // So sánh timestamp
-    return target >= start && target <= end;
+  // Chuyển target về giữa ngày để so sánh an toàn, hoặc đầu ngày
+  const target = parseLocalStartOfDay(targetDateStr).getTime();
+
+  const start = parseLocalStartOfDay(startStr).getTime(); // 00:00:00 ngày bắt đầu
+  const end = parseLocalEndOfDay(endStr).getTime();       // 23:59:59 ngày kết thúc
+
+  // So sánh timestamp
+  return target >= start && target <= end;
 };
 
 // -----------------------------------------------------------------------
@@ -298,19 +298,19 @@ export const calculateScore = (violations: Violation[], base = 500, weeksCount =
   // Công thức: (500 * Số_tuần - Tổng_trừ + Tổng_cộng)
   // Lưu ý: v.points > 0 là Điểm Trừ, v.points < 0 là Điểm Cộng (đã lưu số âm)
   // Do đó reduce sẽ tự động thực hiện: Tổng - Trừ + Cộng
-  
+
   const totalDelta = violations.reduce((sum, v) => sum + v.points, 0);
   const safeWeeks = Math.max(1, weeksCount);
 
   if (isRangeMode) {
-      // CẬP NHẬT: Tính TỔNG ĐIỂM TÍCH LŨY thay vì Điểm Trung Bình
-      // Ví dụ: 5 tuần, mỗi tuần 500đ -> Tổng max = 2500đ
-      const totalBase = base * safeWeeks;
-      const score = totalBase - totalDelta;
-      return parseFloat(score.toFixed(2));
+    // CẬP NHẬT: Tính TỔNG ĐIỂM TÍCH LŨY thay vì Điểm Trung Bình
+    // Ví dụ: 5 tuần, mỗi tuần 500đ -> Tổng max = 2500đ
+    const totalBase = base * safeWeeks;
+    const score = totalBase - totalDelta;
+    return parseFloat(score.toFixed(2));
   } else {
-      // Tính cho 1 tuần đơn lẻ hoặc mặc định
-      return parseFloat((base - totalDelta).toFixed(2));
+    // Tính cho 1 tuần đơn lẻ hoặc mặc định
+    return parseFloat((base - totalDelta).toFixed(2));
   }
 };
 
@@ -318,82 +318,94 @@ export const calculateScore = (violations: Violation[], base = 500, weeksCount =
  * Hàm phân tích dòng CSV
  */
 export const parseCSVLine = (text: string): string[] => {
-    const re_valid = /^\s*(?:'[^'\\]*(?:\\[\S\s][^'\\]*)*'|"[^"\\]*(?:\\[\S\s][^"\\]*)*"|[^,'"\s\\]*(?:\s+[^,'"\s\\]+)*)\s*(?:,\s*(?:'[^'\\]*(?:\\[\S\s][^'\\]*)*'|"[^"\\]*(?:\\[\S\s][^"\\]*)*"|[^,'"\s\\]*(?:\s+[^,'"\s\\]+)*)\s*)*$/;
-    const re_value = /(?!\s*$)\s*(?:'([^'\\]*(?:\\[\S\s][^'\\]*)*)'|"([^"\\]*(?:\\[\S\s][^"\\]*)*)"|([^,'"\s\\]*(?:\s+[^,'"\s\\]+)*))\s*(?:,|$)/g;
-    
-    if (!re_valid.test(text)) return text.split(',').map(s => s.trim());
-    
-    const a = [];
-    text.replace(re_value, function(m0, m1, m2, m3) {
-        if      (m1 !== undefined) a.push(m1.replace(/\\'/g, "'"));
-        else if (m2 !== undefined) a.push(m2.replace(/\\"/g, '"'));
-        else if (m3 !== undefined) a.push(m3);
-        return '';
-    });
-    if (/,\s*$/.test(text)) a.push('');
-    return a;
+  const re_valid = /^\s*(?:'[^'\\]*(?:\\[\S\s][^'\\]*)*'|"[^"\\]*(?:\\[\S\s][^"\\]*)*"|[^,'"\s\\]*(?:\s+[^,'"\s\\]+)*)\s*(?:,\s*(?:'[^'\\]*(?:\\[\S\s][^'\\]*)*'|"[^"\\]*(?:\\[\S\s][^"\\]*)*"|[^,'"\s\\]*(?:\s+[^,'"\s\\]+)*)\s*)*$/;
+  const re_value = /(?!\s*$)\s*(?:'([^'\\]*(?:\\[\S\s][^'\\]*)*)'|"([^"\\]*(?:\\[\S\s][^"\\]*)*)"|([^,'"\s\\]*(?:\s+[^,'"\s\\]+)*))\s*(?:,|$)/g;
+
+  if (!re_valid.test(text)) return text.split(',').map(s => s.trim());
+
+  const a = [];
+  text.replace(re_value, function (m0, m1, m2, m3) {
+    if (m1 !== undefined) a.push(m1.replace(/\\'/g, "'"));
+    else if (m2 !== undefined) a.push(m2.replace(/\\"/g, '"'));
+    else if (m3 !== undefined) a.push(m3);
+    return '';
+  });
+  if (/,\s*$/.test(text)) a.push('');
+  return a;
 };
 
 export const removeVietnameseTones = (str: string) => {
-    str = str.replace(/à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ/g, "a");
-    str = str.replace(/è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ/g, "e");
-    str = str.replace(/ì|í|ị|ỉ|ĩ/g, "i");
-    str = str.replace(/ò|ó|ọ|ỏ|õ|ô|ồ|ố|ộ|ổ|ỗ|ơ|ờ|ớ|ợ|ở|ỡ/g, "o");
-    str = str.replace(/ù|ú|ụ|ủ|ũ|ư|ừ|ứ|ự|ử|ữ/g, "u");
-    str = str.replace(/ỳ|ý|ỵ|ỷ|ỹ/g, "y");
-    str = str.replace(/đ/g, "d");
-    str = str.replace(/À|Á|Ạ|Ả|Ã|Â|Ầ|Ấ|Ậ|Ẩ|Ẫ|Ă|Ằ|Ắ|Ặ|Ẳ|Ẵ/g, "A");
-    str = str.replace(/È|É|Ẹ|Ẻ|Ẽ|Ê|Ề|Ế|Ệ|Ể|Ễ/g, "E");
-    str = str.replace(/Ì|Í|Ị|Ỉ|Ĩ/g, "I");
-    str = str.replace(/Ò|Ó|Ọ|Ỏ|Õ|Ô|Ồ|Ố|Ộ|Ổ|Ỗ|Ơ|Ờ|Ớ|Ợ|Ở|Ỡ/g, "O");
-    str = str.replace(/Ù|Ú|Ụ|Ủ|Ũ|Ư|Ừ|Ứ|Ự|Ử|Ữ/g, "U");
-    str = str.replace(/Ỳ|Ý|Ỵ|Ỷ|Ỹ/g, "Y");
-    str = str.replace(/Đ/g, "D");
-    str = str.replace(/\u0300|\u0301|\u0303|\u0309|\u0323/g, ""); 
-    str = str.replace(/\u02C6|\u0306|\u031B/g, ""); 
-    str = str.replace(/[^a-zA-Z0-9 ]/g, "");
-    str = str.replace(/\s+/g, "_");
-    return str;
+  str = str.replace(/à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ/g, "a");
+  str = str.replace(/è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ/g, "e");
+  str = str.replace(/ì|í|ị|ỉ|ĩ/g, "i");
+  str = str.replace(/ò|ó|ọ|ỏ|õ|ô|ồ|ố|ộ|ổ|ỗ|ơ|ờ|ớ|ợ|ở|ỡ/g, "o");
+  str = str.replace(/ù|ú|ụ|ủ|ũ|ư|ừ|ứ|ự|ử|ữ/g, "u");
+  str = str.replace(/ỳ|ý|ỵ|ỷ|ỹ/g, "y");
+  str = str.replace(/đ/g, "d");
+  str = str.replace(/À|Á|Ạ|Ả|Ã|Â|Ầ|Ấ|Ậ|Ẩ|Ẫ|Ă|Ằ|Ắ|Ặ|Ẳ|Ẵ/g, "A");
+  str = str.replace(/È|É|Ẹ|Ẻ|Ẽ|Ê|Ề|Ế|Ệ|Ể|Ễ/g, "E");
+  str = str.replace(/Ì|Í|Ị|Ỉ|Ĩ/g, "I");
+  str = str.replace(/Ò|Ó|Ọ|Ỏ|Õ|Ô|Ồ|Ố|Ộ|Ổ|Ỗ|Ơ|Ờ|Ớ|Ợ|Ở|Ỡ/g, "O");
+  str = str.replace(/Ù|Ú|Ụ|Ủ|Ũ|Ư|Ừ|Ứ|Ự|Ử|Ữ/g, "U");
+  str = str.replace(/Ỳ|Ý|Ỵ|Ỷ|Ỹ/g, "Y");
+  str = str.replace(/Đ/g, "D");
+  str = str.replace(/\u0300|\u0301|\u0303|\u0309|\u0323/g, "");
+  str = str.replace(/\u02C6|\u0306|\u031B/g, "");
+  str = str.replace(/[^a-zA-Z0-9 ]/g, "");
+  str = str.replace(/\s+/g, "_");
+  return str;
+};
+
+/**
+ * So sánh 2 chuỗi tiếng Việt linh hoạt:
+ * 1. Chuẩn hóa Unicode NFC (xử lý "Hoá" vs "Hóa" do IME đặt dấu khác vị trí)
+ * 2. Fallback: bỏ toàn bộ dấu rồi so base (xử lý mọi biến thể còn lại)
+ * Trả về true nếu 2 chuỗi "giống nhau về mặt ngữ nghĩa".
+ */
+export const matchVietnamese = (a: string, b: string): boolean => {
+  const clean = (s: string) => s.normalize('NFC').toLowerCase().trim();
+  const strip = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi, 'd').toLowerCase().trim();
+  return clean(a) === clean(b) || strip(a) === strip(b);
 };
 
 export const safeParseImages = (imgField: string[] | string | undefined): string[] => {
-    if (!imgField) return [];
-    if (Array.isArray(imgField)) return imgField;
-    try {
-        if (typeof imgField === 'string' && imgField.startsWith('[')) {
-            return JSON.parse(imgField);
-        }
-        if (typeof imgField === 'string') return [imgField];
-    } catch (e) {
-        console.error("Error parsing images", e);
-        return [];
+  if (!imgField) return [];
+  if (Array.isArray(imgField)) return imgField;
+  try {
+    if (typeof imgField === 'string' && imgField.startsWith('[')) {
+      return JSON.parse(imgField);
     }
+    if (typeof imgField === 'string') return [imgField];
+  } catch (e) {
+    console.error("Error parsing images", e);
     return [];
+  }
+  return [];
 };
 
 export const formatDateDisplay = (dateStr: string): string => {
-    if (!dateStr) return '';
-    try {
-        // Sử dụng parseLocalStartOfDay để tránh lệch ngày do UTC offset
-        // "YYYY-MM-DD" qua new Date() sẽ parse thành UTC 00:00, có thể hiển thị sai ngày ở UTC+7
-        const clean = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
-        const parts = clean.split('-');
-        if (parts.length === 3) {
-            const day = parts[2].padStart(2, '0');
-            const month = parts[1].padStart(2, '0');
-            const year = parts[0];
-            return `${day}/${month}/${year}`;
-        }
-        // Fallback: với các định dạng khác (ISO full, ...) dùng local time
-        const d = new Date(dateStr);
-        if (isNaN(d.getTime())) return dateStr;
-        const day = d.getDate().toString().padStart(2, '0');
-        const month = (d.getMonth() + 1).toString().padStart(2, '0');
-        const year = d.getFullYear();
-        return `${day}/${month}/${year}`;
-    } catch (e) {
-        return dateStr;
+  if (!dateStr) return '';
+  try {
+    // Sử dụng parseLocalStartOfDay để tránh lệch ngày do UTC offset
+    // "YYYY-MM-DD" qua new Date() sẽ parse thành UTC 00:00, có thể hiển thị sai ngày ở UTC+7
+    const clean = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
+    const parts = clean.split('-');
+    if (parts.length === 3) {
+      const day = parts[2].padStart(2, '0');
+      const month = parts[1].padStart(2, '0');
+      const year = parts[0];
+      return `${day}/${month}/${year}`;
     }
+    // Fallback: với các định dạng khác (ISO full, ...) dùng local time
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    const day = d.getDate().toString().padStart(2, '0');
+    const month = (d.getMonth() + 1).toString().padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
+  } catch (e) {
+    return dateStr;
+  }
 };
 
 /**
@@ -401,43 +413,43 @@ export const formatDateDisplay = (dateStr: string): string => {
  * Khắc phục lỗi lệch ngày do Timezone khi Google trả về chuỗi ISO (VD: 2023-09-04T17:00:00Z -> 2023-09-05).
  */
 export const formatDateForInput = (dateStr: string | Date | undefined): string => {
-    if (!dateStr) return '';
+  if (!dateStr) return '';
 
-    // Nếu đã là Date object
-    if (dateStr instanceof Date) {
-        const y = dateStr.getFullYear();
-        const m = (dateStr.getMonth() + 1).toString().padStart(2, '0');
-        const d = dateStr.getDate().toString().padStart(2, '0');
-        return `${y}-${m}-${d}`;
+  // Nếu đã là Date object
+  if (dateStr instanceof Date) {
+    const y = dateStr.getFullYear();
+    const m = (dateStr.getMonth() + 1).toString().padStart(2, '0');
+    const d = dateStr.getDate().toString().padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  // Nếu là string
+  if (typeof dateStr === 'string') {
+    // Nếu đã chuẩn YYYY-MM-DD thì giữ nguyên (tin tưởng dữ liệu người dùng nhập)
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+
+    // Nếu là ISO string (có chứa T), parse ra Date rồi lấy Local Time
+    const d = new Date(dateStr);
+    if (!isNaN(d.getTime())) {
+      const y = d.getFullYear();
+      const m = (d.getMonth() + 1).toString().padStart(2, '0');
+      const day = d.getDate().toString().padStart(2, '0');
+      return `${y}-${m}-${day}`;
     }
+  }
 
-    // Nếu là string
-    if (typeof dateStr === 'string') {
-        // Nếu đã chuẩn YYYY-MM-DD thì giữ nguyên (tin tưởng dữ liệu người dùng nhập)
-        if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
-
-        // Nếu là ISO string (có chứa T), parse ra Date rồi lấy Local Time
-        const d = new Date(dateStr);
-        if (!isNaN(d.getTime())) {
-            const y = d.getFullYear();
-            const m = (d.getMonth() + 1).toString().padStart(2, '0');
-            const day = d.getDate().toString().padStart(2, '0');
-            return `${y}-${m}-${day}`;
-        }
-    }
-
-    return '';
+  return '';
 };
 
 // --- EXCEL EXPORT FUNCTION ---
 export const exportToExcel = (data: any[][], fileName: string) => {
-    try {
-        const workbook = XLSX.utils.book_new();
-        const worksheet = XLSX.utils.aoa_to_sheet(data);
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
-        XLSX.writeFile(workbook, `${fileName}.xlsx`);
-    } catch (error) {
-        console.error("Lỗi xuất Excel:", error);
-        alert("Có lỗi xảy ra khi xuất file Excel.");
-    }
+  try {
+    const workbook = XLSX.utils.book_new();
+    const worksheet = XLSX.utils.aoa_to_sheet(data);
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
+    XLSX.writeFile(workbook, `${fileName}.xlsx`);
+  } catch (error) {
+    console.error("Lỗi xuất Excel:", error);
+    alert("Có lỗi xảy ra khi xuất file Excel.");
+  }
 };
