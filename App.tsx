@@ -58,6 +58,8 @@ export default function App() {
   const [rankingFilterConfigId, setRankingFilterConfigId] = useState<string>('');
   const [rankingGradeTab, setRankingGradeTab] = useState<'10' | '11' | '12'>('10');
   const [classDetailSelectedId, setClassDetailSelectedId] = useState<string>('');
+  // Sub-tab của SettingsTab — điều hướng từ nơi khác (VD: EntryTab → tiêu chí)
+  const [settingsSubTab, setSettingsSubTab] = useState<'ROLES' | 'TIME' | 'CLASSES' | 'STUDENTS' | 'CRITERIA_VIOLATION' | 'CRITERIA_ACHIEVEMENT' | 'ACCOUNTS' | 'AUDIT_LOG' | undefined>(undefined);
 
   // Navigate to ListTab with specific filters (called from RankingTab click on class)
   const navigateToList = (classId: string, mode: 'MONTH' | 'WEEK' | 'SEMESTER' | 'ALL', configId: string) => {
@@ -456,7 +458,10 @@ export default function App() {
 
       <main className="flex-1 p-4 overflow-y-auto scroll-smooth">
         {activeTab === 'entry' && currentUser.role !== 'GUEST' && canCurrentUserEntry() && (
-          <EntryTab onNavigateToCriteria={(mode) => { setActiveTab('settings'); }} />
+          <EntryTab onNavigateToCriteria={(mode) => {
+            setSettingsSubTab(mode === 'VIOLATION' ? 'CRITERIA_VIOLATION' : 'CRITERIA_ACHIEVEMENT');
+            setActiveTab('settings');
+          }} />
         )}
         {activeTab === 'list' && (
           <ListTab
@@ -495,7 +500,7 @@ export default function App() {
           <TaskForceTab />
         )}
         {activeTab === 'settings' && isCurrentUserAdmin() && (
-          <SettingsTab />
+          <SettingsTab initialSubTab={settingsSubTab} />
         )}
         {activeTab === 'settings' && !isCurrentUserAdmin() && (
           <div className="text-center py-20 text-slate-400">Bạn không có quyền truy cập.</div>

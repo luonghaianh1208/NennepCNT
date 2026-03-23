@@ -15,21 +15,30 @@ import SettingsAuditLogTab from './settings/SettingsAuditLogTab';
 type SubTab = 'ROLES' | 'TIME' | 'CLASSES' | 'STUDENTS' | 'CRITERIA_VIOLATION' | 'CRITERIA_ACHIEVEMENT' | 'ACCOUNTS' | 'AUDIT_LOG';
 
 const SUB_TABS: { id: SubTab; label: string; icon: React.ReactNode }[] = [
-  { id: 'ROLES',                label: 'Quản lý chung', icon: <Settings size={16}/> },
-  { id: 'TIME',                 label: 'Thời gian',     icon: <Calendar size={16}/> },
-  { id: 'CLASSES',              label: 'Lớp học',       icon: <GraduationCap size={16}/> },
-  { id: 'STUDENTS',             label: 'Học sinh',      icon: <Users size={16}/> },
-  { id: 'CRITERIA_VIOLATION',   label: 'Vi phạm',       icon: <AlertTriangle size={16}/> },
-  { id: 'CRITERIA_ACHIEVEMENT', label: 'Thành tích',    icon: <Star size={16}/> },
-  { id: 'ACCOUNTS',             label: 'Tài khoản',     icon: <UserPlus size={16}/> },
-  { id: 'AUDIT_LOG',            label: 'Audit Log',     icon: <ClipboardList size={16}/> },
+  { id: 'ROLES', label: 'Quản lý chung', icon: <Settings size={16} /> },
+  { id: 'TIME', label: 'Thời gian', icon: <Calendar size={16} /> },
+  { id: 'CLASSES', label: 'Lớp học', icon: <GraduationCap size={16} /> },
+  { id: 'STUDENTS', label: 'Học sinh', icon: <Users size={16} /> },
+  { id: 'CRITERIA_VIOLATION', label: 'Vi phạm', icon: <AlertTriangle size={16} /> },
+  { id: 'CRITERIA_ACHIEVEMENT', label: 'Thành tích', icon: <Star size={16} /> },
+  { id: 'ACCOUNTS', label: 'Tài khoản', icon: <UserPlus size={16} /> },
+  { id: 'AUDIT_LOG', label: 'Audit Log', icon: <ClipboardList size={16} /> },
 ];
 
-const SettingsTab: React.FC = () => {
+interface SettingsTabProps {
+  initialSubTab?: SubTab;
+}
+
+const SettingsTab: React.FC<SettingsTabProps> = ({ initialSubTab }) => {
   const { syncSettings, unsavedChanges } = useAppStore();
   const { showConfirm, showToast } = useModal();
 
-  const [activeSubTab, setActiveSubTab] = useState<SubTab>('ROLES');
+  const [activeSubTab, setActiveSubTab] = useState<SubTab>(initialSubTab || 'ROLES');
+
+  // Đồng bộ khi prop thay đổi (navigate từ tab khác)
+  React.useEffect(() => {
+    if (initialSubTab) setActiveSubTab(initialSubTab);
+  }, [initialSubTab]);
 
   const handleSaveSettings = async () => {
     const ok = await showConfirm({ title: 'Lưu cấu hình', message: 'Lưu toàn bộ cấu hình lên hệ thống?', confirmText: 'Lưu' });
@@ -50,9 +59,8 @@ const SettingsTab: React.FC = () => {
           <button
             key={tab.id}
             onClick={() => setActiveSubTab(tab.id)}
-            className={`flex-1 py-2 px-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 whitespace-nowrap transition-all ${
-              activeSubTab === tab.id ? 'bg-blue-600 text-white shadow' : 'text-slate-500 hover:bg-slate-50'
-            }`}
+            className={`flex-1 py-2 px-3 rounded-lg text-sm font-bold flex items-center justify-center gap-2 whitespace-nowrap transition-all ${activeSubTab === tab.id ? 'bg-blue-600 text-white shadow' : 'text-slate-500 hover:bg-slate-50'
+              }`}
           >
             {tab.icon}
             <span className="hidden sm:inline">{tab.label}</span>
@@ -67,20 +75,20 @@ const SettingsTab: React.FC = () => {
             onClick={handleSaveSettings}
             className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-full shadow-xl flex items-center gap-2 active:scale-95 transition-all"
           >
-            <Save size={20}/> Lưu Thay Đổi
+            <Save size={20} /> Lưu Thay Đổi
           </button>
         </div>
       )}
 
       {/* Sub-tab Content */}
-      {activeSubTab === 'ROLES'                && <SettingsRolesTab />}
-      {activeSubTab === 'TIME'                 && <SettingsTimeTab />}
-      {activeSubTab === 'CLASSES'              && <SettingsClassesTab />}
-      {activeSubTab === 'STUDENTS'             && <SettingsStudentsTab />}
-      {activeSubTab === 'CRITERIA_VIOLATION'   && <SettingsCriteriaTab type="MINUS" />}
+      {activeSubTab === 'ROLES' && <SettingsRolesTab />}
+      {activeSubTab === 'TIME' && <SettingsTimeTab />}
+      {activeSubTab === 'CLASSES' && <SettingsClassesTab />}
+      {activeSubTab === 'STUDENTS' && <SettingsStudentsTab />}
+      {activeSubTab === 'CRITERIA_VIOLATION' && <SettingsCriteriaTab type="MINUS" />}
       {activeSubTab === 'CRITERIA_ACHIEVEMENT' && <SettingsCriteriaTab type="PLUS" />}
-      {activeSubTab === 'ACCOUNTS'             && <SettingsAccountsTab />}
-      {activeSubTab === 'AUDIT_LOG'            && <SettingsAuditLogTab />}
+      {activeSubTab === 'ACCOUNTS' && <SettingsAccountsTab />}
+      {activeSubTab === 'AUDIT_LOG' && <SettingsAuditLogTab />}
     </div>
   );
 };
