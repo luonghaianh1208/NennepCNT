@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useMemo } from 'react';
-import { AlertTriangle, Star, ChevronDown, Camera, X, CheckCircle2, Loader2, StopCircle, FileSpreadsheet, Download } from 'lucide-react';
+import { AlertTriangle, Star, ChevronDown, Camera, X, CheckCircle2, Loader2, StopCircle, FileSpreadsheet, Download, Settings } from 'lucide-react';
 import { Violation } from '../types';
 import { api } from '../services/googleApi';
 import { isDateInRange, removeVietnameseTones, exportToExcel, getLocalDateString } from '../utils';
@@ -8,7 +8,11 @@ import { useAppStore } from '../contexts/AppContext';
 import { useModal } from '../contexts/ModalContext';
 import * as XLSX from 'xlsx';
 
-const EntryTab: React.FC = () => {
+interface EntryTabProps {
+  onNavigateToCriteria?: (mode: 'VIOLATION' | 'ACHIEVEMENT') => void;
+}
+
+const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
   const { currentUser, classes, students, criteria, violations, setViolations, roleConfigs, users, createViolation, timeConfigs } = useAppStore();
   const { showConfirm, showAlert, showToast } = useModal();
 
@@ -67,15 +71,21 @@ const EntryTab: React.FC = () => {
     if (entryMode === 'VIOLATION') {
       const data = [
         ['Ngay', 'Ten_Lop', 'Ten_HS', 'Noi_dung_loi', 'Ghi_chu', 'Link_anh', 'Nguoi_ghi'],
-        ['2026-03-20', '10A1', 'Nguyễn Văn A', 'Đi học muộn', '', '', 'admin'],
-        ['2026-03-20', '10A1', '', 'Không xếp hàng', 'Tập thể lớp', '', ''],
+        // Ten_HS để trống = vi phạm tập thể lớp; có tên = vi phạm cá nhân
+        // Noi_dung_loi phải khớp chính xác với tiêu chí đã cấu hình
+        ['2026-03-20', '10A1', 'Nguyễn Văn A', 'Đi học muộn', 'Đến trường lúc 7h15, trễ 15 phút', '', 'admin'],
+        ['2026-03-20', '10A1', '', 'Không mặc đồng phục', 'Cả lớp không mặc đồng phục thể dục tiết 3', '', ''],
+        ['2026-03-21', '10A2', 'Trần Thị B', 'Không đeo khăn quàng/phù hiệu', 'Không đeo phù hiệu từ đầu buổi sáng', '', ''],
       ];
       exportToExcel(data, 'Mau_Import_VPham');
     } else {
       const data = [
         ['Ngay', 'Ten_Lop', 'Ten_HS', 'Loai_thanh_tich', 'Ghi_chu'],
-        ['2026-03-20', '10A1', 'Trần Thị B', 'Học sinh tiêu biểu', ''],
-        ['2026-03-20', '10A1', '', 'Lớp xuất sắc tháng', 'Tập thể lớp'],
+        // Ten_HS để trống = thành tích tập thể lớp; có tên = thành tích cá nhân
+        // Loai_thanh_tich phải khớp chính xác với tiêu chí đã cấu hình
+        ['2026-03-20', '10A1', 'Trần Thị B', 'Học sinh tiêu biểu', 'Đạt giải Nhất kỳ thi Toán cấp trường tháng 3/2026'],
+        ['2026-03-20', '10A2', '', 'Lớp xuất sắc tuần', 'Không có vi phạm, nộp đủ bài tập tuần 15'],
+        ['2026-03-21', '11A1', 'Lê Văn C', 'Giải thưởng cuộc thi', 'Giải Ba cuộc thi Hùng biện tiếng Anh cấp thành phố'],
       ];
       exportToExcel(data, 'Mau_Import_ThanhTich');
     }
@@ -440,6 +450,36 @@ const EntryTab: React.FC = () => {
             </div>
           )}
         </div>
+
+        {/* ── HƯỚNG DẪN IMPORT EXCEL ───────────────────────────────────── */}
+        {isAdmin && (
+          <div className="mx-4 mt-3 mb-0 bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-800">
+            <div className="font-bold text-blue-900 mb-1.5 flex items-center gap-1">
+              <FileSpreadsheet size={13} /> Hướng dẫn Import Excel
+            </div>
+            <ol className="list-decimal list-inside space-y-1 leading-relaxed">
+              <li>Bấm <span className="font-bold">Tải mẫu</span> để tải file Excel với đúng cấu trúc cột.</li>
+              <li>Điền dữ liệu: <span className="font-bold">Ten_HS để trống</span> = vi phạm / thành tích tập thể lớp.</li>
+              <li className="font-bold text-blue-900">
+                Cột <span className="underline">{entryMode === 'VIOLATION' ? 'Noi_dung_loi' : 'Loai_thanh_tich'}</span> phải khớp chính xác với tên tiêu chí đã cấu hình.
+              </li>
+              <li>Lưu file và bấm <span className="font-bold">Import Excel</span> để nhập hàng loạt.</li>
+            </ol>
+            <div className="mt-2 flex items-center justify-between flex-wrap gap-2">
+              <p className="text-blue-700 italic">
+                ⚠️ Chưa có tiêu chí? Cần thêm vào Cấu hình trước khi import.
+              </p>
+              {onNavigateToCriteria && (
+                <button
+                  onClick={() => onNavigateToCriteria(entryMode === 'VIOLATION' ? 'VIOLATION' : 'ACHIEVEMENT')}
+                  className="flex items-center gap-1 bg-blue-600 text-white text-xs px-2.5 py-1.5 rounded-lg font-bold hover:bg-blue-700 transition-colors shrink-0"
+                >
+                  <Settings size={12} /> Đến Cấu hình {entryMode === 'VIOLATION' ? 'Vi phạm' : 'Thành tích'}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
         <div className="p-4 space-y-4">
           {isAdmin && (
             <div className="flex bg-slate-100 p-1 rounded-lg mb-4">
