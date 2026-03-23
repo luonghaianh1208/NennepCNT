@@ -1,10 +1,11 @@
 
 import React, { useState, useRef } from 'react';
-import { Plus, Upload, Edit, Trash2, Save, Check, X } from 'lucide-react';
+import { Plus, Edit, Trash2, Save, Check, X, FileSpreadsheet, Download } from 'lucide-react';
 import { User, RoleConfig } from '../../types';
-import { parseCSVLine } from '../../utils';
+import { exportToExcel } from '../../utils';
 import { useAppStore } from '../../contexts/AppContext';
 import { useModal } from '../../contexts/ModalContext';
+import * as XLSX from 'xlsx';
 
 const SettingsAccountsTab: React.FC = () => {
   const { users, setUsers, classes, roleConfigs, currentUser, setCurrentUser, setUnsavedChanges } = useAppStore();
@@ -16,7 +17,7 @@ const SettingsAccountsTab: React.FC = () => {
   const [newUserRole, setNewUserRole] = useState<string>('RED_FLAG');
   const [newUserClass, setNewUserClass] = useState('');
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  const csvAccountInputRef = useRef<HTMLInputElement>(null);
+  const excelAccountInputRef = useRef<HTMLInputElement>(null);
 
   const handleAddUser = () => {
     if (!newUserFullName || !newUserUsername || !newUserPassword) return showToast('Vui lòng nhập đầy đủ thông tin bắt buộc', 'error');
@@ -59,42 +60,107 @@ const SettingsAccountsTab: React.FC = () => {
     setUnsavedChanges(true);
   };
 
-  const handleImportAccountsCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // --- TẢI FILE EXCEL MẪU ---
+  const handleDownloadAccountTemplate = () => {
+    const roleKeys = Object.keys(roleConfigs).join(' / ');
+    const data = [
+      ['Ho_ten', 'Username', 'Password', 'Lop', 'Role'],
+      ['Nguyễn Văn A', 'nguyenvana', '123456', '10A1', 'RED_FLAG'],
+      ['Trần Thị B', 'tranthib', '123456', '10A2', 'TEACHER'],
+      [`(Role hợp lệ: ${roleKeys})`, '', '', '', ''],
+    ];
+    exportToExcel(data, 'Mau_Import_TaiKhoan');
+  };
+
+  // --- IMPORT TỪ EXCEL ---
+  const handleImportAccountsExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Set username đã tồn tại để kiểm tra trùng
+    const existingUsernames = new Set(users.map(u => u.username));
+    // Set ID đã tồn tại
+    const existingIds = new Set(users.map(u => u.id));
+
     const reader = new FileReader();
     reader.onload = (event) => {
-      const text = event.target?.result as string;
-      const lines = text.split(/\r\n|\n/);
-      const newUsers: User[] = [];
-      let count = 0;
-      for (let i = 1; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (!line) continue;
-        const row = parseCSVLine(line);
-        if (row.length >= 4) {
-          const name = row[0], username = row[1], password = row[2], classNameStr = row[3];
-          const roleStr = row[4] ? row[4].trim().toUpperCase().replace(/\s/g, '_') : 'GUEST';
-          if (!users.find(u => u.username === username) && !newUsers.find(u => u.username === username)) {
-            let role = roleConfigs[roleStr] ? roleStr : 'GUEST';
-            if (row[4]?.toLowerCase().includes('cờ đỏ')) role = 'RED_FLAG';
-            if (row[4]?.toLowerCase().includes('nền nếp')) role = 'DISCIPLINE';
-            if (row[4]?.toLowerCase().includes('giáo viên')) role = 'TEACHER';
-            if (row[4]?.toLowerCase().includes('admin')) role = 'ADMIN';
-            const cls = classes.find(c => c.name === classNameStr || c.id === classNameStr);
-            newUsers.push({ id: `U_IMP_${Date.now()}_${Math.random()}`, name, username, password, role, className: cls?.id });
-            count++;
+      try {
+        const data = new Uint8Array(event.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+
+        const newUsers: User[] = [];
+        let count = 0;
+        let dupCount = 0;
+
+        for (let i = 1; i < rows.length; i++) {
+          const row = rows[i];
+          if (!row || row.every((cell: any) => cell === '' || cell === null || cell === undefined)) continue;
+
+          const [hoTen, username, password, lop, roleRaw] = row;
+          const name = String(hoTen || '').trim();
+          const uname = String(username || '').trim();
+          const pwd = String(password || '').trim();
+          const classNameStr = String(lop || '').trim();
+          const roleStr = String(roleRaw || '').trim().toUpperCase().replace(/\s/g, '_');
+
+          if (!name || !uname || !pwd) continue;
+
+          if (existingUsernames.has(uname)) {
+            dupCount++;
+            continue;
           }
+
+          // Map role linh hoạt
+          let role = roleConfigs[roleStr] ? roleStr : 'GUEST';
+          if (roleStr.includes('CỜ') || roleStr.includes('CO') || roleStr.includes('RED')) role = 'RED_FLAG';
+          if (roleStr.includes('NỀN') || roleStr.includes('NEN') || roleStr.includes('DISCIPLINE')) role = 'DISCIPLINE';
+          if (roleStr.includes('GV') || roleStr.includes('GIÁO') || roleStr.includes('TEACHER')) role = 'TEACHER';
+          if (roleStr.includes('ADMIN')) role = 'ADMIN';
+          if (roleStr.includes('BCH')) role = 'BCH';
+
+          const cls = classes.find(c => c.name === classNameStr || c.id === classNameStr);
+
+          // Sinh ID unique: timestamp + index
+          let newId = `U_${Date.now()}_${i}`;
+          while (existingIds.has(newId)) {
+            newId = `U_${Date.now()}_${i}_${Math.floor(Math.random() * 9999)}`;
+          }
+          existingIds.add(newId);
+          existingUsernames.add(uname); // Tránh trùng trong cùng lượt
+
+          newUsers.push({
+            id: newId,
+            name,
+            username: uname,
+            password: pwd,
+            role,
+            className: cls?.id,
+          });
+          count++;
         }
-      }
-      e.target.value = '';
-      if (count > 0) {
-        setUsers([...users, ...newUsers]);
-        setUnsavedChanges(true);
-        showToast(`Đã thêm ${count} tài khoản. Nhớ bấm LƯU.`, 'success');
+
+        e.target.value = '';
+
+        if (count > 0) {
+          setUsers([...users, ...newUsers]);
+          setUnsavedChanges(true);
+          const note = [
+            `Đã thêm ${count} tài khoản.`,
+            dupCount > 0 ? `Bỏ qua ${dupCount} username đã tồn tại.` : '',
+            'Nhớ bấm LƯU.',
+          ].filter(Boolean).join(' ');
+          showToast(note, 'success');
+        } else {
+          showToast(`Không có tài khoản hợp lệ.${dupCount > 0 ? ` (${dupCount} username đã tồn tại)` : ''}`, 'error');
+        }
+      } catch (err) {
+        e.target.value = '';
+        showToast('Không thể đọc file Excel. Hãy kiểm tra lại định dạng file.', 'error');
       }
     };
-    reader.readAsText(file);
+    reader.readAsArrayBuffer(file);
   };
 
   return (
@@ -102,17 +168,23 @@ const SettingsAccountsTab: React.FC = () => {
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
         <div className="flex justify-between items-center mb-4">
           <h3 className="font-bold text-lg text-slate-800">Quản lý Tài khoản</h3>
-          <div>
-            <input type="file" ref={csvAccountInputRef} onChange={handleImportAccountsCSV} accept=".csv" className="hidden"/>
-            <button onClick={() => csvAccountInputRef.current?.click()} className="flex items-center gap-1 text-sm bg-green-100 text-green-700 px-3 py-1.5 rounded-lg hover:bg-green-200 font-bold border border-green-200">
-              <Upload size={16}/> Import CSV
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleDownloadAccountTemplate}
+              className="flex items-center gap-1 text-sm bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg hover:bg-blue-100 font-bold border border-blue-200"
+              title="Tải file Excel mẫu"
+            >
+              <Download size={15}/> Tải mẫu
+            </button>
+            <input type="file" ref={excelAccountInputRef} onChange={handleImportAccountsExcel} accept=".xlsx,.xls" className="hidden"/>
+            <button
+              onClick={() => excelAccountInputRef.current?.click()}
+              className="flex items-center gap-1 text-sm bg-green-100 text-green-700 px-3 py-1.5 rounded-lg hover:bg-green-200 font-bold border border-green-200"
+              title="Import tài khoản từ file Excel"
+            >
+              <FileSpreadsheet size={15}/> Import Excel
             </button>
           </div>
-        </div>
-
-        <div className="bg-indigo-50 p-2 rounded text-xs text-indigo-800 mb-4 border border-indigo-100">
-          <strong>Format CSV Tài khoản:</strong> Ho_ten, Username, Password, Lop, Role <br/>
-          <em>VD: Nguyen Van A, admin, 123456, 10A1, ADMIN</em>
         </div>
 
         <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 mb-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">

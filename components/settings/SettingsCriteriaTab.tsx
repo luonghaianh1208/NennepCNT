@@ -1,10 +1,11 @@
 
 import React, { useState, useRef } from 'react';
-import { Upload, Trash2 } from 'lucide-react';
+import { Trash2, FileSpreadsheet, Download } from 'lucide-react';
 import { Criteria } from '../../types';
-import { parseCSVLine } from '../../utils';
+import { exportToExcel } from '../../utils';
 import { useAppStore } from '../../contexts/AppContext';
 import { useModal } from '../../contexts/ModalContext';
+import * as XLSX from 'xlsx';
 
 interface Props {
   type: 'MINUS' | 'PLUS';
@@ -16,7 +17,7 @@ const SettingsCriteriaTab: React.FC<Props> = ({ type }) => {
 
   const [newCriteriaContent, setNewCriteriaContent] = useState('');
   const [newCriteriaPoints, setNewCriteriaPoints] = useState('');
-  const csvRef = useRef<HTMLInputElement>(null);
+  const excelRef = useRef<HTMLInputElement>(null);
 
   const isViolation = type === 'MINUS';
 
@@ -37,43 +38,87 @@ const SettingsCriteriaTab: React.FC<Props> = ({ type }) => {
     }
   };
 
-  const handleImportCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // --- TẢI FILE EXCEL MẪU ---
+  const handleDownloadTemplate = () => {
+    if (isViolation) {
+      const data = [
+        ['Loai_loi', 'Diem_tru'],
+        ['Đi học muộn', '5'],
+        ['Không đeo khăn quàng', '2'],
+        ['Sử dụng điện thoại trong giờ học', '10'],
+      ];
+      exportToExcel(data, 'Mau_Import_TieuChi_ViPham');
+    } else {
+      const data = [
+        ['Noi_dung', 'Diem_cong'],
+        ['Học sinh tiêu biểu', '20'],
+        ['Nhặt được của rơi', '15'],
+        ['Lớp xuất sắc tuần', '10'],
+      ];
+      exportToExcel(data, 'Mau_Import_TieuChi_ThanhTich');
+    }
+  };
+
+  // --- IMPORT TỪ EXCEL ---
+  const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Set ID đã dùng để kiểm tra trùng
+    const existingIds = new Set(criteria.map(c => c.id));
+
     const reader = new FileReader();
     reader.onload = (event) => {
-      const text = event.target?.result as string;
-      const lines = text.split(/\r\n|\n/);
-      const newCriteria: Criteria[] = [];
-      let count = 0;
-      for (let i = 1; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (!line) continue;
-        const row = parseCSVLine(line);
-        if (isViolation && row.length >= 3) {
-          const content = row[1];
-          const points = parseFloat(row[2]);
-          if (!isNaN(points)) {
-            newCriteria.push({ id: `C_IMP_${Date.now()}_${Math.random()}`, content, points: Math.abs(points), type: 'MINUS' });
-            count++;
+      try {
+        const data = new Uint8Array(event.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+
+        const newCriteria: Criteria[] = [];
+        let count = 0;
+
+        for (let i = 1; i < rows.length; i++) {
+          const row = rows[i];
+          if (!row || row.every((cell: any) => cell === '' || cell === null || cell === undefined)) continue;
+
+          // Cột: Loai_loi/Noi_dung | Diem_tru/Diem_cong
+          const content = String(row[0] || '').trim();
+          const points = parseFloat(String(row[1] || '0'));
+
+          if (!content || isNaN(points) || points <= 0) continue;
+
+          // Sinh ID unique: timestamp + index
+          let newId = `C${Date.now()}_${i}`;
+          while (existingIds.has(newId)) {
+            newId = `C${Date.now()}_${i}_${Math.floor(Math.random() * 9999)}`;
           }
-        } else if (!isViolation && row.length >= 2) {
-          const content = row[0];
-          const points = parseFloat(row[1]);
-          if (!isNaN(points)) {
-            newCriteria.push({ id: `C_PLUS_IMP_${Date.now()}_${Math.random()}`, content, points: Math.abs(points), type: 'PLUS' });
-            count++;
-          }
+          existingIds.add(newId);
+
+          newCriteria.push({
+            id: newId,
+            content,
+            points: Math.abs(points),
+            type,
+          });
+          count++;
         }
-      }
-      e.target.value = '';
-      if (count > 0) {
-        setCriteria([...criteria, ...newCriteria]);
-        setUnsavedChanges(true);
-        showToast(`Đã thêm ${count} tiêu chí ${isViolation ? 'vi phạm' : 'thành tích'}. Nhớ bấm LƯU.`, 'success');
+
+        e.target.value = '';
+
+        if (count > 0) {
+          setCriteria([...criteria, ...newCriteria]);
+          setUnsavedChanges(true);
+          showToast(`Đã thêm ${count} tiêu chí ${isViolation ? 'vi phạm' : 'thành tích'}. Nhớ bấm LƯU.`, 'success');
+        } else {
+          showToast('Không tìm thấy tiêu chí hợp lệ trong file. Kiểm tra lại định dạng cột.', 'error');
+        }
+      } catch (err) {
+        e.target.value = '';
+        showToast('Không thể đọc file Excel. Hãy kiểm tra lại định dạng file.', 'error');
       }
     };
-    reader.readAsText(file);
+    reader.readAsArrayBuffer(file);
   };
 
   const filteredCriteria = criteria.filter(c => c.type === type);
@@ -84,25 +129,24 @@ const SettingsCriteriaTab: React.FC<Props> = ({ type }) => {
         <h3 className="font-bold text-lg text-slate-800">
           {isViolation ? 'Cấu hình Vi Phạm' : 'Cấu hình Thành Tích'}
         </h3>
-        <div>
-          <input type="file" ref={csvRef} onChange={handleImportCSV} accept=".csv" className="hidden"/>
-          <button onClick={() => csvRef.current?.click()} className="flex items-center gap-1 text-sm bg-green-100 text-green-700 px-3 py-1.5 rounded-lg hover:bg-green-200 font-bold border border-green-200">
-            <Upload size={16}/> Import CSV
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleDownloadTemplate}
+            className="flex items-center gap-1 text-sm bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg hover:bg-blue-100 font-bold border border-blue-200"
+            title="Tải file Excel mẫu"
+          >
+            <Download size={15} /> Tải mẫu
+          </button>
+          <input type="file" ref={excelRef} onChange={handleImportExcel} accept=".xlsx,.xls" className="hidden" />
+          <button
+            onClick={() => excelRef.current?.click()}
+            className="flex items-center gap-1 text-sm bg-green-100 text-green-700 px-3 py-1.5 rounded-lg hover:bg-green-200 font-bold border border-green-200"
+            title="Import tiêu chí từ file Excel"
+          >
+            <FileSpreadsheet size={15} /> Import Excel
           </button>
         </div>
       </div>
-
-      {isViolation ? (
-        <div className="bg-red-50 p-2 rounded text-xs text-red-800 mb-4 border border-red-100">
-          <strong>Format CSV:</strong> Hang_muc (Cá nhân/Tập thể), Loai_loi, Diem_tru <br/>
-          <em>VD: Cá nhân, Đi học muộn, 5</em>
-        </div>
-      ) : (
-        <div className="bg-green-50 p-2 rounded text-xs text-green-800 mb-4 border border-green-100">
-          <strong>Format CSV:</strong> Noi_dung, Diem_cong <br/>
-          <em>VD: Nhặt được của rơi, 20</em>
-        </div>
-      )}
 
       <div className="flex gap-2 mb-4 bg-slate-50 p-3 rounded-lg border border-slate-200">
         <input
@@ -138,7 +182,7 @@ const SettingsCriteriaTab: React.FC<Props> = ({ type }) => {
                   {isViolation ? `-${c.points}` : `+${c.points}`}
                 </td>
                 <td className="px-4 py-3 text-right">
-                  <button onClick={() => handleDeleteCriteria(c.id)} className="text-slate-400 hover:text-red-600"><Trash2 size={16}/></button>
+                  <button onClick={() => handleDeleteCriteria(c.id)} className="text-slate-400 hover:text-red-600"><Trash2 size={16} /></button>
                 </td>
               </tr>
             ))}

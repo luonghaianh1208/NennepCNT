@@ -1,18 +1,19 @@
 
 import React, { useState, useRef, useMemo } from 'react';
-import { AlertTriangle, Star, ChevronDown, Camera, X, CheckCircle2, Upload, Info, Loader2, StopCircle } from 'lucide-react';
+import { AlertTriangle, Star, ChevronDown, Camera, X, CheckCircle2, Loader2, StopCircle, FileSpreadsheet, Download } from 'lucide-react';
 import { Violation } from '../types';
 import { api } from '../services/googleApi';
-import { isDateInRange, parseCSVLine, removeVietnameseTones } from '../utils';
+import { isDateInRange, removeVietnameseTones, exportToExcel, getLocalDateString } from '../utils';
 import { useAppStore } from '../contexts/AppContext';
 import { useModal } from '../contexts/ModalContext';
+import * as XLSX from 'xlsx';
 
 const EntryTab: React.FC = () => {
   const { currentUser, classes, students, criteria, violations, setViolations, roleConfigs, users, createViolation, timeConfigs } = useAppStore();
   const { showConfirm, showAlert, showToast } = useModal();
 
   const [entryMode, setEntryMode] = useState<'VIOLATION' | 'ACHIEVEMENT'>('VIOLATION');
-  const [entryDate, setEntryDate] = useState(new Date().toISOString().slice(0, 10));
+  const [entryDate, setEntryDate] = useState(getLocalDateString());
   const [selectedGrade, setSelectedGrade] = useState<string>('');
   const [selectedClassId, setSelectedClassId] = useState('');
   const [selectedType, setSelectedType] = useState<'PERSONAL' | 'GROUP'>('PERSONAL');
@@ -20,20 +21,20 @@ const EntryTab: React.FC = () => {
   const [selectedCriteriaId, setSelectedCriteriaId] = useState('');
   const [isSecurityReport, setIsSecurityReport] = useState(false);
   const [entryNote, setEntryNote] = useState('');
-  
+
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [importProgress, setImportProgress] = useState<string>('');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const csvInputRef = useRef<HTMLInputElement>(null);
+  const excelInputRef = useRef<HTMLInputElement>(null);
   const abortImportRef = useRef<boolean>(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const isAdmin = useMemo(() => {
-     if (!roleConfigs) return currentUser.role === 'ADMIN';
-     const roleKey = currentUser.role.toUpperCase();
-     return roleConfigs[roleKey]?.isAdmin || false;
+    if (!roleConfigs) return currentUser.role === 'ADMIN';
+    const roleKey = currentUser.role.toUpperCase();
+    return roleConfigs[roleKey]?.isAdmin || false;
   }, [currentUser, roleConfigs]);
 
   const filteredClasses = useMemo(() => {
@@ -55,274 +56,350 @@ const EntryTab: React.FC = () => {
   };
 
   const handleCancelImport = async () => {
-      const ok = await showConfirm({ title: 'Hủy Import', message: 'Bạn có chắc muốn hủy? Dữ liệu đã xử lý trước đó vẫn được lưu.', type: 'confirm', confirmText: 'Hủy Import' });
-      if (ok) {
-          abortImportRef.current = true;
-      }
+    const ok = await showConfirm({ title: 'Hủy Import', message: 'Bạn có chắc muốn hủy? Dữ liệu đã xử lý trước đó vẫn được lưu.', type: 'confirm', confirmText: 'Hủy Import' });
+    if (ok) {
+      abortImportRef.current = true;
+    }
   };
 
-  const handleCSVImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // --- TẢI FILE EXCEL MẪU ---
+  const handleDownloadTemplate = () => {
+    if (entryMode === 'VIOLATION') {
+      const data = [
+        ['Ngay', 'Ten_Lop', 'Ten_HS', 'Noi_dung_loi', 'Ghi_chu', 'Link_anh', 'Nguoi_ghi'],
+        ['2026-03-20', '10A1', 'Nguyễn Văn A', 'Đi học muộn', '', '', 'admin'],
+        ['2026-03-20', '10A1', '', 'Không xếp hàng', 'Tập thể lớp', '', ''],
+      ];
+      exportToExcel(data, 'Mau_Import_VPham');
+    } else {
+      const data = [
+        ['Ngay', 'Ten_Lop', 'Ten_HS', 'Loai_thanh_tich', 'Ghi_chu'],
+        ['2026-03-20', '10A1', 'Trần Thị B', 'Học sinh tiêu biểu', ''],
+        ['2026-03-20', '10A1', '', 'Lớp xuất sắc tháng', 'Tập thể lớp'],
+      ];
+      exportToExcel(data, 'Mau_Import_ThanhTich');
+    }
+  };
+
+  // --- IMPORT TỪ EXCEL ---
+  const handleExcelImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Sinh ID duy nhất: check against existing violations
+    const existingIds = new Set(violations.map(v => v.id));
+
+    const generateUniqueId = (prefix: string, index: number): string => {
+      let id = `${prefix}${Date.now()}_${index}`;
+      // Nếu trùng (cực kỳ hiếm), thêm random
+      while (existingIds.has(id)) {
+        id = `${prefix}${Date.now()}_${index}_${Math.floor(Math.random() * 9999)}`;
+      }
+      existingIds.add(id); // Đánh dấu đã dùng trong lượt này
+      return id;
+    };
+
     const reader = new FileReader();
     reader.onload = async (event) => {
-      const text = event.target?.result as string;
-      const lines = text.split(/\r\n|\n/);
-      
-      const recordsToProcess: Violation[] = [];
-      
-      for (let i = 1; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (!line) continue;
-        const parts = parseCSVLine(line);
-        
-        if (entryMode === 'VIOLATION') {
-             if (parts.length >= 5) {
-                const [ngay, tenLop, tenHS, noiDungLoi, diemTruStr, ghiChu, linkAnh, nguoiGhi] = parts;
-                const targetClass = classes.find(c => c.name.toLowerCase() === tenLop.toLowerCase() || c.id.toLowerCase() === tenLop.toLowerCase());
-                
-                if (targetClass) {
-                    let targetStudentId: string | undefined = undefined;
-                    if (tenHS && tenHS.trim()) {
-                         const student = students.find(s => s.classId === targetClass.id && s.name.toLowerCase() === tenHS.toLowerCase().trim());
-                         targetStudentId = student ? student.id : undefined;
-                    }
+      try {
+        const data = new Uint8Array(event.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
 
-                    const foundCriteria = criteria.find(c => c.content.toLowerCase() === noiDungLoi.toLowerCase() && c.type === 'MINUS');
-                    const criteriaId = foundCriteria ? foundCriteria.id : `IMP_V_${Date.now()}_${i}`;
-                    
-                    const points = parseFloat(diemTruStr);
-                    const finalPoints = Math.abs(points);
-
-                    const imageList = linkAnh ? [linkAnh] : [];
-                    const noteContent = ghiChu ? ghiChu.trim() : '';
-                    
-                    let reporterId = currentUser.id;
-                    if (nguoiGhi) {
-                        const foundUser = users.find(u => 
-                            u.name.toLowerCase() === nguoiGhi.toLowerCase() || 
-                            u.username.toLowerCase() === nguoiGhi.toLowerCase()
-                        );
-                        if (foundUser) reporterId = foundUser.id;
-                    }
-
-                    recordsToProcess.push({
-                        id: `VCSV_V_${Date.now()}_${i}`,
-                        date: ngay || new Date().toISOString().slice(0, 10),
-                        classId: targetClass.id,
-                        studentId: targetStudentId,
-                        criteriaId: criteriaId,
-                        points: finalPoints,
-                        note: noteContent,
-                        reportedBy: reporterId, 
-                        isSecurityReport: false,
-                        timestamp: Date.now(),
-                        images: imageList
-                    });
-                }
-             }
-        } else {
-             if (parts.length >= 5) {
-                 const [ngay, tenLop, tenHS, loaiThanhTich, diemCongStr, ghiChu] = parts;
-                 
-                 const targetClass = classes.find(c => c.name.toLowerCase() === tenLop.toLowerCase() || c.id.toLowerCase() === tenLop.toLowerCase());
-
-                 if (targetClass) {
-                    let targetStudentId: string | undefined = undefined;
-                    if (tenHS && tenHS.trim()) {
-                         const student = students.find(s => s.classId === targetClass.id && s.name.toLowerCase() === tenHS.toLowerCase().trim());
-                         targetStudentId = student ? student.id : undefined;
-                    }
-
-                    const foundCriteria = criteria.find(c => c.content.toLowerCase() === loaiThanhTich.toLowerCase() && c.type === 'PLUS');
-                    const criteriaId = foundCriteria ? foundCriteria.id : `IMP_A_${Date.now()}_${i}`;
-                    
-                    let points = 0;
-                    if (diemCongStr) {
-                         points = parseFloat(diemCongStr);
-                    } else if (foundCriteria) {
-                         points = foundCriteria.points;
-                    }
-                    const finalPoints = -Math.abs(points);
-
-                    recordsToProcess.push({
-                        id: `VCSV_A_${Date.now()}_${i}`,
-                        date: ngay || new Date().toISOString().slice(0, 10),
-                        classId: targetClass.id,
-                        studentId: targetStudentId,
-                        criteriaId: criteriaId,
-                        points: finalPoints, 
-                        note: ghiChu ? ghiChu.trim() : '',
-                        reportedBy: currentUser.id,
-                        isSecurityReport: false,
-                        timestamp: Date.now(),
-                        images: []
-                    });
-                 }
-             }
-        }
-      }
-                     // --- Track successful records separately ---
-      const successfulRecords: Violation[] = [];
-
-      if (recordsToProcess.length === 0) {
-          await showAlert('Không có dữ liệu', 'Không tìm thấy dữ liệu hợp lệ trong file CSV hoặc sai định dạng cột.', 'error');
-          if (csvInputRef.current) csvInputRef.current.value = '';
+        if (rows.length < 2) {
+          await showAlert('File rỗng', 'File Excel không có dữ liệu (chỉ có header hoặc trống).', 'error');
+          if (excelInputRef.current) excelInputRef.current.value = '';
           return;
-      }
+        }
 
-      // ✅ Kiểm tra ngày ngoài config trước khi xác nhận
-      const outOfConfigCount = timeConfigs.length > 0
+        const recordsToProcess: Violation[] = [];
+
+        for (let i = 1; i < rows.length; i++) {
+          const row = rows[i];
+          // Bỏ qua dòng trống hoàn toàn
+          if (!row || row.every((cell: any) => cell === '' || cell === null || cell === undefined)) continue;
+
+          if (entryMode === 'VIOLATION') {
+            // Cột: Ngay | Ten_Lop | Ten_HS | Noi_dung_loi | Ghi_chu | Link_anh | Nguoi_ghi
+            const [ngayRaw, tenLop, tenHS, noiDungLoi, ghiChu, linkAnh, nguoiGhi] = row;
+
+            // Chuẩn hoá ngày: có thể là Date object (XLSX cellDates:true) hoặc string
+            let ngay: string;
+            if (ngayRaw instanceof Date) {
+              const y = ngayRaw.getFullYear();
+              const m = String(ngayRaw.getMonth() + 1).padStart(2, '0');
+              const d = String(ngayRaw.getDate()).padStart(2, '0');
+              ngay = `${y}-${m}-${d}`;
+            } else {
+              ngay = String(ngayRaw || '').trim() || getLocalDateString();
+            }
+
+            const targetClass = classes.find(c =>
+              c.name.toLowerCase() === String(tenLop).toLowerCase().trim() ||
+              c.id.toLowerCase() === String(tenLop).toLowerCase().trim()
+            );
+            if (!targetClass) continue;
+
+            let targetStudentId: string | undefined = undefined;
+            if (tenHS && String(tenHS).trim()) {
+              const student = students.find(s =>
+                s.classId === targetClass.id &&
+                s.name.toLowerCase() === String(tenHS).toLowerCase().trim()
+              );
+              targetStudentId = student?.id;
+            }
+
+            const foundCriteria = criteria.find(c =>
+              c.content.toLowerCase() === String(noiDungLoi).toLowerCase().trim() &&
+              c.type === 'MINUS'
+            );
+            if (!foundCriteria) continue; // Bỏ qua nếu không tìm thấy tiêu chí hợp lệ
+
+            let reporterId = currentUser.id;
+            const nguoiGhiStr = String(nguoiGhi || '').trim();
+            if (nguoiGhiStr) {
+              const foundUser = users.find(u =>
+                u.name.toLowerCase() === nguoiGhiStr.toLowerCase() ||
+                u.username.toLowerCase() === nguoiGhiStr.toLowerCase()
+              );
+              if (foundUser) reporterId = foundUser.id;
+            }
+
+            const imageList = linkAnh && String(linkAnh).trim() ? [String(linkAnh).trim()] : [];
+
+            recordsToProcess.push({
+              id: generateUniqueId('V', i),
+              date: ngay,
+              classId: targetClass.id,
+              studentId: targetStudentId,
+              criteriaId: foundCriteria.id,
+              points: Math.abs(foundCriteria.points),
+              note: String(ghiChu || '').trim(),
+              reportedBy: reporterId,
+              isSecurityReport: false,
+              timestamp: Date.now(),
+              images: imageList,
+            });
+
+          } else {
+            // Cột: Ngay | Ten_Lop | Ten_HS | Loai_thanh_tich | Ghi_chu
+            const [ngayRaw, tenLop, tenHS, loaiThanhTich, ghiChu] = row;
+
+            let ngay: string;
+            if (ngayRaw instanceof Date) {
+              const y = ngayRaw.getFullYear();
+              const m = String(ngayRaw.getMonth() + 1).padStart(2, '0');
+              const d = String(ngayRaw.getDate()).padStart(2, '0');
+              ngay = `${y}-${m}-${d}`;
+            } else {
+              ngay = String(ngayRaw || '').trim() || getLocalDateString();
+            }
+
+            const targetClass = classes.find(c =>
+              c.name.toLowerCase() === String(tenLop).toLowerCase().trim() ||
+              c.id.toLowerCase() === String(tenLop).toLowerCase().trim()
+            );
+            if (!targetClass) continue;
+
+            let targetStudentId: string | undefined = undefined;
+            if (tenHS && String(tenHS).trim()) {
+              const student = students.find(s =>
+                s.classId === targetClass.id &&
+                s.name.toLowerCase() === String(tenHS).toLowerCase().trim()
+              );
+              targetStudentId = student?.id;
+            }
+
+            const foundCriteria = criteria.find(c =>
+              c.content.toLowerCase() === String(loaiThanhTich).toLowerCase().trim() &&
+              c.type === 'PLUS'
+            );
+            if (!foundCriteria) continue;
+
+            recordsToProcess.push({
+              id: generateUniqueId('A', i),
+              date: ngay,
+              classId: targetClass.id,
+              studentId: targetStudentId,
+              criteriaId: foundCriteria.id,
+              points: -Math.abs(foundCriteria.points),
+              note: String(ghiChu || '').trim(),
+              reportedBy: currentUser.id,
+              isSecurityReport: false,
+              timestamp: Date.now(),
+              images: [],
+            });
+          }
+        }
+
+        if (recordsToProcess.length === 0) {
+          await showAlert('Không có dữ liệu hợp lệ', 'Không tìm thấy dòng nào hợp lệ. Hãy kiểm tra lại tên lớp, tên học sinh và nội dung lỗi phải khớp với dữ liệu trong hệ thống.', 'error');
+          if (excelInputRef.current) excelInputRef.current.value = '';
+          return;
+        }
+
+        const outOfConfigCount = timeConfigs.length > 0
           ? recordsToProcess.filter(r => !timeConfigs.some(cfg => isDateInRange(r.date, cfg.startDate, cfg.endDate))).length
           : 0;
-      const warningNote = outOfConfigCount > 0
-          ? `\n\n⚠️ Cảnh báo: ${outOfConfigCount}/${recordsToProcess.length} dòng có ngày vi phạm nằm ngoài tất cả cấu hình thời gian. Các dữ liệu này sẽ không xuất hiện trong bộ lọc tuần/tháng/học kỳ.`
+        const warningNote = outOfConfigCount > 0
+          ? `\n\n⚠️ Cảnh báo: ${outOfConfigCount}/${recordsToProcess.length} dòng có ngày nằm ngoài cấu hình thời gian.`
           : '';
 
-      const confirmed = await showConfirm({ title: 'Xác nhận Import', message: `Tìm thấy ${recordsToProcess.length} dòng hợp lệ.${warningNote}\n\nBắt đầu lưu vào hệ thống?`, confirmText: 'Import' });
-      if (!confirmed) {
-          if (csvInputRef.current) csvInputRef.current.value = '';
+        const confirmed = await showConfirm({
+          title: 'Xác nhận Import',
+          message: `Tìm thấy ${recordsToProcess.length} dòng hợp lệ.${warningNote}\n\nBắt đầu lưu vào hệ thống?`,
+          confirmText: 'Import',
+        });
+        if (!confirmed) {
+          if (excelInputRef.current) excelInputRef.current.value = '';
           return;
-      }
+        }
 
-      setIsSubmitting(true);
-      abortImportRef.current = false;
-      let successCount = 0;
-      let errorCount = 0;
+        setIsSubmitting(true);
+        abortImportRef.current = false;
+        let successCount = 0;
+        let errorCount = 0;
+        const successfulRecords: Violation[] = [];
 
-      for (let i = 0; i < recordsToProcess.length; i++) {
+        for (let i = 0; i < recordsToProcess.length; i++) {
           if (abortImportRef.current) {
-              setImportProgress('Rð Import đã hủy!');
-              break;
+            setImportProgress('🛑 Import đã hủy!');
+            break;
           }
-
           setImportProgress(`Đang xử lý ${i + 1}/${recordsToProcess.length}...`);
           try {
-              await api.createViolation(recordsToProcess[i]);
-              successfulRecords.push(recordsToProcess[i]); // ✅ chỉ push khi thành công
-              successCount++;
-              await new Promise(resolve => setTimeout(resolve, 50));
+            await api.createViolation(recordsToProcess[i]);
+            successfulRecords.push(recordsToProcess[i]);
+            successCount++;
+            await new Promise(resolve => setTimeout(resolve, 50));
           } catch (err) {
-              console.error(err);
-              errorCount++;
+            console.error(err);
+            errorCount++;
           }
-      }
+        }
 
-      // ✅ Chỉ thêm records thành công vào state
-      if (successfulRecords.length > 0) {
+        if (successfulRecords.length > 0) {
           setViolations(prev => [...successfulRecords, ...prev]);
+        }
+
+        setIsSubmitting(false);
+        setImportProgress('');
+
+        if (abortImportRef.current) {
+          await showAlert('Import bị hủy', `Đã lưu: ${successCount}\nLỗi: ${errorCount}\nChưa xử lý: ${recordsToProcess.length - (successCount + errorCount)}`, 'info');
+        } else {
+          await showAlert(
+            successCount > 0 ? 'Import Thành Công' : 'Import Thất Bại',
+            `Thành công: ${successCount}\nLỗi: ${errorCount}`,
+            successCount > 0 ? 'success' : 'error'
+          );
+        }
+      } catch (err) {
+        setIsSubmitting(false);
+        setImportProgress('');
+        await showAlert('Lỗi đọc file', 'Không thể đọc file Excel. Hãy chắc chắn file đúng định dạng .xlsx/.xls.', 'error');
       }
 
-      setIsSubmitting(false);
-      setImportProgress('');
-
-      if (abortImportRef.current) {
-          await showAlert('Import bị hủy', `Đã lưu thành công: ${successCount}\nLỗi: ${errorCount}\nCòn lại chưa xử lý: ${recordsToProcess.length - (successCount + errorCount)}`, 'info');
-      } else {
-          await showAlert(successCount > 0 ? 'Import Thành Công' : 'Import Thất Bại', `Thành công: ${successCount}\nLỗi: ${errorCount}`, successCount > 0 ? 'success' : 'error');
-      }
-
-      if (csvInputRef.current) csvInputRef.current.value = '';
+      if (excelInputRef.current) excelInputRef.current.value = '';
     };
-    reader.readAsText(file);
+    reader.readAsArrayBuffer(file);
   };
 
   const handleSubmitViolation = async () => {
     if (!selectedClassId || !selectedCriteriaId) return showAlert('Thiếu thông tin', 'Vui lòng chọn lớp và nội dung', 'error');
     if (selectedType === 'PERSONAL' && !selectedStudentId) return showAlert('Thiếu thông tin', 'Vui lòng chọn học sinh', 'error');
-    
+
     if (entryMode === 'VIOLATION' && !previewImage) {
-        return showAlert('Thiếu ảnh', 'Bắt buộc phải có ảnh minh họa/bằng chứng cho lỗi vi phạm.', 'error');
+      return showAlert('Thiếu ảnh', 'Bắt buộc phải có ảnh minh họa/bằng chứng cho lỗi vi phạm.', 'error');
     }
 
     setIsSubmitting(true);
 
     try {
-        const criteriaItem = criteria.find(c => c.id === selectedCriteriaId);
-        let finalPoints = criteriaItem ? criteriaItem.points : 0;
-        if (criteriaItem?.type === 'PLUS') finalPoints = -Math.abs(finalPoints);
-        else finalPoints = Math.abs(finalPoints);
-        
-        const selectedClass = classes.find(c => c.id === selectedClassId);
-        const selectedStudent = students.find(s => s.id === selectedStudentId);
+      const criteriaItem = criteria.find(c => c.id === selectedCriteriaId);
+      let finalPoints = criteriaItem ? criteriaItem.points : 0;
+      if (criteriaItem?.type === 'PLUS') finalPoints = -Math.abs(finalPoints);
+      else finalPoints = Math.abs(finalPoints);
 
-        let imageUrls: string[] = [];
-        if (previewImage) {
-            const safeStudentName = selectedStudent ? removeVietnameseTones(selectedStudent.name) : 'TapThe';
-            const safeClassName = selectedClass ? removeVietnameseTones(selectedClass.name) : selectedClassId;
-            const safeViolation = criteriaItem ? removeVietnameseTones(criteriaItem.content) : 'LoiViPham';
+      const selectedClass = classes.find(c => c.id === selectedClassId);
+      const selectedStudent = students.find(s => s.id === selectedStudentId);
 
-            const fileNameInfo = {
-                studentName: safeStudentName,
-                className: safeClassName,
-                violation: safeViolation,
-                date: entryDate
-            };
-            const uploadRes = await api.uploadImage(previewImage, fileNameInfo);
-            if (uploadRes.status === 'success') {
-                imageUrls.push(uploadRes.url);
-            } else {
-                showToast('Lỗi upload ảnh: ' + uploadRes.message, 'error');
-                setIsSubmitting(false);
-                return;
-            }
-        }
+      let imageUrls: string[] = [];
+      if (previewImage) {
+        const safeStudentName = selectedStudent ? removeVietnameseTones(selectedStudent.name) : 'TapThe';
+        const safeClassName = selectedClass ? removeVietnameseTones(selectedClass.name) : selectedClassId;
+        const safeViolation = criteriaItem ? removeVietnameseTones(criteriaItem.content) : 'LoiViPham';
 
-        const newViolation: Violation = {
-          id: `V${Date.now()}`,
-          date: entryDate,
-          classId: selectedClassId,
-          studentId: selectedType === 'PERSONAL' ? selectedStudentId : undefined,
-          criteriaId: selectedCriteriaId,
-          points: finalPoints,
-          note: entryNote,
-          images: imageUrls,
-          reportedBy: currentUser.id,
-          isSecurityReport,
-          timestamp: Date.now()
+        const fileNameInfo = {
+          studentName: safeStudentName,
+          className: safeClassName,
+          violation: safeViolation,
+          date: entryDate
         };
-
-        await createViolation(newViolation);
-        // Cảnh báo nếu ngày vi phạm nằm ngoài tất cả timeConfig
-        const inAnyConfig = timeConfigs.some(cfg => isDateInRange(entryDate, cfg.startDate, cfg.endDate));
-        if (!inAnyConfig && timeConfigs.length > 0) {
-            showToast('⚠️ Ngày vi phạm nằm ngoài tất cả cấu hình thời gian — sẽ không xuất hiện trong bộ lọc tuần/tháng/học kỳ.', 'info');
+        const uploadRes = await api.uploadImage(previewImage, fileNameInfo);
+        if (uploadRes.status === 'success') {
+          imageUrls.push(uploadRes.url);
+        } else {
+          showToast('Lỗi upload ảnh: ' + uploadRes.message, 'error');
+          setIsSubmitting(false);
+          return;
         }
-        setShowSuccessModal(true);
-        
-        setSelectedStudentId('');
-        setSelectedCriteriaId('');
-        setEntryNote('');
-        setPreviewImage(null);
-        if (fileInputRef.current) fileInputRef.current.value = '';
-        setTimeout(() => setShowSuccessModal(false), 2000);
+      }
+
+      const newViolation: Violation = {
+        id: `V${Date.now()}`,
+        date: entryDate,
+        classId: selectedClassId,
+        studentId: selectedType === 'PERSONAL' ? selectedStudentId : undefined,
+        criteriaId: selectedCriteriaId,
+        points: finalPoints,
+        note: entryNote,
+        images: imageUrls,
+        reportedBy: currentUser.id,
+        isSecurityReport,
+        timestamp: Date.now()
+      };
+
+      await createViolation(newViolation);
+      const inAnyConfig = timeConfigs.some(cfg => isDateInRange(entryDate, cfg.startDate, cfg.endDate));
+      if (!inAnyConfig && timeConfigs.length > 0) {
+        showToast('⚠️ Ngày vi phạm nằm ngoài tất cả cấu hình thời gian — sẽ không xuất hiện trong bộ lọc tuần/tháng/học kỳ.', 'info');
+      }
+      setShowSuccessModal(true);
+
+      setSelectedStudentId('');
+      setSelectedCriteriaId('');
+      setEntryNote('');
+      setPreviewImage(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      setTimeout(() => setShowSuccessModal(false), 2000);
 
     } catch (error) {
-        showToast('Có lỗi xảy ra khi lưu dữ liệu.', 'error');
-        console.error(error);
+      showToast('Có lỗi xảy ra khi lưu dữ liệu.', 'error');
+      console.error(error);
     } finally {
-        setIsSubmitting(false);
+      setIsSubmitting(false);
     }
   };
 
   return (
     <div className="space-y-6 max-w-lg mx-auto pb-24 relative">
       {isSubmitting && importProgress && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-              <div className="bg-white p-6 rounded-xl flex flex-col items-center shadow-2xl border border-slate-200 w-80">
-                  <Loader2 className="animate-spin text-blue-600 mb-4" size={40} />
-                  <div className="font-bold text-slate-800 text-lg mb-1">Đang xử lý...</div>
-                  <div className="text-sm text-slate-500 mb-6 text-center">{importProgress}</div>
-                  
-                  <button 
-                    onClick={handleCancelImport}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-red-50 text-red-600 border border-red-200 rounded-full font-bold hover:bg-red-100 transition-colors"
-                  >
-                     <StopCircle size={18} /> Hủy Import
-                  </button>
-              </div>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-white p-6 rounded-xl flex flex-col items-center shadow-2xl border border-slate-200 w-80">
+            <Loader2 className="animate-spin text-blue-600 mb-4" size={40} />
+            <div className="font-bold text-slate-800 text-lg mb-1">Đang xử lý...</div>
+            <div className="text-sm text-slate-500 mb-6 text-center">{importProgress}</div>
+
+            <button
+              onClick={handleCancelImport}
+              className="flex items-center gap-2 px-5 py-2.5 bg-red-50 text-red-600 border border-red-200 rounded-full font-bold hover:bg-red-100 transition-colors"
+            >
+              <StopCircle size={18} /> Hủy Import
+            </button>
           </div>
+        </div>
       )}
 
       {showSuccessModal && (
@@ -338,59 +415,47 @@ const EntryTab: React.FC = () => {
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="px-4 py-3 border-b border-slate-100 font-semibold text-slate-700 bg-slate-50/50 flex justify-between items-center">
-            <span>{entryMode === 'VIOLATION' ? 'Nhập Lỗi Vi Phạm' : 'Nhập Điểm Thành Tích'}</span>
-            {isAdmin && (
-                <div>
-                    <input type="file" ref={csvInputRef} onChange={handleCSVImport} accept=".csv" className="hidden" />
-                    <button 
-                        onClick={() => csvInputRef.current?.click()}
-                        disabled={isSubmitting}
-                        className="text-xs flex items-center gap-1 bg-green-100 text-green-700 px-2 py-1 rounded hover:bg-green-200 font-bold border border-green-200 disabled:opacity-50"
-                    >
-                        <Upload size={14} /> Import CSV
-                    </button>
-                </div>
-            )}
+          <span>{entryMode === 'VIOLATION' ? 'Nhập Lỗi Vi Phạm' : 'Nhập Điểm Thành Tích'}</span>
+          {isAdmin && (
+            <div className="flex items-center gap-2">
+              {/* Nút tải Excel mẫu */}
+              <button
+                onClick={handleDownloadTemplate}
+                disabled={isSubmitting}
+                className="text-xs flex items-center gap-1 bg-blue-50 text-blue-700 px-2 py-1 rounded hover:bg-blue-100 font-bold border border-blue-200 disabled:opacity-50"
+                title="Tải file Excel mẫu để điền dữ liệu"
+              >
+                <Download size={13} /> Tải mẫu
+              </button>
+              {/* Nút Import Excel */}
+              <input type="file" ref={excelInputRef} onChange={handleExcelImport} accept=".xlsx,.xls" className="hidden" />
+              <button
+                onClick={() => excelInputRef.current?.click()}
+                disabled={isSubmitting}
+                className="text-xs flex items-center gap-1 bg-green-100 text-green-700 px-2 py-1 rounded hover:bg-green-200 font-bold border border-green-200 disabled:opacity-50"
+                title="Import dữ liệu từ file Excel"
+              >
+                <FileSpreadsheet size={13} /> Import Excel
+              </button>
+            </div>
+          )}
         </div>
         <div className="p-4 space-y-4">
           {isAdmin && (
             <div className="flex bg-slate-100 p-1 rounded-lg mb-4">
-               <button
-                 onClick={() => { setEntryMode('VIOLATION'); setPreviewImage(null); }}
-                 className={`flex-1 py-2 rounded-md text-sm font-bold flex items-center justify-center gap-2 transition-all ${entryMode === 'VIOLATION' ? 'bg-white shadow text-red-600' : 'text-slate-500'}`}
-               >
-                 <AlertTriangle size={16} /> Nhập Vi Phạm
-               </button>
-               <button
-                 onClick={() => { setEntryMode('ACHIEVEMENT'); setPreviewImage(null); }}
-                 className={`flex-1 py-2 rounded-md text-sm font-bold flex items-center justify-center gap-2 transition-all ${entryMode === 'ACHIEVEMENT' ? 'bg-white shadow text-green-600' : 'text-slate-500'}`}
-               >
-                 <Star size={16} /> Nhập Thành Tích
-               </button>
+              <button
+                onClick={() => { setEntryMode('VIOLATION'); setPreviewImage(null); }}
+                className={`flex-1 py-2 rounded-md text-sm font-bold flex items-center justify-center gap-2 transition-all ${entryMode === 'VIOLATION' ? 'bg-white shadow text-red-600' : 'text-slate-500'}`}
+              >
+                <AlertTriangle size={16} /> Nhập Vi Phạm
+              </button>
+              <button
+                onClick={() => { setEntryMode('ACHIEVEMENT'); setPreviewImage(null); }}
+                className={`flex-1 py-2 rounded-md text-sm font-bold flex items-center justify-center gap-2 transition-all ${entryMode === 'ACHIEVEMENT' ? 'bg-white shadow text-green-600' : 'text-slate-500'}`}
+              >
+                <Star size={16} /> Nhập Thành Tích
+              </button>
             </div>
-          )}
-          
-          {isAdmin && (
-             <div className="bg-blue-50 p-3 rounded-lg text-xs text-blue-800 flex items-start gap-2 mb-2 border border-blue-100">
-                <Info size={16} className="shrink-0 mt-0.5" />
-                {entryMode === 'VIOLATION' ? (
-                   <div className="space-y-1">
-                      <strong>Cấu trúc CSV Vi Phạm (9 cột):</strong>
-                      <div className="font-mono bg-blue-100/50 p-1 rounded break-all">
-                        Ngay_vi_pham, Lop_vi_pham, HS_vi_pham, Loi_vi_pham, Diem_tru, Ghi_chu, Link_anh, Nguoi_ghi_loi, Role_nguoi_ghi_loi
-                      </div>
-                      <em>HS_vi_pham để trống nếu là tập thể.</em>
-                   </div>
-                ) : (
-                   <div className="space-y-1">
-                      <strong>Cấu trúc CSV Thành Tích (6 cột):</strong>
-                      <div className="font-mono bg-blue-100/50 p-1 rounded break-all">
-                        Ngay, Ten_Lop, HS_dat_thanh_tich, Loai_thanh_tich, Diem_cong, Ghi_chu
-                      </div>
-                      <em>HS_dat_thanh_tich để trống nếu là tập thể.</em>
-                   </div>
-                )}
-             </div>
           )}
 
           <div>
@@ -421,7 +486,7 @@ const EntryTab: React.FC = () => {
               </div>
             </div>
           </div>
-          
+
           <div className="flex rounded-lg bg-slate-100 p-1">
             <button className={`flex-1 py-2 rounded-md text-sm font-medium transition-all ${selectedType === 'PERSONAL' ? 'bg-white shadow text-blue-700' : 'text-slate-500'}`} onClick={() => setSelectedType('PERSONAL')}>Cá nhân</button>
             <button className={`flex-1 py-2 rounded-md text-sm font-medium transition-all ${selectedType === 'GROUP' ? 'bg-white shadow text-blue-700' : 'text-slate-500'}`} onClick={() => setSelectedType('GROUP')}>Tập thể</button>
@@ -452,7 +517,7 @@ const EntryTab: React.FC = () => {
                 <Camera size={18} />
                 <span>{previewImage ? 'Đổi ảnh khác' : (entryMode === 'VIOLATION' ? 'Chụp/Tải ảnh (Bắt buộc)' : 'Chụp/Tải ảnh (Không bắt buộc)')}</span>
               </button>
-              
+
               {entryMode === 'VIOLATION' && (
                 <label className="flex items-center gap-2 cursor-pointer select-none">
                   <input type="checkbox" className="w-5 h-5 rounded text-blue-600 focus:ring-blue-500" checked={isSecurityReport} onChange={(e) => setIsSecurityReport(e.target.checked)} />
@@ -469,15 +534,15 @@ const EntryTab: React.FC = () => {
               </div>
             )}
           </div>
-          
+
           <textarea placeholder="Ghi chú thêm..." className="w-full p-3 rounded-lg border border-slate-300 text-sm" rows={3} value={entryNote} onChange={(e) => setEntryNote(e.target.value)}></textarea>
-          
-          <button 
+
+          <button
             disabled={isSubmitting}
-            onClick={handleSubmitViolation} 
+            onClick={handleSubmitViolation}
             className={`w-full text-white font-bold py-3.5 rounded-xl shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${entryMode === 'VIOLATION' ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'}`}
           >
-            {isSubmitting ? <Loader2 className="animate-spin" /> : <CheckCircle2 />} 
+            {isSubmitting ? <Loader2 className="animate-spin" /> : <CheckCircle2 />}
             {isSubmitting ? 'Đang lưu...' : (entryMode === 'VIOLATION' ? 'Lưu Vi Phạm' : 'Lưu Thành Tích')}
           </button>
         </div>

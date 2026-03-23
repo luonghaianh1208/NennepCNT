@@ -128,8 +128,7 @@ export default function App() {
             localStorage.setItem('nnp_user_creds', btoa(`${loginUsername}:${loginPassword}`));
         } else {
             localStorage.removeItem('nnp_user_creds');
-        localStorage.removeItem('nnp_user_session');
-            // Không rememberMe → xóa cả session khi đăng xuất
+            // Không rememberMe → KHÔNG xóa session (_session luôn tồn tại trong tab hiện tại)
         }
         
         setLoginUsername('');
