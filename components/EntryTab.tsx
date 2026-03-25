@@ -7,6 +7,8 @@ import { isDateInRange, removeVietnameseTones, exportToExcel, getLocalDateString
 import { useAppStore } from '../contexts/AppContext';
 import { useModal } from '../contexts/ModalContext';
 import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
 
 interface EntryTabProps {
   onNavigateToCriteria?: (mode: 'VIOLATION' | 'ACHIEVEMENT') => void;
@@ -85,106 +87,100 @@ const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
     }
   };
 
-  // --- TẢI FILE EXCEL MẪU (tiêu chí thực + 100 dòng + dropdown) ---
-  const handleDownloadTemplate = () => {
+  // --- TẢI FILE EXCEL MẪU (ExcelJS: tiêu chí thực + 100 dòng + dropdown validation thực) ---
+  const handleDownloadTemplate = async () => {
     const today = getLocalDateString();
     const sampleClass = classes[0]?.name || '10A1';
     const sampleStudent = students.find(s => s.classId === classes[0]?.id)?.name || 'Nguyễn Văn A';
-    const TEMPLATE_ROWS = 100; // số dòng trống muốn tạo
+    const TEMPLATE_ROWS = 100;
 
-    if (entryMode === 'VIOLATION') {
-      const minusCriteria = criteria.filter(c => c.type === 'MINUS');
-      const criteriaLastRow = minusCriteria.length + 1; // +1 vì có header ở row 1
+    const isViolation = entryMode === 'VIOLATION';
+    const filteredCriteria = criteria.filter(c => c.type === (isViolation ? 'MINUS' : 'PLUS'));
+    const criteriaEndRow = filteredCriteria.length + 1; // +1 for header
+    const fileName = isViolation ? 'Mau_Import_VPham.xlsx' : 'Mau_Import_ThanhTich.xlsx';
+    const colDHeader = isViolation ? 'Noi_dung_loi' : 'Loai_thanh_tich';
+    const headers = isViolation
+      ? ['Ngay', 'Ten_Lop', 'Ten_HS', 'Noi_dung_loi', 'Ghi_chu', 'Link_anh', 'Nguoi_ghi']
+      : ['Ngay', 'Ten_Lop', 'Ten_HS', 'Loai_thanh_tich', 'Ghi_chu'];
+    const sheet2Header = isViolation
+      ? ['Tên lỗi vi phạm', 'Điểm trừ']
+      : ['Tên thành tích', 'Điểm cộng'];
 
-      // Sheet 1: header + 3 dòng ví dụ thực + ~100 dòng trống
-      const exampleRows = minusCriteria.slice(0, 3).map((c, idx) => [
-        today, sampleClass, idx % 2 === 0 ? sampleStudent : '', c.content, `Ghi chú: ${c.content}`, '', '',
-      ]);
-      const blankRows: any[][] = Array.from({ length: TEMPLATE_ROWS }, () => ['', '', '', '', '', '', '']);
-      const sheet1Data: any[][] = [
-        ['Ngay', 'Ten_Lop', 'Ten_HS', 'Noi_dung_loi', 'Ghi_chu', 'Link_anh', 'Nguoi_ghi'],
-        ...(exampleRows.length > 0 ? exampleRows : [[today, sampleClass, sampleStudent, '', '', '', '']]),
-        ...blankRows,
-      ];
+    const wb = new ExcelJS.Workbook();
 
-      // Sheet 2: danh sách tiêu chí vi phạm
-      const sheet2Data: any[][] = [
-        ['Tên lỗi vi phạm', 'Điểm trừ'],
-        ...minusCriteria.map(c => [c.content, c.points]),
-      ];
+    // ── SHEET 2: Danh sách tiêu chí ──────────────────────────────────
+    const ws2 = wb.addWorksheet('Danh_sach_tieu_chi');
+    ws2.addRow(sheet2Header);
+    ws2.getRow(1).font = { bold: true };
+    ws2.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
+    ws2.getColumn(1).width = 40;
+    ws2.getColumn(2).width = 12;
+    filteredCriteria.forEach(c => ws2.addRow([c.content, c.points]));
 
-      const wb = XLSX.utils.book_new();
-      const ws1 = XLSX.utils.aoa_to_sheet(sheet1Data);
-      const ws2 = XLSX.utils.aoa_to_sheet(sheet2Data);
+    // ── SHEET 1: Dữ liệu nhập ────────────────────────────────────────
+    const ws1 = wb.addWorksheet('Du_lieu_nhap');
+    ws1.addRow(headers);
+    const headerRow = ws1.getRow(1);
+    headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
+    headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
 
-      // Cột D (index 3) = Noi_dung_loi → dropdown từ Sheet 2 cột A
-      if (minusCriteria.length > 0) {
-        (ws1 as any)['!dataValidations'] = [{
-          sqref: `D2:D${sheet1Data.length}`,
-          type: 'list',
-          formula1: `Danh_sach_tieu_chi!$A$2:$A$${criteriaLastRow}`,
-          showDropDown: false,
-          allowBlank: true,
-          showErrorMessage: true,
-          errorTitle: 'Nội dung không hợp lệ',
-          error: 'Vui lòng chọn từ danh sách hoặc nhập gần đúng.',
-          showInputMessage: true,
-          promptTitle: 'Nội dung lỗi',
-          prompt: 'Chọn từ danh sách hoặc nhập gần đúng tên lỗi.',
-        }];
-      }
-
-      XLSX.utils.book_append_sheet(wb, ws1, 'Du_lieu_nhap');
-      XLSX.utils.book_append_sheet(wb, ws2, 'Danh_sach_tieu_chi');
-      XLSX.writeFile(wb, 'Mau_Import_VPham.xlsx');
-
-    } else {
-      const plusCriteria = criteria.filter(c => c.type === 'PLUS');
-      const criteriaLastRow = plusCriteria.length + 1;
-
-      // Sheet 1: header + 3 dòng ví dụ thực + ~100 dòng trống
-      const exampleRows = plusCriteria.slice(0, 3).map((c, idx) => [
-        today, sampleClass, idx % 2 === 0 ? sampleStudent : '', c.content, `Ghi chú: ${c.content}`,
-      ]);
-      const blankRows: any[][] = Array.from({ length: TEMPLATE_ROWS }, () => ['', '', '', '', '']);
-      const sheet1Data: any[][] = [
-        ['Ngay', 'Ten_Lop', 'Ten_HS', 'Loai_thanh_tich', 'Ghi_chu'],
-        ...(exampleRows.length > 0 ? exampleRows : [[today, sampleClass, sampleStudent, '', '']]),
-        ...blankRows,
-      ];
-
-      // Sheet 2: danh sách tiêu chí thành tích
-      const sheet2Data: any[][] = [
-        ['Tên thành tích', 'Điểm cộng'],
-        ...plusCriteria.map(c => [c.content, c.points]),
-      ];
-
-      const wb = XLSX.utils.book_new();
-      const ws1 = XLSX.utils.aoa_to_sheet(sheet1Data);
-      const ws2 = XLSX.utils.aoa_to_sheet(sheet2Data);
-
-      // Cột D (index 3) = Loai_thanh_tich → dropdown từ Sheet 2 cột A
-      if (plusCriteria.length > 0) {
-        (ws1 as any)['!dataValidations'] = [{
-          sqref: `D2:D${sheet1Data.length}`,
-          type: 'list',
-          formula1: `Danh_sach_tieu_chi!$A$2:$A$${criteriaLastRow}`,
-          showDropDown: false,
-          allowBlank: true,
-          showErrorMessage: true,
-          errorTitle: 'Loại thành tích không hợp lệ',
-          error: 'Vui lòng chọn từ danh sách hoặc nhập gần đúng.',
-          showInputMessage: true,
-          promptTitle: 'Loại thành tích',
-          prompt: 'Chọn từ danh sách hoặc nhập gần đúng tên thành tích.',
-        }];
-      }
-
-      XLSX.utils.book_append_sheet(wb, ws1, 'Du_lieu_nhap');
-      XLSX.utils.book_append_sheet(wb, ws2, 'Danh_sach_tieu_chi');
-      XLSX.writeFile(wb, 'Mau_Import_ThanhTich.xlsx');
+    // Độ rộng cột
+    ws1.getColumn(1).width = 14; // Ngay
+    ws1.getColumn(2).width = 10; // Ten_Lop
+    ws1.getColumn(3).width = 22; // Ten_HS
+    ws1.getColumn(4).width = 36; // Loai_thanh_tich / Noi_dung_loi
+    ws1.getColumn(5).width = 32; // Ghi_chu
+    if (isViolation) {
+      ws1.getColumn(6).width = 30; // Link_anh
+      ws1.getColumn(7).width = 14; // Nguoi_ghi
     }
+
+    // 3 dòng ví dụ từ tiêu chí thực
+    const exampleCriteria = filteredCriteria.slice(0, 3);
+    if (exampleCriteria.length > 0) {
+      exampleCriteria.forEach((c, idx) => {
+        const rowData = isViolation
+          ? [today, sampleClass, idx % 2 === 0 ? sampleStudent : '', c.content, `Ghi chú: ${c.content}`, '', '']
+          : [today, sampleClass, idx % 2 === 0 ? sampleStudent : '', c.content, `Ghi chú: ${c.content}`];
+        const row = ws1.addRow(rowData);
+        row.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEBF3E8' } };
+        row.getCell(4).font = { italic: true, color: { argb: 'FF375623' } };
+      });
+    }
+
+    // 100 dòng trống
+    const totalDataRows = ws1.rowCount; // sau header + examples
+    const lastRow = totalDataRows + TEMPLATE_ROWS;
+    for (let i = totalDataRows + 1; i <= lastRow; i++) {
+      ws1.addRow(isViolation ? ['', '', '', '', '', '', ''] : ['', '', '', '', '']);
+    }
+
+    // ── DATA VALIDATION: dropdown cột D (row 2 → lastRow+1) ──────────
+    if (filteredCriteria.length > 0) {
+      const validationRange = `D2:D${lastRow + 1}`;
+      (ws1 as any).dataValidations.add(validationRange, {
+        type: 'list',
+        allowBlank: true,
+        formulae: [`Danh_sach_tieu_chi!$A$2:$A$${criteriaEndRow}`],
+        showErrorMessage: true,
+        errorStyle: 'warning',
+        errorTitle: isViolation ? 'Nội dung lỗi' : 'Loại thành tích',
+        error: 'Nên chọn từ danh sách. Hệ thống vẫn nhận nếu nhập gần đúng.',
+        showInputMessage: true,
+        promptTitle: isViolation ? 'Nội dung lỗi vi phạm' : 'Loại thành tích',
+        prompt: `Chọn từ danh sách hoặc nhập gần đúng. Xem toàn bộ tiêu chí ở Sheet "Danh_sach_tieu_chi".`,
+      });
+    }
+
+    // Freeze header row
+    ws1.views = [{ state: 'frozen', ySplit: 1 }];
+
+    // Xuất file
+    const buffer = await wb.xlsx.writeBuffer();
+    saveAs(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), fileName);
   };
+
 
   // --- IMPORT TỪ EXCEL (Fuzzy Match + Preview) ---
   const handleExcelImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
