@@ -368,6 +368,59 @@ export const matchVietnamese = (a: string, b: string): boolean => {
   return clean(a) === clean(b) || strip(a) === strip(b);
 };
 
+/**
+ * Tính độ tương đồng giữa 2 chuỗi tiếng Việt (0–100).
+ * Dùng thuật toán Bigram Sørensen–Dice sau khi bỏ dấu + lowercase.
+ * Ví dụ: "hoc sinh tieu bieu" vs "Học sinh tiêu biểu" → ~100
+ */
+export const fuzzyMatchScore = (input: string, target: string): number => {
+  const normalize = (s: string) =>
+    s.normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/đ/gi, 'd')
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, ' ');
+
+  const a = normalize(input);
+  const b = normalize(target);
+
+  if (a === b) return 100;
+  if (a.length === 0 || b.length === 0) return 0;
+
+  // Substring: nếu một chuỗi chứa chuỗi kia → điểm cao
+  if (b.includes(a) || a.includes(b)) {
+    const shorter = Math.min(a.length, b.length);
+    const longer = Math.max(a.length, b.length);
+    return Math.round((shorter / longer) * 95);
+  }
+
+  // Bigram Dice coefficient
+  const getBigrams = (str: string): Map<string, number> => {
+    const map = new Map<string, number>();
+    for (let i = 0; i < str.length - 1; i++) {
+      const bg = str.substring(i, i + 2);
+      map.set(bg, (map.get(bg) || 0) + 1);
+    }
+    return map;
+  };
+
+  const bigramsA = getBigrams(a);
+  const bigramsB = getBigrams(b);
+
+  let intersection = 0;
+  bigramsA.forEach((count, bg) => {
+    const countB = bigramsB.get(bg) || 0;
+    intersection += Math.min(count, countB);
+  });
+
+  const totalA = Math.max(0, a.length - 1);
+  const totalB = Math.max(0, b.length - 1);
+  if (totalA + totalB === 0) return 0;
+
+  return Math.round((2 * intersection / (totalA + totalB)) * 100);
+};
+
 export const safeParseImages = (imgField: string[] | string | undefined): string[] => {
   if (!imgField) return [];
   if (Array.isArray(imgField)) return imgField;

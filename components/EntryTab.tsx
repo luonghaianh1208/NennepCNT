@@ -3,7 +3,7 @@ import React, { useState, useRef, useMemo } from 'react';
 import { AlertTriangle, Star, ChevronDown, Camera, X, CheckCircle2, Loader2, StopCircle, FileSpreadsheet, Download, Settings } from 'lucide-react';
 import { Violation } from '../types';
 import { api } from '../services/googleApi';
-import { isDateInRange, removeVietnameseTones, exportToExcel, getLocalDateString, matchVietnamese } from '../utils';
+import { isDateInRange, removeVietnameseTones, exportToExcel, getLocalDateString, matchVietnamese, fuzzyMatchScore } from '../utils';
 import { useAppStore } from '../contexts/AppContext';
 import { useModal } from '../contexts/ModalContext';
 import * as XLSX from 'xlsx';
@@ -29,6 +29,25 @@ const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [importProgress, setImportProgress] = useState<string>('');
+
+  // --- PREVIEW IMPORT STATE ---
+  interface PreviewRow {
+    rowIndex: number;
+    date: string;
+    className: string;
+    studentName: string;
+    inputCriteria: string;
+    matchedCriteriaId: string;
+    matchedCriteriaLabel: string;
+    matchScore: number;
+    note: string;
+    reporterId: string;
+    imageUrl?: string;
+    status: 'ok' | 'review' | 'error';
+    errorReason?: string;
+  }
+  const [previewRows, setPreviewRows] = useState<PreviewRow[]>([]);
+  const [showPreview, setShowPreview] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const excelInputRef = useRef<HTMLInputElement>(null);
@@ -66,48 +85,111 @@ const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
     }
   };
 
-  // --- TẢI FILE EXCEL MẪU ---
+  // --- TẢI FILE EXCEL MẪU (tiêu chí thực + 100 dòng + dropdown) ---
   const handleDownloadTemplate = () => {
+    const today = getLocalDateString();
+    const sampleClass = classes[0]?.name || '10A1';
+    const sampleStudent = students.find(s => s.classId === classes[0]?.id)?.name || 'Nguyễn Văn A';
+    const TEMPLATE_ROWS = 100; // số dòng trống muốn tạo
+
     if (entryMode === 'VIOLATION') {
-      const data = [
+      const minusCriteria = criteria.filter(c => c.type === 'MINUS');
+      const criteriaLastRow = minusCriteria.length + 1; // +1 vì có header ở row 1
+
+      // Sheet 1: header + 3 dòng ví dụ thực + ~100 dòng trống
+      const exampleRows = minusCriteria.slice(0, 3).map((c, idx) => [
+        today, sampleClass, idx % 2 === 0 ? sampleStudent : '', c.content, `Ghi chú: ${c.content}`, '', '',
+      ]);
+      const blankRows: any[][] = Array.from({ length: TEMPLATE_ROWS }, () => ['', '', '', '', '', '', '']);
+      const sheet1Data: any[][] = [
         ['Ngay', 'Ten_Lop', 'Ten_HS', 'Noi_dung_loi', 'Ghi_chu', 'Link_anh', 'Nguoi_ghi'],
-        // Ten_HS để trống = vi phạm tập thể lớp; có tên = vi phạm cá nhân
-        // Noi_dung_loi phải khớp chính xác với tiêu chí đã cấu hình
-        ['2026-03-20', '10A1', 'Nguyễn Văn A', 'Đi học muộn', 'Đến trường lúc 7h15, trễ 15 phút', '', 'admin'],
-        ['2026-03-20', '10A1', '', 'Không mặc đồng phục', 'Cả lớp không mặc đồng phục thể dục tiết 3', '', ''],
-        ['2026-03-21', '10A2', 'Trần Thị B', 'Không đeo khăn quàng/phù hiệu', 'Không đeo phù hiệu từ đầu buổi sáng', '', ''],
+        ...(exampleRows.length > 0 ? exampleRows : [[today, sampleClass, sampleStudent, '', '', '', '']]),
+        ...blankRows,
       ];
-      exportToExcel(data, 'Mau_Import_VPham');
+
+      // Sheet 2: danh sách tiêu chí vi phạm
+      const sheet2Data: any[][] = [
+        ['Tên lỗi vi phạm', 'Điểm trừ'],
+        ...minusCriteria.map(c => [c.content, c.points]),
+      ];
+
+      const wb = XLSX.utils.book_new();
+      const ws1 = XLSX.utils.aoa_to_sheet(sheet1Data);
+      const ws2 = XLSX.utils.aoa_to_sheet(sheet2Data);
+
+      // Cột D (index 3) = Noi_dung_loi → dropdown từ Sheet 2 cột A
+      if (minusCriteria.length > 0) {
+        (ws1 as any)['!dataValidations'] = [{
+          sqref: `D2:D${sheet1Data.length}`,
+          type: 'list',
+          formula1: `Danh_sach_tieu_chi!$A$2:$A$${criteriaLastRow}`,
+          showDropDown: false,
+          allowBlank: true,
+          showErrorMessage: true,
+          errorTitle: 'Nội dung không hợp lệ',
+          error: 'Vui lòng chọn từ danh sách hoặc nhập gần đúng.',
+          showInputMessage: true,
+          promptTitle: 'Nội dung lỗi',
+          prompt: 'Chọn từ danh sách hoặc nhập gần đúng tên lỗi.',
+        }];
+      }
+
+      XLSX.utils.book_append_sheet(wb, ws1, 'Du_lieu_nhap');
+      XLSX.utils.book_append_sheet(wb, ws2, 'Danh_sach_tieu_chi');
+      XLSX.writeFile(wb, 'Mau_Import_VPham.xlsx');
+
     } else {
-      const data = [
+      const plusCriteria = criteria.filter(c => c.type === 'PLUS');
+      const criteriaLastRow = plusCriteria.length + 1;
+
+      // Sheet 1: header + 3 dòng ví dụ thực + ~100 dòng trống
+      const exampleRows = plusCriteria.slice(0, 3).map((c, idx) => [
+        today, sampleClass, idx % 2 === 0 ? sampleStudent : '', c.content, `Ghi chú: ${c.content}`,
+      ]);
+      const blankRows: any[][] = Array.from({ length: TEMPLATE_ROWS }, () => ['', '', '', '', '']);
+      const sheet1Data: any[][] = [
         ['Ngay', 'Ten_Lop', 'Ten_HS', 'Loai_thanh_tich', 'Ghi_chu'],
-        // Ten_HS để trống = thành tích tập thể lớp; có tên = thành tích cá nhân
-        // Loai_thanh_tich phải khớp chính xác với tiêu chí đã cấu hình
-        ['2026-03-20', '10A1', 'Trần Thị B', 'Học sinh tiêu biểu', 'Đạt giải Nhất kỳ thi Toán cấp trường tháng 3/2026'],
-        ['2026-03-20', '10A2', '', 'Lớp xuất sắc tuần', 'Không có vi phạm, nộp đủ bài tập tuần 15'],
-        ['2026-03-21', '11A1', 'Lê Văn C', 'Giải thưởng cuộc thi', 'Giải Ba cuộc thi Hùng biện tiếng Anh cấp thành phố'],
+        ...(exampleRows.length > 0 ? exampleRows : [[today, sampleClass, sampleStudent, '', '']]),
+        ...blankRows,
       ];
-      exportToExcel(data, 'Mau_Import_ThanhTich');
+
+      // Sheet 2: danh sách tiêu chí thành tích
+      const sheet2Data: any[][] = [
+        ['Tên thành tích', 'Điểm cộng'],
+        ...plusCriteria.map(c => [c.content, c.points]),
+      ];
+
+      const wb = XLSX.utils.book_new();
+      const ws1 = XLSX.utils.aoa_to_sheet(sheet1Data);
+      const ws2 = XLSX.utils.aoa_to_sheet(sheet2Data);
+
+      // Cột D (index 3) = Loai_thanh_tich → dropdown từ Sheet 2 cột A
+      if (plusCriteria.length > 0) {
+        (ws1 as any)['!dataValidations'] = [{
+          sqref: `D2:D${sheet1Data.length}`,
+          type: 'list',
+          formula1: `Danh_sach_tieu_chi!$A$2:$A$${criteriaLastRow}`,
+          showDropDown: false,
+          allowBlank: true,
+          showErrorMessage: true,
+          errorTitle: 'Loại thành tích không hợp lệ',
+          error: 'Vui lòng chọn từ danh sách hoặc nhập gần đúng.',
+          showInputMessage: true,
+          promptTitle: 'Loại thành tích',
+          prompt: 'Chọn từ danh sách hoặc nhập gần đúng tên thành tích.',
+        }];
+      }
+
+      XLSX.utils.book_append_sheet(wb, ws1, 'Du_lieu_nhap');
+      XLSX.utils.book_append_sheet(wb, ws2, 'Danh_sach_tieu_chi');
+      XLSX.writeFile(wb, 'Mau_Import_ThanhTich.xlsx');
     }
   };
 
-  // --- IMPORT TỪ EXCEL ---
+  // --- IMPORT TỪ EXCEL (Fuzzy Match + Preview) ---
   const handleExcelImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    // Sinh ID duy nhất: check against existing violations
-    const existingIds = new Set(violations.map(v => v.id));
-
-    const generateUniqueId = (prefix: string, index: number): string => {
-      let id = `${prefix}${Date.now()}_${index}`;
-      // Nếu trùng (cực kỳ hiếm), thêm random
-      while (existingIds.has(id)) {
-        id = `${prefix}${Date.now()}_${index}_${Math.floor(Math.random() * 9999)}`;
-      }
-      existingIds.add(id); // Đánh dấu đã dùng trong lượt này
-      return id;
-    };
 
     const reader = new FileReader();
     reader.onload = async (event) => {
@@ -123,197 +205,191 @@ const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
           return;
         }
 
-        const recordsToProcess: Violation[] = [];
+        const criteriaType = entryMode === 'VIOLATION' ? 'MINUS' : 'PLUS';
+        const filteredCriteriaForImport = criteria.filter(c => c.type === criteriaType);
+        const parsed: PreviewRow[] = [];
 
         for (let i = 1; i < rows.length; i++) {
           const row = rows[i];
-          // Bỏ qua dòng trống hoàn toàn
           if (!row || row.every((cell: any) => cell === '' || cell === null || cell === undefined)) continue;
 
-          if (entryMode === 'VIOLATION') {
-            // Cột: Ngay | Ten_Lop | Ten_HS | Noi_dung_loi | Ghi_chu | Link_anh | Nguoi_ghi
-            const [ngayRaw, tenLop, tenHS, noiDungLoi, ghiChu, linkAnh, nguoiGhi] = row;
-
-            // Chuẩn hoá ngày: có thể là Date object (XLSX cellDates:true) hoặc string
-            let ngay: string;
-            if (ngayRaw instanceof Date) {
-              const y = ngayRaw.getFullYear();
-              const m = String(ngayRaw.getMonth() + 1).padStart(2, '0');
-              const d = String(ngayRaw.getDate()).padStart(2, '0');
-              ngay = `${y}-${m}-${d}`;
-            } else {
-              ngay = String(ngayRaw || '').trim() || getLocalDateString();
-            }
-
-            const targetClass = classes.find(c =>
-              matchVietnamese(c.name, String(tenLop)) ||
-              matchVietnamese(c.id, String(tenLop))
-            );
-            if (!targetClass) continue;
-
-            let targetStudentId: string | undefined = undefined;
-            if (tenHS && String(tenHS).trim()) {
-              const student = students.find(s =>
-                s.classId === targetClass.id &&
-                matchVietnamese(s.name, String(tenHS).trim())
-              );
-              targetStudentId = student?.id;
-            }
-
-            const foundCriteria = criteria.find(c =>
-              matchVietnamese(c.content, String(noiDungLoi).trim()) &&
-              c.type === 'MINUS'
-            );
-            if (!foundCriteria) continue; // Bỏ qua nếu không tìm thấy tiêu chí hợp lệ
-
-            let reporterId = currentUser.id;
-            const nguoiGhiStr = String(nguoiGhi || '').trim();
-            if (nguoiGhiStr) {
-              const foundUser = users.find(u =>
-                u.name.toLowerCase() === nguoiGhiStr.toLowerCase() ||
-                u.username.toLowerCase() === nguoiGhiStr.toLowerCase()
-              );
-              if (foundUser) reporterId = foundUser.id;
-            }
-
-            const imageList = linkAnh && String(linkAnh).trim() ? [String(linkAnh).trim()] : [];
-
-            recordsToProcess.push({
-              id: generateUniqueId('V', i),
-              date: ngay,
-              classId: targetClass.id,
-              studentId: targetStudentId,
-              criteriaId: foundCriteria.id,
-              points: Math.abs(foundCriteria.points),
-              note: String(ghiChu || '').trim(),
-              reportedBy: reporterId,
-              isSecurityReport: false,
-              timestamp: Date.now(),
-              images: imageList,
-            });
-
+          // --- Xử lý ngày ---
+          const ngayRaw = row[0];
+          let ngay: string;
+          if (ngayRaw instanceof Date) {
+            const y = ngayRaw.getFullYear();
+            const m = String(ngayRaw.getMonth() + 1).padStart(2, '0');
+            const d = String(ngayRaw.getDate()).padStart(2, '0');
+            ngay = `${y}-${m}-${d}`;
           } else {
-            // Cột: Ngay | Ten_Lop | Ten_HS | Loai_thanh_tich | Ghi_chu
-            const [ngayRaw, tenLop, tenHS, loaiThanhTich, ghiChu] = row;
-
-            let ngay: string;
-            if (ngayRaw instanceof Date) {
-              const y = ngayRaw.getFullYear();
-              const m = String(ngayRaw.getMonth() + 1).padStart(2, '0');
-              const d = String(ngayRaw.getDate()).padStart(2, '0');
-              ngay = `${y}-${m}-${d}`;
-            } else {
-              ngay = String(ngayRaw || '').trim() || getLocalDateString();
-            }
-
-            const targetClass = classes.find(c =>
-              matchVietnamese(c.name, String(tenLop)) ||
-              matchVietnamese(c.id, String(tenLop))
-            );
-            if (!targetClass) continue;
-
-            let targetStudentId: string | undefined = undefined;
-            if (tenHS && String(tenHS).trim()) {
-              const student = students.find(s =>
-                s.classId === targetClass.id &&
-                matchVietnamese(s.name, String(tenHS).trim())
-              );
-              targetStudentId = student?.id;
-            }
-
-            const foundCriteria = criteria.find(c =>
-              matchVietnamese(c.content, String(loaiThanhTich).trim()) &&
-              c.type === 'PLUS'
-            );
-            if (!foundCriteria) continue;
-
-            recordsToProcess.push({
-              id: generateUniqueId('A', i),
-              date: ngay,
-              classId: targetClass.id,
-              studentId: targetStudentId,
-              criteriaId: foundCriteria.id,
-              points: -Math.abs(foundCriteria.points),
-              note: String(ghiChu || '').trim(),
-              reportedBy: currentUser.id,
-              isSecurityReport: false,
-              timestamp: Date.now(),
-              images: [],
-            });
+            ngay = String(ngayRaw || '').trim() || getLocalDateString();
           }
-        }
 
-        if (recordsToProcess.length === 0) {
-          await showAlert('Không có dữ liệu hợp lệ', 'Không tìm thấy dòng nào hợp lệ. Hãy kiểm tra lại tên lớp, tên học sinh và nội dung lỗi phải khớp với dữ liệu trong hệ thống.', 'error');
-          if (excelInputRef.current) excelInputRef.current.value = '';
-          return;
-        }
+          const tenLop = String(row[1] || '').trim();
+          const tenHS = String(row[2] || '').trim();
+          const inputCriteriaRaw = String(row[3] || '').trim();
+          const ghiChu = String(row[4] || '').trim();
 
-        const outOfConfigCount = timeConfigs.length > 0
-          ? recordsToProcess.filter(r => !timeConfigs.some(cfg => isDateInRange(r.date, cfg.startDate, cfg.endDate))).length
-          : 0;
-        const warningNote = outOfConfigCount > 0
-          ? `\n\n⚠️ Cảnh báo: ${outOfConfigCount}/${recordsToProcess.length} dòng có ngày nằm ngoài cấu hình thời gian.`
-          : '';
+          // VIOLATION thêm: linkAnh (col5), nguoiGhi (col6)
+          const linkAnh = entryMode === 'VIOLATION' ? String(row[5] || '').trim() : '';
+          const nguoiGhiStr = entryMode === 'VIOLATION' ? String(row[6] || '').trim() : '';
 
-        const confirmed = await showConfirm({
-          title: 'Xác nhận Import',
-          message: `Tìm thấy ${recordsToProcess.length} dòng hợp lệ.${warningNote}\n\nBắt đầu lưu vào hệ thống?`,
-          confirmText: 'Import',
-        });
-        if (!confirmed) {
-          if (excelInputRef.current) excelInputRef.current.value = '';
-          return;
-        }
-
-        setIsSubmitting(true);
-        abortImportRef.current = false;
-        let successCount = 0;
-        let errorCount = 0;
-        const successfulRecords: Violation[] = [];
-
-        for (let i = 0; i < recordsToProcess.length; i++) {
-          if (abortImportRef.current) {
-            setImportProgress('🛑 Import đã hủy!');
-            break;
-          }
-          setImportProgress(`Đang xử lý ${i + 1}/${recordsToProcess.length}...`);
-          try {
-            await api.createViolation(recordsToProcess[i]);
-            successfulRecords.push(recordsToProcess[i]);
-            successCount++;
-            await new Promise(resolve => setTimeout(resolve, 50));
-          } catch (err) {
-            console.error(err);
-            errorCount++;
-          }
-        }
-
-        if (successfulRecords.length > 0) {
-          setViolations(prev => [...successfulRecords, ...prev]);
-        }
-
-        setIsSubmitting(false);
-        setImportProgress('');
-
-        if (abortImportRef.current) {
-          await showAlert('Import bị hủy', `Đã lưu: ${successCount}\nLỗi: ${errorCount}\nChưa xử lý: ${recordsToProcess.length - (successCount + errorCount)}`, 'info');
-        } else {
-          await showAlert(
-            successCount > 0 ? 'Import Thành Công' : 'Import Thất Bại',
-            `Thành công: ${successCount}\nLỗi: ${errorCount}`,
-            successCount > 0 ? 'success' : 'error'
+          // --- Tìm lớp ---
+          const targetClass = classes.find(c =>
+            matchVietnamese(c.name, tenLop) || matchVietnamese(c.id, tenLop)
           );
+          if (!targetClass) {
+            parsed.push({
+              rowIndex: i,
+              date: ngay, className: tenLop, studentName: tenHS,
+              inputCriteria: inputCriteriaRaw, matchedCriteriaId: '',
+              matchedCriteriaLabel: '', matchScore: 0, note: ghiChu,
+              reporterId: currentUser.id, imageUrl: linkAnh || undefined,
+              status: 'error', errorReason: `Không tìm thấy lớp "${tenLop}"`,
+            });
+            continue;
+          }
+
+          // --- Reporter ---
+          let reporterId = currentUser.id;
+          if (nguoiGhiStr) {
+            const foundUser = users.find(u =>
+              u.name.toLowerCase() === nguoiGhiStr.toLowerCase() ||
+              u.username.toLowerCase() === nguoiGhiStr.toLowerCase()
+            );
+            if (foundUser) reporterId = foundUser.id;
+          }
+
+          // --- Fuzzy match tiêu chí ---
+          let bestId = '';
+          let bestLabel = '';
+          let bestScore = 0;
+
+          // Ưu tiên exact match trước
+          const exactMatch = filteredCriteriaForImport.find(c => matchVietnamese(c.content, inputCriteriaRaw));
+          if (exactMatch) {
+            bestId = exactMatch.id;
+            bestLabel = exactMatch.content;
+            bestScore = 100;
+          } else {
+            for (const c of filteredCriteriaForImport) {
+              const score = fuzzyMatchScore(inputCriteriaRaw, c.content);
+              if (score > bestScore) {
+                bestScore = score;
+                bestId = c.id;
+                bestLabel = c.content;
+              }
+            }
+          }
+
+          const AUTO_MATCH_THRESHOLD = 70;
+          const status: 'ok' | 'review' | 'error' =
+            bestScore >= AUTO_MATCH_THRESHOLD ? 'ok' : 'review';
+
+          parsed.push({
+            rowIndex: i,
+            date: ngay,
+            className: targetClass.name,
+            studentName: tenHS,
+            inputCriteria: inputCriteriaRaw,
+            matchedCriteriaId: bestScore >= AUTO_MATCH_THRESHOLD ? bestId : '',
+            matchedCriteriaLabel: bestScore >= AUTO_MATCH_THRESHOLD ? bestLabel : '',
+            matchScore: bestScore,
+            note: ghiChu,
+            reporterId,
+            imageUrl: linkAnh || undefined,
+            status,
+          });
         }
+
+        if (parsed.length === 0) {
+          await showAlert('Không có dữ liệu hợp lệ', 'Không tìm thấy dòng nào có thể đọc được. Hãy kiểm tra lại file.', 'error');
+          if (excelInputRef.current) excelInputRef.current.value = '';
+          return;
+        }
+
+        setPreviewRows(parsed);
+        setShowPreview(true);
       } catch (err) {
-        setIsSubmitting(false);
-        setImportProgress('');
         await showAlert('Lỗi đọc file', 'Không thể đọc file Excel. Hãy chắc chắn file đúng định dạng .xlsx/.xls.', 'error');
       }
-
       if (excelInputRef.current) excelInputRef.current.value = '';
     };
     reader.readAsArrayBuffer(file);
+  };
+
+  // --- XÁC NHẬN IMPORT SAU KHI XEM PREVIEW ---
+  const handleConfirmImport = async () => {
+    const validRows = previewRows.filter(r => r.status !== 'error' && r.matchedCriteriaId);
+    if (validRows.length === 0) {
+      await showAlert('Không có dòng nào hợp lệ', 'Vui lòng chọn tiêu chí cho các dòng chờ xem xét trước khi import.', 'error');
+      return;
+    }
+
+    const existingIds = new Set(violations.map(v => v.id));
+    const generateUniqueId = (prefix: string, index: number): string => {
+      let id = `${prefix}${Date.now()}_${index}`;
+      while (existingIds.has(id)) id = `${prefix}${Date.now()}_${index}_${Math.floor(Math.random() * 9999)}`;
+      existingIds.add(id);
+      return id;
+    };
+
+    const recordsToSave: Violation[] = validRows.map((r, idx) => {
+      const prefix = entryMode === 'VIOLATION' ? 'V' : 'A';
+      const foundCriteria = criteria.find(c => c.id === r.matchedCriteriaId)!;
+      const targetClass = classes.find(c => c.name === r.className || c.id === r.className);
+      const targetStudent = r.studentName
+        ? students.find(s => s.classId === targetClass?.id && matchVietnamese(s.name, r.studentName))
+        : undefined;
+      const imageList = r.imageUrl ? [r.imageUrl] : [];
+
+      return {
+        id: generateUniqueId(prefix, idx),
+        date: r.date,
+        classId: targetClass?.id || r.className,
+        studentId: targetStudent?.id,
+        criteriaId: foundCriteria.id,
+        points: entryMode === 'VIOLATION' ? Math.abs(foundCriteria.points) : -Math.abs(foundCriteria.points),
+        note: r.note,
+        images: imageList,
+        reportedBy: r.reporterId,
+        isSecurityReport: false,
+        timestamp: Date.now(),
+      };
+    });
+
+    setShowPreview(false);
+    setIsSubmitting(true);
+    abortImportRef.current = false;
+    let successCount = 0;
+    let errorCount = 0;
+    const successfulRecords: Violation[] = [];
+
+    for (let i = 0; i < recordsToSave.length; i++) {
+      if (abortImportRef.current) { setImportProgress('🛑 Import đã hủy!'); break; }
+      setImportProgress(`Đang xử lý ${i + 1}/${recordsToSave.length}...`);
+      try {
+        await api.createViolation(recordsToSave[i]);
+        successfulRecords.push(recordsToSave[i]);
+        successCount++;
+        await new Promise(resolve => setTimeout(resolve, 50));
+      } catch (err) { console.error(err); errorCount++; }
+    }
+
+    if (successfulRecords.length > 0) setViolations(prev => [...successfulRecords, ...prev]);
+    setIsSubmitting(false);
+    setImportProgress('');
+
+    if (abortImportRef.current) {
+      await showAlert('Import bị hủy', `Đã lưu: ${successCount}\nLỗi: ${errorCount}\nChưa xử lý: ${recordsToSave.length - (successCount + errorCount)}`, 'info');
+    } else {
+      await showAlert(
+        successCount > 0 ? 'Import Thành Công' : 'Import Thất Bại',
+        `Thành công: ${successCount}\nLỗi: ${errorCount}`,
+        successCount > 0 ? 'success' : 'error'
+      );
+    }
+    setPreviewRows([]);
   };
 
   const handleSubmitViolation = async () => {
@@ -393,8 +469,127 @@ const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
     }
   };
 
+  const criteriaForImport = criteria.filter(c => c.type === (entryMode === 'VIOLATION' ? 'MINUS' : 'PLUS'));
+
   return (
     <div className="space-y-6 max-w-lg mx-auto pb-24 relative">
+
+      {/* ── IMPORT PREVIEW MODAL ──────────────────────────────────── */}
+      {showPreview && (
+        <div className="fixed inset-0 z-[70] flex items-start justify-center bg-black/60 backdrop-blur-sm overflow-y-auto py-6">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-4">
+            {/* Header */}
+            <div className="flex justify-between items-center px-5 py-4 border-b border-slate-200">
+              <div>
+                <h2 className="font-bold text-lg text-slate-800">Xem trước dữ liệu import</h2>
+                <div className="text-xs text-slate-500 mt-0.5 flex gap-3">
+                  <span className="text-green-600 font-semibold">🟢 Tự động: {previewRows.filter(r => r.status === 'ok').length}</span>
+                  <span className="text-yellow-600 font-semibold">🟡 Cần chọn: {previewRows.filter(r => r.status === 'review').length}</span>
+                  <span className="text-red-600 font-semibold">🔴 Lỗi: {previewRows.filter(r => r.status === 'error').length}</span>
+                </div>
+              </div>
+              <button onClick={() => { setShowPreview(false); setPreviewRows([]); }} className="p-2 hover:bg-slate-100 rounded-full">
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Table */}
+            <div className="overflow-x-auto max-h-[60vh] overflow-y-auto">
+              <table className="w-full text-xs">
+                <thead className="sticky top-0 bg-slate-50 text-slate-500 font-bold border-b border-slate-200">
+                  <tr>
+                    <th className="px-3 py-2 text-left w-8">#</th>
+                    <th className="px-3 py-2 text-left">Ngày</th>
+                    <th className="px-3 py-2 text-left">Lớp</th>
+                    <th className="px-3 py-2 text-left">Học sinh</th>
+                    <th className="px-3 py-2 text-left">Từ Excel</th>
+                    <th className="px-3 py-2 text-left min-w-[200px]">Tiêu chí áp dụng</th>
+                    <th className="px-3 py-2 text-left">Ghi chú</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {previewRows.map((row) => (
+                    <tr
+                      key={row.rowIndex}
+                      className={
+                        row.status === 'error' ? 'bg-red-50 border-b border-red-100' :
+                          row.status === 'review' ? 'bg-yellow-50 border-b border-yellow-100' :
+                            'bg-white border-b border-slate-100'
+                      }
+                    >
+                      <td className="px-3 py-2 text-slate-400">{row.rowIndex}</td>
+                      <td className="px-3 py-2 font-medium text-slate-700">{row.date}</td>
+                      <td className="px-3 py-2 text-slate-700">{row.className}</td>
+                      <td className="px-3 py-2 text-slate-600">{row.studentName || <span className="italic text-slate-400">Tập thể</span>}</td>
+                      <td className="px-3 py-2">
+                        <span className="text-slate-500 italic">{row.inputCriteria || '—'}</span>
+                        {row.status === 'ok' && (
+                          <span className="ml-1 text-green-600 font-bold" title={`Khớp ${row.matchScore}%`}>✓{row.matchScore < 100 ? ` ~${row.matchScore}%` : ''}</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2">
+                        {row.status === 'error' ? (
+                          <span className="text-red-600 font-semibold">{row.errorReason}</span>
+                        ) : (
+                          <select
+                            value={row.matchedCriteriaId}
+                            onChange={(ev) => {
+                              const chosen = criteriaForImport.find(c => c.id === ev.target.value);
+                              setPreviewRows(prev => prev.map(r =>
+                                r.rowIndex === row.rowIndex
+                                  ? { ...r, matchedCriteriaId: ev.target.value, matchedCriteriaLabel: chosen?.content || '', status: ev.target.value ? 'ok' : 'review' }
+                                  : r
+                              ));
+                            }}
+                            className={
+                              `w-full p-1.5 rounded border text-xs font-medium ${row.matchedCriteriaId
+                                ? 'border-green-300 bg-green-50 text-green-800'
+                                : 'border-yellow-300 bg-yellow-100 text-yellow-800'
+                              }`
+                            }
+                          >
+                            <option value="">-- Chọn tiêu chí --</option>
+                            {criteriaForImport.map(c => (
+                              <option key={c.id} value={c.id}>
+                                {c.content} ({entryMode === 'VIOLATION' ? `-${c.points}đ` : `+${c.points}đ`})
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-slate-500 max-w-[140px] truncate" title={row.note}>{row.note || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Footer */}
+            <div className="px-5 py-4 border-t border-slate-200 flex justify-between items-center gap-3 flex-wrap">
+              <p className="text-xs text-slate-500">
+                ⚠️ Dòng <span className="text-yellow-700 font-bold">vàng</span> cần chọn tiêu chí trước khi import. Dòng <span className="text-red-700 font-bold">đỏ</span> sẽ bị bỏ qua.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => { setShowPreview(false); setPreviewRows([]); }}
+                  className="px-4 py-2 text-sm bg-slate-100 text-slate-700 font-bold rounded-lg hover:bg-slate-200"
+                >
+                  Hủy
+                </button>
+                <button
+                  onClick={handleConfirmImport}
+                  disabled={previewRows.filter(r => r.status !== 'error' && r.matchedCriteriaId).length === 0}
+                  className="px-5 py-2 text-sm bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  <CheckCircle2 size={15} />
+                  Import {previewRows.filter(r => r.status !== 'error' && r.matchedCriteriaId).length} dòng hợp lệ
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isSubmitting && importProgress && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="bg-white p-6 rounded-xl flex flex-col items-center shadow-2xl border border-slate-200 w-80">
@@ -458,12 +653,12 @@ const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
               <FileSpreadsheet size={13} /> Hướng dẫn Import Excel
             </div>
             <ol className="list-decimal list-inside space-y-1 leading-relaxed">
-              <li>Bấm <span className="font-bold">Tải mẫu</span> để tải file Excel với đúng cấu trúc cột.</li>
-              <li>Điền dữ liệu: <span className="font-bold">Ten_HS để trống</span> = vi phạm / thành tích tập thể lớp.</li>
-              <li className="font-bold text-blue-900">
-                Cột <span className="underline">{entryMode === 'VIOLATION' ? 'Noi_dung_loi' : 'Loai_thanh_tich'}</span> phải khớp chính xác với tên tiêu chí đã cấu hình.
+              <li>Bấm <span className="font-bold">Tải mẫu</span> — file có sẵn <span className="font-bold">100 dòng</span>, ví dụ thực từ tiêu chí đã cấu hình và <span className="font-bold">Sheet 2</span> danh sách tiêu chí.</li>
+              <li>Điền dữ liệu vào <span className="font-bold">Sheet 1</span>: <span className="font-bold">Ten_HS để trống</span> = vi phạm / thành tích tập thể lớp.</li>
+              <li>
+                Cột <span className="underline font-bold">{entryMode === 'VIOLATION' ? 'Noi_dung_loi' : 'Loai_thanh_tich'}</span>: chọn từ <span className="font-bold">menu thả xuống</span> trong ô hoặc nhập gần đúng — hệ thống sẽ tự nhận diện.
               </li>
-              <li>Lưu file và bấm <span className="font-bold">Import Excel</span> để nhập hàng loạt.</li>
+              <li>Bấm <span className="font-bold">Import Excel</span> → xem bảng <span className="font-bold">xem trước</span> (🟢 tự khớp / 🟡 cần chọn / 🔴 lỗi) rồi xác nhận.</li>
             </ol>
             <div className="mt-2 flex items-center justify-between flex-wrap gap-2">
               <p className="text-blue-700 italic">
@@ -480,6 +675,7 @@ const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
             </div>
           </div>
         )}
+
         <div className="p-4 space-y-4">
           {isAdmin && (
             <div className="flex bg-slate-100 p-1 rounded-lg mb-4">
