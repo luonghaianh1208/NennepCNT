@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Download, Filter, Search, CheckSquare, Square, Trash2, Edit, Link2, ListChecks, ChevronDown, Copy, RefreshCw, AlertTriangle, X } from 'lucide-react';
 import { Violation } from '../types';
-import { safeParseImages, formatDateDisplay, isDateInRange, exportToExcel } from '../utils';
+import { safeParseImages, formatDateDisplay, isDateInRange, exportToExcel, findDuplicateViolations } from '../utils';
 import { useAppStore } from '../contexts/AppContext';
 import { useModal } from '../contexts/ModalContext';
 
@@ -100,48 +100,13 @@ const ListTab: React.FC<ListTabProps> = ({
 
     let list = violations;
 
-    // --- LOGIC LỌC TRÙNG LẶP (Dành cho Admin) ---
+    // --- LOGIC LỌC TRÙNG LẶP (Dành cho Admin) — dùng util từ utils.ts ---
     if (showDuplicatesOnly && isAdmin) {
-        // 1. Áp dụng bộ lọc Loại (Vi phạm/Thành tích) trước khi tìm trùng
-        if (filterCriteriaType === 'MINUS') list = list.filter(v => v.points > 0);
-        else if (filterCriteriaType === 'PLUS') list = list.filter(v => v.points < 0);
-
-        // Tạo map đếm số lần xuất hiện của từng bộ dữ liệu (trừ ghi chú)
-        const counts = new Map<string, number>();
-        
-        // Hàm tạo chữ ký duy nhất cho mỗi bản ghi
-        const getSignature = (v: Violation) => {
-            // Chuẩn hóa ngày về YYYY-MM-DD để so sánh chính xác
-            const dateStr = v.date.includes('T') ? v.date.split('T')[0] : v.date;
-            // Key = Ngày | Lớp | Học sinh | Loại lỗi
-            return `${dateStr}|${v.classId}|${v.studentId || 'GROUP'}|${v.criteriaId}`;
-        };
-
-        // Bước 1: Đếm
-        list.forEach(v => {
-            const sig = getSignature(v);
-            counts.set(sig, (counts.get(sig) || 0) + 1);
-        });
-
-        // Bước 2: Lọc lấy những thằng có count > 1
-        list = list.filter(v => (counts.get(getSignature(v)) || 0) > 1);
-
-        // Bước 3: Sắp xếp
-        list.sort((a, b) => {
-             // Ưu tiên 1: Ngày mới nhất lên đầu (Dùng timestamp để chính xác tuyệt đối)
-             const timeA = new Date(a.date).getTime();
-             const timeB = new Date(b.date).getTime();
-             
-             if (timeA !== timeB) {
-                 return timeB - timeA; // Giảm dần theo thời gian (Mới nhất lên đầu)
-             }
-
-             // Ưu tiên 2: Nếu cùng ngày, gom nhóm theo chữ ký để các bản ghi trùng nằm cạnh nhau
-             const sigA = getSignature(a);
-             const sigB = getSignature(b);
-             return sigA.localeCompare(sigB);
-        });
-
+        // Áp dụng bộ lọc Loại trước khi tìm trùng
+        let subset = list;
+        if (filterCriteriaType === 'MINUS') subset = subset.filter(v => v.points > 0);
+        else if (filterCriteriaType === 'PLUS') subset = subset.filter(v => v.points < 0);
+        return findDuplicateViolations(subset);
     } else {
         // --- LOGIC LỌC THÔNG THƯỜNG ---
         if (filterClassId !== 'ALL') list = list.filter(v => v.classId === filterClassId);
@@ -169,9 +134,9 @@ const ListTab: React.FC<ListTabProps> = ({
             const studentName = v.studentId ? students.find(s => s.id === v.studentId && s.classId === v.classId)?.name : 'Tập thể';
             const className = classes.find(c => c.id === v.classId)?.name;
             const criteriaContent = criteria.find(c => c.id === v.criteriaId)?.content;
-            const note = v.note ? String(v.note) : ''; 
+            const note = v.note ? String(v.note) : '';
             const reporter = users.find(u => u.id === v.reportedBy)?.name;
-            
+
             return (
                 (studentName && studentName.toLowerCase().includes(term)) ||
                 (className && className.toLowerCase().includes(term)) ||

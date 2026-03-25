@@ -494,6 +494,40 @@ export const formatDateForInput = (dateStr: string | Date | undefined): string =
   return '';
 };
 
+// -----------------------------------------------------------------------
+// Duplicate violation detection helpers
+// -----------------------------------------------------------------------
+
+/**
+ * Tạo chữ ký duy nhất cho một bản ghi vi phạm để so sánh trùng lặp.
+ * Key = Ngày | Lớp | Học sinh (hoặc GROUP) | Tiêu chí
+ */
+export const getViolationSignature = (v: Violation): string => {
+  const dateStr = v.date.includes('T') ? v.date.split('T')[0] : v.date;
+  return `${dateStr}|${v.classId}|${v.studentId || 'GROUP'}|${v.criteriaId}`;
+};
+
+/**
+ * Lọc ra các bản ghi vi phạm có dấu hiệu trùng lặp (cùng Ngày, Lớp, HS, Tiêu chí).
+ * Trả về mảng đã sắp xếp: mới nhất trước, cùng ngày → gom nhóm theo signature.
+ */
+export const findDuplicateViolations = (violations: Violation[]): Violation[] => {
+  const counts = new Map<string, number>();
+  violations.forEach(v => {
+    const sig = getViolationSignature(v);
+    counts.set(sig, (counts.get(sig) || 0) + 1);
+  });
+
+  const duplicates = violations.filter(v => (counts.get(getViolationSignature(v)) || 0) > 1);
+
+  return duplicates.sort((a, b) => {
+    const timeA = new Date(a.date).getTime();
+    const timeB = new Date(b.date).getTime();
+    if (timeA !== timeB) return timeB - timeA;
+    return getViolationSignature(a).localeCompare(getViolationSignature(b));
+  });
+};
+
 // --- EXCEL EXPORT FUNCTION ---
 export const exportToExcel = (data: any[][], fileName: string) => {
   try {

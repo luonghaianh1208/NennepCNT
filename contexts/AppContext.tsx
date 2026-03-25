@@ -75,11 +75,8 @@ const saveAuditLogs = (logs: AuditLog[]) => {
 // ─── Provider ────────────────────────────────────────────────────────────────
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [appTheme, setAppThemeState] = useState<AppTheme>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('nnp_app_theme');
-      return (saved === 'WINTER' || saved === 'TET') ? saved : 'TET';
-    }
-    return 'TET';
+    // Chỉ còn theme DOAN (đã xóa WINTER/TET)
+    return 'DOAN';
   });
 
   const [currentUser, setCurrentUser] = useState<User>(GUEST_USER);
