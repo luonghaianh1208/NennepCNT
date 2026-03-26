@@ -8,7 +8,7 @@ import { useModal } from '../contexts/ModalContext';
 
 const TaskForceTab: React.FC = () => {
   const { showConfirm } = useModal();
-  const { currentUser, users, violations, students, roleConfigs, setUsers, setUnsavedChanges, syncSettings, unsavedChanges, classes, timeConfigs } = useAppStore();
+  const { currentUser, users, violations, students, roleConfigs, setUsers, setUnsavedChanges, syncUsers, unsavedChanges, classes, timeConfigs } = useAppStore();
   const { showToast } = useModal();
 
   const [filterRole, setFilterRole] = useState('ALL');
@@ -25,7 +25,7 @@ const TaskForceTab: React.FC = () => {
   const onSave = async () => {
     const ok = await showConfirm({ title: 'Xác nhận lưu', message: 'Lưu thay đổi lên hệ thống?' });
     if (!ok) return;
-    await syncSettings();
+    await syncUsers(); // Dùng syncUsers (không syncSettings) — tránh mất mật khẩu!
   };
 
   const isManager = useMemo(() => {

@@ -44,9 +44,15 @@ export const api = {
     return postData('batchUpdateViolations', { records });
   },
 
-  // 5. Đồng bộ Settings
-  syncSettings: async (payload: { Users: any[], Classes: any[], Students: any[], Criteria: any[], TimeConfigs: any[] }) => {
+  // 5. Đồng bộ Settings (KHÔNG bao gồm Users để tránh xóa mật khẩu)
+  syncSettings: async (payload: { Classes: any[], Students: any[], Criteria: any[], TimeConfigs: any[] }) => {
     return postData('syncSettings', payload);
+  },
+
+  // 5b. Đồng bộ Users (RIÊNG BIỆT — chỉ gọi khi admin thực sự thêm/sửa/xóa tài khoản)
+  // GAS phải xử lý: nếu user đã tồn tại mà không có password thì GIỮ NGUYÊN password cũ
+  syncUsers: async (users: any[]) => {
+    return postData('syncUsers', { users });
   },
 
   // 6. Upload ảnh

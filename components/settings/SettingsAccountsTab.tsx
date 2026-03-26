@@ -8,7 +8,7 @@ import { useModal } from '../../contexts/ModalContext';
 import * as XLSX from 'xlsx';
 
 const SettingsAccountsTab: React.FC = () => {
-  const { users, setUsers, classes, roleConfigs, currentUser, setCurrentUser, setUnsavedChanges } = useAppStore();
+  const { users, setUsers, classes, roleConfigs, currentUser, setCurrentUser, setUnsavedChanges, syncUsers } = useAppStore();
   const { showAlert, showConfirm, showToast } = useModal();
 
   const [newUserFullName, setNewUserFullName] = useState('');
@@ -35,7 +35,12 @@ const SettingsAccountsTab: React.FC = () => {
     setNewUserUsername('');
     setNewUserPassword('');
     setNewUserClass('');
-    setUnsavedChanges(true);
+    // Lưu ngay lập tức — dùng syncUsers (KHÔNG qua syncSettings để tránh mất password)
+    setTimeout(async () => {
+      const ok = await syncUsers();
+      if (ok) showToast('Đã thêm và lưu tài khoản!', 'success');
+      else showToast('Thêm tài khoản thành công (cục bộ). Có lỗi khi đồng bộ lên server.', 'info');
+    }, 0);
   };
 
   const handleDeleteUser = async (id: string) => {
@@ -43,7 +48,11 @@ const SettingsAccountsTab: React.FC = () => {
     const ok = await showConfirm({ title: 'Xóa tài khoản', message: 'Xóa tài khoản này?', type: 'danger', confirmText: 'Xóa' });
     if (ok) {
       setUsers(users.filter(u => u.id !== id));
-      setUnsavedChanges(true);
+      // Lưu ngay — chỉ sync Users, tránh mất password qua syncSettings
+      setTimeout(async () => {
+        await syncUsers();
+        showToast('Đã xóa tài khoản!', 'success');
+      }, 0);
     }
   };
 
@@ -57,7 +66,12 @@ const SettingsAccountsTab: React.FC = () => {
     setUsers(users.map(u => u.id === editingUser.id ? editingUser : u));
     if (currentUser.id === editingUser.id) setCurrentUser(editingUser);
     setEditingUser(null);
-    setUnsavedChanges(true);
+    // Lưu ngay — chỉ sync Users
+    setTimeout(async () => {
+      const ok = await syncUsers();
+      if (ok) showToast('Đã lưu thông tin tài khoản!', 'success');
+      else showToast('Đã cập nhật (cục bộ). Có lỗi khi đồng bộ lên server.', 'info');
+    }, 0);
   };
 
   // --- TẢI FILE EXCEL MẪU ---

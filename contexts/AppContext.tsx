@@ -45,6 +45,7 @@ interface AppContextType {
   fetchData: (showLoading?: boolean) => Promise<void>;
   refreshData: () => void;
   syncSettings: () => Promise<boolean>;
+  syncUsers: () => Promise<boolean>;
   deleteViolation: (id: string) => Promise<void>;
   deleteViolations: (ids: string[]) => Promise<void>;
   updateViolation: (v: Violation) => Promise<void>;
@@ -192,11 +193,29 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // ── Sync settings ─────────────────────────────────────────────────────────
   const syncSettings = async (): Promise<boolean> => {
     setIsRefreshing(true);
-    const payload = { Users: users, Classes: classes, Students: students, Criteria: criteria, TimeConfigs: timeConfigs };
+    // ⚠️ QUAN TRỌNG: KHÔNG gửi Users lên đây vì getAllData không trả về password
+    // → nếu gửi users state sẽ ghi đè password thành rỗng!
+    const payload = { Classes: classes, Students: students, Criteria: criteria, TimeConfigs: timeConfigs };
     try {
       await api.syncSettings(payload);
       setUnsavedChanges(false);
       logAction(currentUser, 'SYNC_SETTINGS', `Đồng bộ cấu hình: ${classes.length} lớp, ${students.length} HS, ${criteria.length} tiêu chí`);
+      return true;
+    } catch (e) {
+      console.error(e);
+      return false;
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // Sync Users RIÊNG BIỆT — chỉ gọi khi admin thực sự thêm/sửa/xóa tài khoản
+  const syncUsers = async (): Promise<boolean> => {
+    setIsRefreshing(true);
+    try {
+      await api.syncUsers(users);
+      setUnsavedChanges(false);
+      logAction(currentUser, 'SYNC_SETTINGS', `Đồng bộ tài khoản: ${users.length} users`);
       return true;
     } catch (e) {
       console.error(e);
@@ -310,7 +329,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       isLoading, isRefreshing,
       unsavedChanges, setUnsavedChanges,
       academicYear, setAcademicYear,
-      fetchData, refreshData, syncSettings,
+      fetchData, refreshData, syncSettings, syncUsers,
       deleteViolation, deleteViolations, updateViolation, createViolation,
     }}>
       {children}
