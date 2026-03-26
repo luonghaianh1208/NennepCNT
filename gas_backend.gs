@@ -1,6 +1,6 @@
 // =========================================================
 // NỀN NẾP CNT — Google Apps Script Backend
-// Phiên bản: 1.4 (Cập nhật lần cuối: 2026-03-16)
+// Phiên bản: 1.5 (Cập nhật lần cuối: 2026-03-26)
 // Tác giả: Lương Hải Anh
 // Mô tả: Backend xử lý CRUD cho Google Sheets
 // =========================================================
@@ -100,8 +100,17 @@ function handleRequest(e) {
       case 'deleteViolations': 
         result = deleteRecordsMultiSheet(['Violations', 'Achievements'], data.ids);
         break;
+      case 'batchCreateViolations':
+        // Import hàng loạt từ Excel — 1 request thay cho N request tuần tự
+        result = batchCreateRecords(data.records || []);
+        break;
       case 'syncSettings': 
         result = syncSettingsData(data);
+        break;
+      case 'syncUsers':
+        // ⚠️ QUAN TRỌNG: Chỉ gọi khi admin thực sự thêm/sửa/xóa tài khoản
+        // GIỮ NGUYÊN password cũ nếu client không gửi password field
+        result = syncUsersData(data.users);
         break;
       case 'uploadImage': 
         result = handleImageUpload(data);
@@ -294,7 +303,54 @@ function updateRecordMultiSheet(sheetNames, record) {
   return { status: 'error', message: 'ID not found in any sheet' };
 }
 
-// 3b. Cập nhật nhiều records trong 1 request (batch) — hiệu quả hơn N request riêng lẻ
+// 3b. Tạo hàng loạt records từ Import Excel — 1 request duy nhất
+// Phân loại theo points: dương → Violations, âm → Achievements
+function batchCreateRecords(records) {
+  if (!records || records.length === 0) return { status: 'error', message: 'No records provided' };
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const violationsSheet = ss.getSheetByName('Violations');
+  const achievementsSheet = ss.getSheetByName('Achievements');
+  const vHeaders = SCHEMA['Violations'];
+  const aHeaders = SCHEMA['Achievements'];
+
+  const vRows = [];
+  const aRows = [];
+
+  records.forEach(function(record) {
+    if (record.points > 0) {
+      // Vi phạm (points dương = trừ điểm)
+      const row = vHeaders.map(function(h) {
+        let val = record[h];
+        if (h === 'images' && Array.isArray(val)) val = JSON.stringify(val);
+        return (val !== undefined && val !== null) ? val : '';
+      });
+      vRows.push(row);
+    } else {
+      // Thành tích (points âm = cộng điểm)
+      const row = aHeaders.map(function(h) {
+        let val = record[h];
+        if (h === 'images' && Array.isArray(val)) val = JSON.stringify(val);
+        return (val !== undefined && val !== null) ? val : '';
+      });
+      aRows.push(row);
+    }
+  });
+
+  // Ghi tất cả vRows vào Violations cùng lúc
+  if (vRows.length > 0 && violationsSheet) {
+    const vLastRow = violationsSheet.getLastRow();
+    violationsSheet.getRange(vLastRow + 1, 1, vRows.length, vHeaders.length).setValues(vRows);
+  }
+  // Ghi tất cả aRows vào Achievements cùng lúc
+  if (aRows.length > 0 && achievementsSheet) {
+    const aLastRow = achievementsSheet.getLastRow();
+    achievementsSheet.getRange(aLastRow + 1, 1, aRows.length, aHeaders.length).setValues(aRows);
+  }
+
+  return { status: 'success', created: records.length, violations: vRows.length, achievements: aRows.length };
+}
+
+// 3c. Cập nhật nhiều records trong 1 request (batch) — hiệu quả hơn N request riêng lẻ
 // Đọc mỗi sheet 1 lần, tìm & update tất cả rows cần thiết rồi flush 1 lần
 function batchUpdateViolations(records) {
   if (!records || records.length === 0) return { status: 'success', updated: 0 };
@@ -376,12 +432,13 @@ function deleteRecordsMultiSheet(sheetNames, ids) {
   return { status: 'success', action: 'bulk_deleted', count: deletedCount };
 }
 
-// 6. Đồng bộ Settings (Chỉ áp dụng cho các bảng danh mục, không đụng vào Vi phạm/Thành tích)
+// 6. Đồng bộ Settings (KHÔNG SYNC Users ở đây — tránh ghi đè mất mật khẩu)
 function syncSettingsData(payload) {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   
-  // Chỉ sync các bảng danh mục
-  const safeSyncSheets = ['Users', 'Classes', 'Students', 'Criteria', 'TimeConfigs'];
+  // ⚠️ KHÔNG bao gồm 'Users' ở đây!
+  // Users phải được sync qua syncUsersData() riêng biệt để preserve password
+  const safeSyncSheets = ['Classes', 'Students', 'Criteria', 'TimeConfigs'];
 
   safeSyncSheets.forEach(sheetName => {
     if (!payload[sheetName]) return;
@@ -409,7 +466,60 @@ function syncSettingsData(payload) {
     }
   });
   
-  return { status: 'success', message: 'Settings synced' };
+  return { status: 'success', message: 'Settings synced (Classes, Students, Criteria, TimeConfigs)' };
+}
+
+// 6b. Đồng bộ Users RIÊNG BIỆT — giữ nguyên password cũ nếu client không gửi
+// Client không bao giờ có password (getAllData đã bỏ password ra khỏi response)
+// Nên với mỗi user, nếu không có field password trong payload thì GIỮ NGUYÊN password cũ từ sheet
+function syncUsersData(usersFromClient) {
+  if (!usersFromClient || usersFromClient.length === 0) {
+    return { status: 'error', message: 'No users provided' };
+  }
+
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName('Users');
+  if (!sheet) return { status: 'error', message: 'Users sheet not found' };
+
+  const headers = SCHEMA['Users']; // ['id', 'name', 'username', 'password', 'role', 'className', 'email', 'summaryMeetings']
+  const pwdIndex = headers.indexOf('password');
+  const idIndex = headers.indexOf('id');
+
+  // Đọc toàn bộ dữ liệu hiện tại để lấy password cũ
+  const existingPasswords = {};
+  const lastRow = sheet.getLastRow();
+  if (lastRow > 1) {
+    const rawData = sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
+    rawData.forEach(function(row) {
+      const id = String(row[idIndex]);
+      const pwd = row[pwdIndex];
+      if (id && pwd) existingPasswords[id] = pwd;
+    });
+  }
+
+  // Ghi lại toàn bộ Users, preserve password
+  if (lastRow > 1) {
+    sheet.getRange(2, 1, lastRow - 1, headers.length).clearContent();
+  }
+
+  const rows = usersFromClient.map(function(user) {
+    return headers.map(function(h) {
+      if (h === 'password') {
+        // Ưu tiên: password mới từ client (nếu admin đặt mới)
+        // Fallback: giữ nguyên password cũ từ sheet
+        return user.password || existingPasswords[user.id] || '';
+      }
+      const val = user[h];
+      if (Array.isArray(val)) return JSON.stringify(val);
+      return (val === undefined || val === null) ? '' : val;
+    });
+  });
+
+  if (rows.length > 0) {
+    sheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
+  }
+
+  return { status: 'success', message: `Synced ${rows.length} users (passwords preserved)` };
 }
 
 // 7. Upload ảnh

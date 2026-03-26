@@ -357,33 +357,26 @@ const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
     setShowPreview(false);
     setIsSubmitting(true);
     abortImportRef.current = false;
-    let successCount = 0;
-    let errorCount = 0;
-    const successfulRecords: Violation[] = [];
+    setImportProgress(`Đang gửi ${recordsToSave.length} bản ghi lên server...`);
 
-    for (let i = 0; i < recordsToSave.length; i++) {
-      if (abortImportRef.current) { setImportProgress('🛑 Import đã hủy!'); break; }
-      setImportProgress(`Đang xử lý ${i + 1}/${recordsToSave.length}...`);
-      try {
-        await api.createViolation(recordsToSave[i]);
-        successfulRecords.push(recordsToSave[i]);
-        successCount++;
-        await new Promise(resolve => setTimeout(resolve, 50));
-      } catch (err) { console.error(err); errorCount++; }
-    }
+    try {
+      // ✅ Issue 5: Batch import — 1 API call thay cho N*50ms sequential loop
+      const result = await api.batchCreateViolations(recordsToSave);
+      if (result?.error) throw new Error(result.error);
 
-    if (successfulRecords.length > 0) setViolations(prev => [...successfulRecords, ...prev]);
-    setIsSubmitting(false);
-    setImportProgress('');
-
-    if (abortImportRef.current) {
-      await showAlert('Import bị hủy', `Đã lưu: ${successCount}\nLỗi: ${errorCount}\nChưa xử lý: ${recordsToSave.length - (successCount + errorCount)}`, 'info');
-    } else {
+      setViolations(prev => [...recordsToSave, ...prev]);
+      setIsSubmitting(false);
+      setImportProgress('');
       await showAlert(
-        successCount > 0 ? 'Import Thành Công' : 'Import Thất Bại',
-        `Thành công: ${successCount}\nLỗi: ${errorCount}`,
-        successCount > 0 ? 'success' : 'error'
+        'Import Thành Công',
+        `Đã lưu thành công ${recordsToSave.length} bản ghi cùng lúc.`,
+        'success'
       );
+    } catch (err) {
+      console.error('Batch import error:', err);
+      setIsSubmitting(false);
+      setImportProgress('');
+      await showAlert('Import Thất Bại', 'Có lỗi khi gửi dữ liệu lên server. Vui lòng thử lại.', 'error');
     }
     setPreviewRows([]);
   };
@@ -691,14 +684,14 @@ const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
           )}
 
           <div>
-            <label className="block text-sm font-medium mb-1">Ngày ghi nhận</label>
-            <input type="date" className="w-full p-3 rounded-lg border border-slate-300" value={entryDate} onChange={(e) => setEntryDate(e.target.value)} />
+            <label className="block text-xs font-medium text-slate-500 mb-1">Ngày ghi nhận</label>
+            <input type="date" className="w-full p-3 rounded-lg border border-slate-200 bg-slate-50 text-slate-700" value={entryDate} onChange={(e) => setEntryDate(e.target.value)} />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1">Khối</label>
+              <label className="block text-xs font-medium text-slate-500 mb-1">Khối</label>
               <div className="relative">
-                <select className="w-full p-3 rounded-lg border border-slate-300 bg-white appearance-none" value={selectedGrade} onChange={(e) => { setSelectedGrade(e.target.value); setSelectedClassId(''); setSelectedStudentId(''); }}>
+                <select className="w-full p-3 rounded-lg border border-slate-200 bg-slate-50 text-slate-700 appearance-none" value={selectedGrade} onChange={(e) => { setSelectedGrade(e.target.value); setSelectedClassId(''); setSelectedStudentId(''); }}>
                   <option value="">Tất cả</option>
                   <option value="10">Khối 10</option>
                   <option value="11">Khối 11</option>
@@ -707,14 +700,17 @@ const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
                 <ChevronDown className="absolute right-3 top-3.5 text-slate-400 pointer-events-none" size={16} />
               </div>
             </div>
+            {/* Lớp — trường quan trọng */}
             <div>
-              <label className="block text-sm font-medium mb-1">Lớp</label>
-              <div className="relative">
-                <select className={`w-full p-3 rounded-lg border border-slate-300 bg-white appearance-none`} value={selectedClassId} onChange={(e) => { setSelectedClassId(e.target.value); setSelectedStudentId(''); }}>
+              <label className="block text-sm font-bold text-slate-800 mb-1">
+                Lớp <span className="text-red-500">*</span>
+              </label>
+              <div className="relative ring-2 ring-blue-100 rounded-lg focus-within:ring-blue-400 transition-all">
+                <select className={`w-full p-3 rounded-lg border-2 bg-white appearance-none font-medium ${selectedClassId ? 'border-blue-500 text-blue-800' : 'border-blue-300 text-slate-600'}`} value={selectedClassId} onChange={(e) => { setSelectedClassId(e.target.value); setSelectedStudentId(''); }}>
                   <option value="">-- Chọn Lớp --</option>
                   {filteredClasses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
-                <ChevronDown className="absolute right-3 top-3.5 text-slate-400 pointer-events-none" size={16} />
+                <ChevronDown className="absolute right-3 top-3.5 text-blue-400 pointer-events-none" size={16} />
               </div>
             </div>
           </div>
@@ -726,20 +722,27 @@ const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
 
           {selectedType === 'PERSONAL' && (
             <div>
-              <label className="block text-sm font-medium mb-1">Học sinh</label>
-              <select className="w-full p-3 rounded-lg border border-slate-300 bg-white" value={selectedStudentId} onChange={(e) => setSelectedStudentId(e.target.value)} disabled={!selectedClassId}>
+              <label className="block text-sm font-bold text-slate-800 mb-1">
+                Học sinh <span className="text-red-500">*</span>
+              </label>
+              <select className="w-full p-3 rounded-lg border-2 border-slate-300 bg-white" value={selectedStudentId} onChange={(e) => setSelectedStudentId(e.target.value)} disabled={!selectedClassId}>
                 <option value="">-- Chọn Học Sinh --</option>
                 {students.filter(s => s.classId === selectedClassId).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             </div>
           )}
 
+          {/* Nội dung — trường quan trọng nhất */}
           <div>
-            <label className="block text-sm font-medium mb-1">Nội dung</label>
-            <select className="w-full p-3 rounded-lg border border-slate-300 bg-white" value={selectedCriteriaId} onChange={(e) => setSelectedCriteriaId(e.target.value)}>
-              <option value="">-- Chọn Nội Dung --</option>
-              {filteredCriteria.map(c => <option key={c.id} value={c.id}>{c.content} {entryMode === 'VIOLATION' ? `(-${c.points}đ)` : `(+${c.points}đ)`}</option>)}
-            </select>
+            <label className="block text-sm font-bold text-slate-800 mb-1">
+              Nội dung <span className="text-red-500">*</span>
+            </label>
+            <div className="ring-2 ring-blue-100 rounded-lg focus-within:ring-blue-400 transition-all">
+              <select className={`w-full p-3 rounded-lg border-2 bg-white font-medium ${selectedCriteriaId ? 'border-blue-500 text-blue-800' : 'border-blue-300 text-slate-600'}`} value={selectedCriteriaId} onChange={(e) => setSelectedCriteriaId(e.target.value)}>
+                <option value="">-- Chọn Nội Dung --</option>
+                {filteredCriteria.map(c => <option key={c.id} value={c.id}>{c.content} {entryMode === 'VIOLATION' ? `(-${c.points}đ)` : `(+${c.points}đ)`}</option>)}
+              </select>
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -767,7 +770,11 @@ const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
             )}
           </div>
 
-          <textarea placeholder="Ghi chú thêm..." className="w-full p-3 rounded-lg border border-slate-300 text-sm" rows={3} value={entryNote} onChange={(e) => setEntryNote(e.target.value)}></textarea>
+          {/* Ghi chú — trường phụ */}
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1">Ghi chú thêm <span className="italic">(tùy chọn)</span></label>
+            <textarea placeholder="Ghi chú thêm..." className="w-full p-3 rounded-lg border border-slate-200 bg-slate-50/70 text-sm text-slate-600 placeholder:text-slate-300" rows={2} value={entryNote} onChange={(e) => setEntryNote(e.target.value)} />
+          </div>
 
           <button
             disabled={isSubmitting}

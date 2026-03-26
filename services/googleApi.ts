@@ -44,6 +44,12 @@ export const api = {
     return postData('batchUpdateViolations', { records });
   },
 
+  // 4c. Tạo nhiều Vi phạm / Thành tích trong 1 request (Batch Import)
+  // Thay thế loop N*api.createViolation() — giảm từ >5s xuống ~1 request
+  batchCreateViolations: async (records: any[]) => {
+    return postData('batchCreateViolations', { records });
+  },
+
   // 5. Đồng bộ Settings (KHÔNG bao gồm Users để tránh xóa mật khẩu)
   syncSettings: async (payload: { Classes: any[], Students: any[], Criteria: any[], TimeConfigs: any[] }) => {
     return postData('syncSettings', payload);

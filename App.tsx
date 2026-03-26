@@ -78,6 +78,15 @@ export default function App() {
 
   const { showConfirm, showAlert, showToast } = useModal();
 
+  // ⏳ Issue 4: GAS Cold Start Warning — hiện toast nếu load > 3 giây
+  useEffect(() => {
+    if (!isLoading && !isRefreshing) return;
+    const timer = setTimeout(() => {
+      showToast('⏳ Đang kết nối server... (GAS cold start có thể mất 3–5s, vui lòng chờ)', 'info');
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [isLoading, isRefreshing]);
+
   // ✅ Auto Login
   useEffect(() => {
     const savedUser = localStorage.getItem('nnp_user_session');

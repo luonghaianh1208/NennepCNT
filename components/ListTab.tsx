@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Download, Filter, Search, CheckSquare, Square, Trash2, Edit, Link2, ListChecks, ChevronDown, Copy, RefreshCw, AlertTriangle, X } from 'lucide-react';
 import { Violation } from '../types';
 import { safeParseImages, formatDateDisplay, isDateInRange, exportToExcel, findDuplicateViolations } from '../utils';
@@ -25,7 +25,7 @@ interface ListTabProps {
   setFilterCriteriaType: (t: 'ALL' | 'MINUS' | 'PLUS') => void;
 }
 
-const ITEMS_PER_PAGE = 50;
+const ITEMS_PER_PAGE = 20;
 
 const ListTab: React.FC<ListTabProps> = ({
   setViewingViolation, setEditingViolation, onDeleteViolation, onBulkDelete, onBulkUpdate, onUndoBulkUpdate, undoSnapshot,
@@ -34,7 +34,7 @@ const ListTab: React.FC<ListTabProps> = ({
   filterClassId, setFilterClassId,
   filterCriteriaType, setFilterCriteriaType,
 }) => {
-  const { currentUser, violations, classes, students, criteria, users, roleConfigs, timeConfigs } = useAppStore();
+  const { currentUser, violations, classes, students, criteria, users, roleConfigs, timeConfigs, isRefreshing } = useAppStore();
   const { showToast } = useModal();
 
   // Local-only state (không cần persist)
@@ -49,6 +49,8 @@ const ListTab: React.FC<ListTabProps> = ({
   const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
   // Pagination State
   const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
+  // Intersection Observer sentinel ref — tự động load khi scroll đến cuối
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
      if (filterMode !== 'ALL') {
@@ -64,6 +66,7 @@ const ListTab: React.FC<ListTabProps> = ({
   useEffect(() => {
       setVisibleCount(ITEMS_PER_PAGE);
   }, [filterMode, filterCriteriaType, filterConfigId, filterClassId, searchTerm, showDuplicatesOnly, showOutOfConfig]);
+
 
   const isAdmin = useMemo(() => {
      const roleKey = currentUser.role.toUpperCase();
@@ -165,6 +168,22 @@ const ListTab: React.FC<ListTabProps> = ({
   const visibleViolations = useMemo(() => {
       return filteredViolations.slice(0, visibleCount);
   }, [filteredViolations, visibleCount]);
+
+  // Intersection Observer: tự động load thêm khi scroll đến sentinel (sau khi filteredViolations được khai báo)
+  useEffect(() => {
+    const sentinel = loadMoreRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && visibleCount < filteredViolations.length) {
+          setVisibleCount(prev => Math.min(prev + ITEMS_PER_PAGE, filteredViolations.length));
+        }
+      },
+      { rootMargin: '120px' }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [visibleCount, filteredViolations.length]);
 
   const toggleSelection = (id: string) => {
     const newSet = new Set(selectedViolationIds);
@@ -391,6 +410,28 @@ const ListTab: React.FC<ListTabProps> = ({
       </div>
 
       <div className="space-y-3">
+        {/* Skeleton loading khi isRefreshing */}
+        {isRefreshing && (
+          <div className="space-y-3">
+            {[1,2,3,4,5].map(i => (
+              <div key={i} className="bg-white rounded-xl border border-slate-200 p-4 animate-pulse">
+                <div className="flex justify-between items-start">
+                  <div className="flex-1 pr-8">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="h-5 w-16 bg-slate-200 rounded" />
+                      <div className="h-4 w-24 bg-slate-100 rounded" />
+                    </div>
+                    <div className="h-4 w-32 bg-slate-200 rounded mb-1.5" />
+                    <div className="h-4 w-48 bg-slate-100 rounded mb-2" />
+                    <div className="h-5 w-28 bg-slate-100 rounded" />
+                  </div>
+                  <div className="h-7 w-10 bg-slate-200 rounded" />
+                </div>
+              </div>
+            ))}
+            <p className="text-center text-slate-400 text-sm py-2 animate-pulse">Đang tải dữ liệu mới nhất...</p>
+          </div>
+        )}
         {visibleViolations.map((v) => {
           const cls = classes.find(c => c.id === v.classId);
           const stu = students.find(s => s.id === v.studentId && s.classId === v.classId);
@@ -474,24 +515,73 @@ const ListTab: React.FC<ListTabProps> = ({
         })}
         
         {/* Empty State */}
-        {filteredViolations.length === 0 && (
-          <div className="text-center py-10 flex flex-col items-center text-slate-400">
-             <Search size={48} strokeWidth={1} className="mb-2 opacity-50" />
-             <p>{showDuplicatesOnly ? "Không tìm thấy dữ liệu trùng lặp." : "Không tìm thấy dữ liệu phù hợp với bộ lọc."}</p>
+        {!isRefreshing && filteredViolations.length === 0 && (
+          <div className="text-center py-12 flex flex-col items-center">
+            {/* SVG Illustration */}
+            <div className="w-24 h-24 mb-4 text-slate-200">
+              <svg viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="16" y="12" width="64" height="72" rx="8" fill="#e2e8f0"/>
+                <rect x="28" y="28" width="40" height="6" rx="3" fill="#cbd5e1"/>
+                <rect x="28" y="42" width="32" height="6" rx="3" fill="#cbd5e1"/>
+                <rect x="28" y="56" width="24" height="6" rx="3" fill="#cbd5e1"/>
+                {searchTerm.trim() ? (
+                  <>
+                    <circle cx="70" cy="70" r="14" fill="#bfdbfe" />
+                    <line x1="62" y1="78" x2="79" y2="61" stroke="#93c5fd" strokeWidth="3" strokeLinecap="round"/>
+                    <line x1="66" y1="66" x2="74" y2="74" stroke="#3b82f6" strokeWidth="2.5" strokeLinecap="round"/>
+                  </>
+                ) : (
+                  <>
+                    <circle cx="68" cy="68" r="16" fill="#fef9c3" stroke="#fde047" strokeWidth="2"/>
+                    <text x="68" y="74" textAnchor="middle" fontSize="18" fill="#ca8a04">📋</text>
+                  </>
+                )}
+              </svg>
+            </div>
+            {searchTerm.trim() ? (
+              <>
+                <p className="font-bold text-slate-600 text-base mb-1">Không tìm thấy kết quả</p>
+                <p className="text-slate-400 text-sm mb-3">Không có bản ghi nào khớp với “<span className="font-semibold text-slate-600">{searchTerm}</span>”</p>
+                <button
+                  onClick={() => setSearchTerm('')}
+                  className="text-sm text-blue-600 font-semibold hover:underline"
+                >Xóa bộ lọc tìm kiếm</button>
+              </>
+            ) : showDuplicatesOnly ? (
+              <>
+                <p className="font-bold text-green-600 text-base mb-1">✅ Không có bản ghi trùng lập</p>
+                <p className="text-slate-400 text-sm">Dữ liệu trong khoảng thời gian này hoàn toàn sạch.</p>
+              </>
+            ) : (
+              <>
+                <p className="font-bold text-slate-600 text-base mb-1">Chưa có dữ liệu</p>
+                <p className="text-slate-400 text-sm mb-4">Chưa có bản ghi nào phù hợp với bộ lọc hiện tại.</p>
+                <div className="flex flex-col sm:flex-row gap-2 items-center">
+                  <button
+                    onClick={() => { setFilterMode('ALL'); setFilterClassId('ALL'); }}
+                    className="text-sm bg-slate-100 text-slate-600 px-4 py-2 rounded-lg font-semibold hover:bg-slate-200 transition-colors"
+                  >Xóa bộ lọc</button>
+                </div>
+              </>
+            )}
           </div>
         )}
 
-        {/* Load More Button */}
+        {/* Sentinel + Load More Button */}
         {visibleCount < filteredViolations.length && (
+          <div>
+            {/* Sentinel: IntersectionObserver sẽ trigger load thêm khi đến đây */}
+            <div ref={loadMoreRef} className="h-1" />
             <div className="flex justify-center pt-2 pb-6">
-                <button 
-                    onClick={handleLoadMore}
-                    className="flex items-center gap-2 px-6 py-2.5 bg-white border border-slate-200 shadow-sm rounded-full text-slate-600 font-bold hover:bg-slate-50 hover:text-blue-600 hover:border-blue-200 transition-all active:scale-95"
-                >
-                    <ChevronDown size={18} />
-                    Xem thêm ({filteredViolations.length - visibleCount} mục nữa)
-                </button>
+              <button
+                  onClick={handleLoadMore}
+                  className="flex items-center gap-2 px-6 py-2.5 bg-white border border-slate-200 shadow-sm rounded-full text-slate-600 font-bold hover:bg-slate-50 hover:text-blue-600 hover:border-blue-200 transition-all active:scale-95"
+              >
+                  <ChevronDown size={18} />
+                  Xem thêm ({filteredViolations.length - visibleCount} mục nữa)
+              </button>
             </div>
+          </div>
         )}
       </div>
 
