@@ -126,6 +126,10 @@ function handleRequest(e) {
       case 'verifyLogin':
         result = verifyLogin(data.username, data.password);
         break;
+      // 🔑 Quên mật khẩu — tìm theo email, tạo CNT@xxxx, gửi qua MailApp
+      case 'resetPassword':
+        result = resetUserPassword(data.email);
+        break;
       default:
         result = { error: 'Unknown action: ' + action };
     }
@@ -603,4 +607,72 @@ function getAuditLogs() {
     violationPoints:   row[9],
     details:           row[10],
   }));
+}
+// =============================================================
+// RESET PASSWORD: Tìm user theo email, tạo mật khẩu mới, gửi mail
+// =============================================================
+function resetUserPassword(email) {
+  if (!email || String(email).trim() === '') {
+    return { success: false, error: 'Vui lòng nhập email.' };
+  }
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName('Users');
+  if (!sheet) return { success: false, error: 'Không tìm thấy Users sheet.' };
+
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const emailIdx = headers.indexOf('email');
+  const passIdx  = headers.indexOf('password');
+  const nameIdx  = headers.indexOf('name');
+
+  if (emailIdx === -1) return { success: false, error: 'Cột email chưa tồn tại trong hệ thống.' };
+
+  // Tìm user theo email (không phân biệt hoa/thường)
+  for (var i = 1; i < data.length; i++) {
+    var cellEmail = String(data[i][emailIdx] || '').trim().toLowerCase();
+    if (cellEmail === String(email).trim().toLowerCase()) {
+      // Tạo mật khẩu mới: CNT@xxxx
+      var newPass = 'CNT@' + String(Math.floor(1000 + Math.random() * 9000));
+      var userName = String(data[i][nameIdx] || 'bạn');
+
+      // Cập nhật mật khẩu trong sheet
+      sheet.getRange(i + 1, passIdx + 1).setValue(newPass);
+
+      // Gửi email
+      try {
+        MailApp.sendEmail({
+          to: String(email).trim(),
+          subject: '[Nền Nếp CNT] Mật khẩu mới của bạn',
+          htmlBody: [
+            '<div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto">',
+            '<div style="background:linear-gradient(135deg,#b91c1c,#991b1b);padding:20px 24px;border-radius:12px 12px 0 0">',
+            '<h2 style="color:#fde047;margin:0;font-size:20px">Nền Nếp CNT</h2>',
+            '<p style="color:rgba(255,255,255,.8);margin:4px 0 0;font-size:12px">Hệ Thống Quản Lý Nền Nếp</p>',
+            '</div>',
+            '<div style="background:#fff;padding:24px;border:1px solid #e2e8f0;border-radius:0 0 12px 12px">',
+            '<p style="color:#334155;margin:0 0 12px">Xin chào <strong>' + userName + '</strong>,</p>',
+            '<p style="color:#334155;margin:0 0 16px">Yêu cầu đặt lại mật khẩu của bạn đã được xử lý. Mật khẩu mới của bạn là:</p>',
+            '<div style="background:#fef2f2;border:2px solid #fca5a5;border-radius:8px;padding:16px;text-align:center;margin:0 0 16px">',
+            '<span style="font-size:22px;font-weight:900;color:#b91c1c;letter-spacing:2px">' + newPass + '</span>',
+            '</div>',
+            '<p style="color:#64748b;font-size:13px;margin:0 0 16px">',
+            '⚠️ Sau khi đăng nhập, đề nghị liên hệ quản trị viên để đổi mật khẩu cá nhân.',
+            '</p>',
+            '<a href="https://nennepcnt.netlify.app" style="display:inline-block;background:#b91c1c;color:#fff;font-weight:700;padding:10px 24px;border-radius:8px;text-decoration:none;font-size:14px">Đăng nhập ngay</a>',
+            '<hr style="border:none;border-top:1px solid #e2e8f0;margin:20px 0">',
+            '<p style="color:#94a3b8;font-size:11px;margin:0">© 2026 Lương Hải Anh · THPT Chuyên Nguyễn Trãi · Hải Phầng</p>',
+            '</div></div>'
+          ].join('')
+        });
+      } catch(mailErr) {
+        // Mật khẩu đã cập nhật nhưng gửi mail thất bại
+        return { success: false, error: 'Mật khẩu đã được đặt lại nhưng không gửi được email. Vui lòng liên hệ admin.' };
+      }
+
+      return { success: true };
+    }
+  }
+
+  // Không tìm thấy email
+  return { success: false, error: 'Email này chưa được đăng ký trong hệ thống.' };
 }

@@ -88,6 +88,11 @@ export const api = {
   verifyLogin: async (username: string, password: string): Promise<{ success: boolean; user?: any; error?: string }> => {
     return postData('verifyLogin', { username, password });
   },
+
+  // 10. Đặt lại mật khẩu qua email — tạo CNT@xxxx mới, gửi email qua GAS MailApp
+  resetPassword: async (email: string): Promise<{ success: boolean; error?: string }> => {
+    return postData('resetPassword', { email });
+  },
 };
 
 async function postData(action: string, data: any) {
