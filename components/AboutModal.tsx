@@ -82,7 +82,7 @@ const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
           {/* Info rows */}
           <div className="px-4 mt-4 space-y-2">
             {[
-              ['Phiên bản', '3.1.2 — Tháng 3/2026'],
+              ['Phiên bản', '3.1.3 — Tháng 3/2026'],
               ['Tác giả', 'Lương Hải Anh'],
               ['Đơn vị', 'THPT Chuyên Nguyễn Trãi – Hải Phòng'],
               ['Nền tảng', 'Web App (iOS · Android · Desktop)'],
