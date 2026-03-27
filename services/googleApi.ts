@@ -1,7 +1,7 @@
 
 // services/googleApi.ts
 
-const API_URL = 'https://script.google.com/macros/s/AKfycbzQIfHO-37u4YAXJH4H-66HpUbydkY-mvxYxxXAZShqLWQOISXPp4XXVQ5Nd81EUnc4vw/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbzgVHCHANRKJQ4jEFMBY8VCRIFS2zyunSiljObF3vG4He3KmxjuA3ufMB1cgqRlRFfxAg/exec';
 
 export const api = {
   // 1. Lấy toàn bộ dữ liệu
