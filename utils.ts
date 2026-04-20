@@ -189,11 +189,18 @@ export const isDateInRange = (targetDateStr: string, startStr: string, endStr: s
 // computeRankingContext — SINGLE SOURCE OF TRUTH cho logic tính xếp hạng
 // Dùng chung cho rankingData (hiển thị) và processExport (xuất Excel)
 // -----------------------------------------------------------------------
+export interface SemesterContext {
+  violations: Violation[];
+  weeksCount: number;
+  name: string;
+}
+
 export interface RankingContext {
   relevantViolations: Violation[];
   weeksCount: number;
   isRangeMode: boolean;
   periodStr: string;
+  weightedSemesters?: { hk1: SemesterContext; hk2: SemesterContext };
 }
 
 export const computeRankingContext = (
@@ -205,6 +212,46 @@ export const computeRankingContext = (
   const allConfiguredWeeks = timeConfigs.filter(c => c.type === 'WEEK');
 
   if (filterMode === 'ALL') {
+    const semesterConfigs = timeConfigs
+      .filter(c => c.type === 'SEMESTER')
+      .sort((a, b) => a.startDate.localeCompare(b.startDate));
+
+    if (semesterConfigs.length >= 2) {
+      const hk1 = semesterConfigs[0];
+      const hk2 = semesterConfigs[1];
+
+      const weeksInHK1 = allConfiguredWeeks.filter(w =>
+        isDateInRange(w.startDate, hk1.startDate, hk1.endDate) ||
+        isDateInRange(hk1.startDate, w.startDate, w.endDate)
+      ).length;
+      const weeksInHK2 = allConfiguredWeeks.filter(w =>
+        isDateInRange(w.startDate, hk2.startDate, hk2.endDate) ||
+        isDateInRange(hk2.startDate, w.startDate, w.endDate)
+      ).length;
+
+      const violationsHK1 = violations.filter(v => isDateInRange(v.date, hk1.startDate, hk1.endDate));
+      const violationsHK2 = violations.filter(v => isDateInRange(v.date, hk2.startDate, hk2.endDate));
+
+      const seen = new Set<string>();
+      const relevantViolations = [...violationsHK1, ...violationsHK2].filter(v => {
+        if (seen.has(v.id)) return false;
+        seen.add(v.id);
+        return true;
+      });
+
+      return {
+        relevantViolations,
+        weeksCount: weeksInHK1 + weeksInHK2,
+        isRangeMode: true,
+        periodStr: `Năm học (${hk1.name} ×1 + ${hk2.name} ×2)`,
+        weightedSemesters: {
+          hk1: { violations: violationsHK1, weeksCount: Math.max(1, weeksInHK1), name: hk1.name },
+          hk2: { violations: violationsHK2, weeksCount: Math.max(1, weeksInHK2), name: hk2.name },
+        },
+      };
+    }
+
+    // Fallback khi chưa đủ 2 học kỳ cấu hình
     if (allConfiguredWeeks.length > 0) {
       const rv = violations.filter(v =>
         allConfiguredWeeks.some(week => isDateInRange(v.date, week.startDate, week.endDate))
@@ -216,7 +263,6 @@ export const computeRankingContext = (
         periodStr: `Toàn thời gian (${allConfiguredWeeks.length} tuần cấu hình)`,
       };
     } else {
-      // Fallback: chưa cài tuần nào
       const minDate = getEarliestViolationDate(violations);
       const maxDate = getLatestViolationDate(violations);
       return {

@@ -70,12 +70,21 @@ const RankingTab: React.FC<RankingTabProps> = ({
   }, [rankingFilterMode, timeConfigs, rankingFilterConfigId]);
 
   // Helper: tính stats + xếp hạng cho danh sách lớp bất kỳ
-  const rankClassList = (targetClasses: any[], relevantViolations: any[], weeksCount: number, isRangeMode: boolean) => {
+  const rankClassList = (targetClasses: any[], relevantViolations: any[], weeksCount: number, isRangeMode: boolean, weightedSemesters?: any) => {
       const baseScore = 500;
       const stats = targetClasses.map(cls => {
           const clsViolations = relevantViolations.filter((v: any) => v.classId === cls.id);
           const violationCount = clsViolations.filter((v: any) => v.points > 0).length;
-          const totalScore = calculateScore(clsViolations, baseScore, weeksCount, isRangeMode);
+          let totalScore: number;
+          if (weightedSemesters) {
+              const hk1V = weightedSemesters.hk1.violations.filter((v: any) => v.classId === cls.id);
+              const hk2V = weightedSemesters.hk2.violations.filter((v: any) => v.classId === cls.id);
+              const scoreHK1 = calculateScore(hk1V, baseScore, weightedSemesters.hk1.weeksCount, true);
+              const scoreHK2 = calculateScore(hk2V, baseScore, weightedSemesters.hk2.weeksCount, true);
+              totalScore = parseFloat((scoreHK1 + scoreHK2 * 2).toFixed(2));
+          } else {
+              totalScore = calculateScore(clsViolations, baseScore, weeksCount, isRangeMode);
+          }
           return { ...cls, totalViolations: violationCount, score: totalScore };
       });
       const sorted = [...stats].sort((a, b) => b.score - a.score);
@@ -92,11 +101,11 @@ const RankingTab: React.FC<RankingTabProps> = ({
 
   // Logic tính toán dữ liệu hiển thị (dùng shared util — single source of truth)
   const rankingData = useMemo(() => {
-    const { relevantViolations, weeksCount, isRangeMode } = computeRankingContext(
+    const { relevantViolations, weeksCount, isRangeMode, weightedSemesters } = computeRankingContext(
       violations, timeConfigs, rankingFilterMode, rankingFilterConfigId
     );
     const targetClasses = classes.filter(c => c.grade.toString() === rankingGradeTab);
-    return rankClassList(targetClasses, relevantViolations, weeksCount, isRangeMode);
+    return rankClassList(targetClasses, relevantViolations, weeksCount, isRangeMode, weightedSemesters);
   }, [violations, classes, rankingGradeTab, rankingFilterMode, rankingFilterConfigId, timeConfigs]);
 
   let timeLabel = '';
@@ -134,7 +143,7 @@ const RankingTab: React.FC<RankingTabProps> = ({
 
   const processExport = (scope: 'CURRENT' | 'ALL') => {
       // Dùng shared util — nhất quán 100% với rankingData
-      const { relevantViolations, weeksCount, isRangeMode, periodStr } = computeRankingContext(
+      const { relevantViolations, weeksCount, isRangeMode, periodStr, weightedSemesters } = computeRankingContext(
         violations, timeConfigs, rankingFilterMode, rankingFilterConfigId
       );
 
@@ -161,13 +170,13 @@ const RankingTab: React.FC<RankingTabProps> = ({
       // 3. Xếp hạng dùng rankClassList helper (tái sử dụng logic, không duplicate)
       let rankedData: any[] = [];
       if (scope === 'CURRENT') {
-          rankedData = rankClassList(targetClasses, relevantViolations, weeksCount, isRangeMode);
+          rankedData = rankClassList(targetClasses, relevantViolations, weeksCount, isRangeMode, weightedSemesters);
       } else {
           // Toàn trường: xếp hạng riêng từng khối rồi gộp lại
           [10, 11, 12].forEach(grade => {
               const gradeClasses = classes.filter(c => c.grade === grade);
               if (gradeClasses.length > 0) {
-                  rankedData = [...rankedData, ...rankClassList(gradeClasses, relevantViolations, weeksCount, isRangeMode)];
+                  rankedData = [...rankedData, ...rankClassList(gradeClasses, relevantViolations, weeksCount, isRangeMode, weightedSemesters)];
               }
           });
       }
