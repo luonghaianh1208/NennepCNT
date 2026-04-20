@@ -201,6 +201,7 @@ export interface RankingContext {
   isRangeMode: boolean;
   periodStr: string;
   weightedSemesters?: { hk1: SemesterContext; hk2: SemesterContext };
+  isHK2?: boolean; // true khi đang chọn học kỳ 2 đơn lẻ → hiển thị điểm ×2
 }
 
 export const computeRankingContext = (
@@ -289,6 +290,17 @@ export const computeRankingContext = (
   const config = timeConfigs.find(c => c.id === filterConfigId);
   if (!config) return { relevantViolations: [], weeksCount: 1, isRangeMode: true, periodStr: '' };
 
+  // Với SEMESTER: xác định xem đây có phải HK2 không (học kỳ có startDate lớn hơn)
+  let isHK2 = false;
+  if (filterMode === 'SEMESTER') {
+    const semesterConfigs = timeConfigs
+      .filter(c => c.type === 'SEMESTER')
+      .sort((a, b) => a.startDate.localeCompare(b.startDate));
+    if (semesterConfigs.length >= 2 && config.id === semesterConfigs[semesterConfigs.length - 1].id) {
+      isHK2 = true;
+    }
+  }
+
   const weeksInRange = allConfiguredWeeks.filter(week =>
     isDateInRange(week.startDate, config.startDate, config.endDate) ||
     isDateInRange(config.startDate, week.startDate, week.endDate)
@@ -301,6 +313,7 @@ export const computeRankingContext = (
       ),
       weeksCount: weeksInRange.length,
       isRangeMode: true,
+      isHK2,
       periodStr: `${config.name} (${config.startDate} - ${config.endDate})`,
     };
   } else {
@@ -309,6 +322,7 @@ export const computeRankingContext = (
       relevantViolations: violations.filter(v => isDateInRange(v.date, config.startDate, config.endDate)),
       weeksCount: getUniqueWeeksCount(config.startDate, config.endDate),
       isRangeMode: true,
+      isHK2,
       periodStr: `${config.name} (${config.startDate} - ${config.endDate})`,
     };
   }

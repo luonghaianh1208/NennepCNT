@@ -69,19 +69,25 @@ const RankingTab: React.FC<RankingTabProps> = ({
      }
   }, [rankingFilterMode, timeConfigs, rankingFilterConfigId]);
 
-  // Helper: tính stats + xếp hạng cho danh sách lớp bất kỳ
-  const rankClassList = (targetClasses: any[], relevantViolations: any[], weeksCount: number, isRangeMode: boolean, weightedSemesters?: any) => {
+  // Helper: tính stats + xế́p hạng cho danh sách lớp bất kỳ
+  // isHK2=true → nhân ×2 cả score (khi xem HK2 đơn lẻ để thấy đú́ng trọng số)
+  const rankClassList = (targetClasses: any[], relevantViolations: any[], weeksCount: number, isRangeMode: boolean, weightedSemesters?: any, isHK2?: boolean) => {
       const baseScore = 500;
       const stats = targetClasses.map(cls => {
           const clsViolations = relevantViolations.filter((v: any) => v.classId === cls.id);
           const violationCount = clsViolations.filter((v: any) => v.points > 0).length;
           let totalScore: number;
           if (weightedSemesters) {
+              // ALL mode: HK1×1 + HK2×2
               const hk1V = weightedSemesters.hk1.violations.filter((v: any) => v.classId === cls.id);
               const hk2V = weightedSemesters.hk2.violations.filter((v: any) => v.classId === cls.id);
               const scoreHK1 = calculateScore(hk1V, baseScore, weightedSemesters.hk1.weeksCount, true);
               const scoreHK2 = calculateScore(hk2V, baseScore, weightedSemesters.hk2.weeksCount, true);
               totalScore = parseFloat((scoreHK1 + scoreHK2 * 2).toFixed(2));
+          } else if (isHK2) {
+              // SEMESTER HK2 đơn lẻ: tính bình thường rồi nhân ×2
+              const rawScore = calculateScore(clsViolations, baseScore, weeksCount, isRangeMode);
+              totalScore = parseFloat((rawScore * 2).toFixed(2));
           } else {
               totalScore = calculateScore(clsViolations, baseScore, weeksCount, isRangeMode);
           }
@@ -101,20 +107,31 @@ const RankingTab: React.FC<RankingTabProps> = ({
 
   // Logic tính toán dữ liệu hiển thị (dùng shared util — single source of truth)
   const rankingData = useMemo(() => {
-    const { relevantViolations, weeksCount, isRangeMode, weightedSemesters } = computeRankingContext(
+    const { relevantViolations, weeksCount, isRangeMode, weightedSemesters, isHK2 } = computeRankingContext(
       violations, timeConfigs, rankingFilterMode, rankingFilterConfigId
     );
     const targetClasses = classes.filter(c => c.grade.toString() === rankingGradeTab);
-    return rankClassList(targetClasses, relevantViolations, weeksCount, isRangeMode, weightedSemesters);
+    return rankClassList(targetClasses, relevantViolations, weeksCount, isRangeMode, weightedSemesters, isHK2);
   }, [violations, classes, rankingGradeTab, rankingFilterMode, rankingFilterConfigId, timeConfigs]);
+
+  // isHK2: dùng để hiển thị badge ×2 trên UI
+  const { isHK2: rankingIsHK2, weightedSemesters: rankingWeightedSemesters } = useMemo(() => 
+    computeRankingContext(violations, timeConfigs, rankingFilterMode, rankingFilterConfigId),
+    [violations, timeConfigs, rankingFilterMode, rankingFilterConfigId]
+  );
 
   let timeLabel = '';
   if (rankingFilterMode === 'ALL') {
+    if (rankingWeightedSemesters) {
+      timeLabel = `Năm học: ${rankingWeightedSemesters.hk1.name} ×1 + ${rankingWeightedSemesters.hk2.name} ×2`;
+    } else {
       const min = getEarliestViolationDate(violations);
       timeLabel = `Toàn bộ dữ liệu (${formatDateDisplay(min.toISOString())} - Nay)`;
+    }
   } else {
     const config = timeConfigs.find(c => c.id === rankingFilterConfigId);
     timeLabel = config ? `${config.name} (${formatDateDisplay(config.startDate)} - ${formatDateDisplay(config.endDate)})` : 'Vui lòng chọn mốc thời gian';
+    if (rankingIsHK2) timeLabel += ' · ×2 (HK2)';
   }
 
   const getRankColor = (rank: number) => {
@@ -143,7 +160,7 @@ const RankingTab: React.FC<RankingTabProps> = ({
 
   const processExport = (scope: 'CURRENT' | 'ALL') => {
       // Dùng shared util — nhất quán 100% với rankingData
-      const { relevantViolations, weeksCount, isRangeMode, periodStr, weightedSemesters } = computeRankingContext(
+      const { relevantViolations, weeksCount, isRangeMode, periodStr, weightedSemesters, isHK2 } = computeRankingContext(
         violations, timeConfigs, rankingFilterMode, rankingFilterConfigId
       );
 
@@ -164,19 +181,18 @@ const RankingTab: React.FC<RankingTabProps> = ({
 
       if (targetClasses.length === 0) {
           return showToast('Không tìm thấy dữ liệu lớp học.', 'error');
-          return;
       }
 
-      // 3. Xếp hạng dùng rankClassList helper (tái sử dụng logic, không duplicate)
+      // 3. Xế́p hạng dùng rankClassList helper (tái sử dụng logic, không duplicate)
       let rankedData: any[] = [];
       if (scope === 'CURRENT') {
-          rankedData = rankClassList(targetClasses, relevantViolations, weeksCount, isRangeMode, weightedSemesters);
+          rankedData = rankClassList(targetClasses, relevantViolations, weeksCount, isRangeMode, weightedSemesters, isHK2);
       } else {
-          // Toàn trường: xếp hạng riêng từng khối rồi gộp lại
+          // Toàn trường: xế́p hạng riêng từng khối rồi gộp lại
           [10, 11, 12].forEach(grade => {
               const gradeClasses = classes.filter(c => c.grade === grade);
               if (gradeClasses.length > 0) {
-                  rankedData = [...rankedData, ...rankClassList(gradeClasses, relevantViolations, weeksCount, isRangeMode, weightedSemesters)];
+                  rankedData = [...rankedData, ...rankClassList(gradeClasses, relevantViolations, weeksCount, isRangeMode, weightedSemesters, isHK2)];
               }
           });
       }
@@ -264,26 +280,46 @@ const RankingTab: React.FC<RankingTabProps> = ({
       </div>
 
       <div className="flex flex-col sm:flex-row gap-2 bg-white p-2 rounded-xl shadow-sm border border-slate-200">
-         <div className="flex flex-1 gap-2 flex-col sm:flex-row">
-            <select 
-                className="bg-slate-50 border border-slate-300 rounded-lg px-2 py-2 text-sm outline-none font-medium w-full sm:w-auto" 
-                value={rankingFilterMode} 
-                onChange={(e) => setRankingFilterMode(e.target.value as any)}
-            >
-            <option value="WEEK">Theo Tuần (Cấu hình)</option>
-            <option value="MONTH">Theo Tháng</option>
-            <option value="SEMESTER">Theo Học kỳ</option>
-            </select>
-            
-            <select 
-                    className="bg-slate-50 border border-slate-300 rounded-lg px-2 py-2 text-sm outline-none font-medium flex-1 w-full" 
-                    value={rankingFilterConfigId} 
-                    onChange={(e) => setRankingFilterConfigId(e.target.value)}
-            >
-                {timeConfigs.filter(c => c.type === rankingFilterMode).length === 0 && <option value="">Chưa có cấu hình</option>}
-                {[...timeConfigs.filter(c => c.type === rankingFilterMode)].sort((a, b) => b.startDate.localeCompare(a.startDate)).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-         </div>
+          <div className="flex flex-1 gap-2 flex-col sm:flex-row">
+             <select 
+                 className="bg-slate-50 border border-slate-300 rounded-lg px-2 py-2 text-sm outline-none font-medium w-full sm:w-auto" 
+                 value={rankingFilterMode} 
+                 onChange={(e) => setRankingFilterMode(e.target.value as any)}
+             >
+             <option value="WEEK">Theo Tuần</option>
+             <option value="MONTH">Theo Tháng</option>
+             <option value="SEMESTER">Theo Học kỳ</option>
+             <option value="ALL">🏆 Năm học (HK1×1 + HK2×2)</option>
+             </select>
+             
+             {rankingFilterMode !== 'ALL' && (
+             <select 
+                     className="bg-slate-50 border border-slate-300 rounded-lg px-2 py-2 text-sm outline-none font-medium flex-1 w-full" 
+                     value={rankingFilterConfigId} 
+                     onChange={(e) => setRankingFilterConfigId(e.target.value)}
+             >
+                 {timeConfigs.filter(c => c.type === rankingFilterMode).length === 0 && <option value="">Chưa có cấu hình</option>}
+                 {[...timeConfigs.filter(c => c.type === rankingFilterMode)].sort((a, b) => b.startDate.localeCompare(a.startDate)).map(c => (
+                   <option key={c.id} value={c.id}>
+                     {c.name}{c.type === 'SEMESTER' && (() => {
+                       const semesters = timeConfigs.filter(s => s.type === 'SEMESTER').sort((a,b) => a.startDate.localeCompare(b.startDate));
+                       return semesters.length >= 2 && c.id === semesters[semesters.length - 1].id ? ' (×2 HK2)' : '';
+                     })()}
+                   </option>
+                 ))}
+             </select>
+             )}
+             {rankingFilterMode === 'ALL' && rankingWeightedSemesters && (
+               <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-300 rounded-lg text-xs text-amber-700 font-bold flex-1">
+                 ℹ️ {rankingWeightedSemesters.hk1.name} ×1 + {rankingWeightedSemesters.hk2.name} ×2 — đầu năm học
+               </div>
+             )}
+             {rankingFilterMode === 'ALL' && !rankingWeightedSemesters && (
+               <div className="flex items-center gap-2 px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg text-xs text-orange-600 flex-1">
+                 ⚠️ Cần cấu hình đủ 2 học kỳ ở Cài Đặt → Cấu Hình Thời Gian.
+               </div>
+             )}
+          </div>
 
          <button 
             onClick={handleOpenExportModal}
@@ -330,7 +366,11 @@ const RankingTab: React.FC<RankingTabProps> = ({
                     className={`w-full rounded-t-xl border-t-4 shadow-sm flex flex-col items-center justify-end pb-4 ${getPodiumBg(item.rank)} hover:brightness-95 active:scale-95 transition-all cursor-pointer`}
                   >
                     <span className="text-xl font-black text-slate-800">{item.name}</span>
-                    <span className="text-sm font-semibold text-blue-600">{item.score}đ</span>
+                    <span className="text-sm font-semibold text-blue-600">
+                       {item.score}đ
+                       {rankingIsHK2 && <span className="ml-1 text-[10px] bg-orange-100 text-orange-600 px-1 rounded">×2</span>}
+                       {rankingFilterMode === 'ALL' && rankingWeightedSemesters && <span className="ml-1 text-[10px] bg-purple-100 text-purple-600 px-1 rounded">Năm học</span>}
+                    </span>
                     <span className="text-[10px] text-slate-400 mt-0.5">Nhấn để xem chi tiết →</span>
                   </button>
                 </div>
@@ -368,7 +408,11 @@ const RankingTab: React.FC<RankingTabProps> = ({
             </div>
             <div className="flex items-center gap-6">
               <div className="text-xs text-slate-400 text-right"><div>{item.totalViolations} lỗi</div><div>GV: {item.homeroomTeacher}</div></div>
-              <span className="font-bold text-blue-600 w-12 text-right">{item.score}</span>
+              <div className="flex items-center gap-1">
+                <span className="font-bold text-blue-600 w-12 text-right">{item.score}</span>
+                {rankingIsHK2 && <span className="text-[10px] bg-orange-100 text-orange-600 px-1 rounded font-bold">×2</span>}
+                {rankingFilterMode === 'ALL' && rankingWeightedSemesters && <span className="text-[10px] bg-purple-100 text-purple-600 px-1 rounded">★</span>}
+              </div>
             </div>
           </button>
         ))}

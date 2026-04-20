@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { Award, TrendingUp, ThumbsDown, ThumbsUp, AlertCircle, Link2, Users, Download } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Violation } from '../types';
-import { calculateScore, safeParseImages, formatDateDisplay, getUniqueWeeksCount, getEarliestViolationDate, getLatestViolationDate, isDateInRange, getYearWeekKey, exportToExcel } from '../utils';
+import { calculateScore, safeParseImages, formatDateDisplay, getUniqueWeeksCount, getEarliestViolationDate, getLatestViolationDate, isDateInRange, getYearWeekKey, exportToExcel, computeRankingContext } from '../utils';
 import { useAppStore } from '../contexts/AppContext';
 import { useModal } from '../contexts/ModalContext';
 
@@ -100,27 +100,39 @@ const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ setViewingViolation, se
       );
   }
 
-  const gradeClasses = classes.filter(c => c.grade === cls.grade);
-  const gradeRankings = gradeClasses.map(c => {
-      const cViolations = violations.filter(v => v.classId === c.id);
-      
-      let score = 0;
-      const configuredWeeks = timeConfigs.filter(tc => tc.type === 'WEEK');
-      if (configuredWeeks.length > 0) {
-          const validViolations = cViolations.filter(v => 
-              configuredWeeks.some(week => isDateInRange(v.date, week.startDate, week.endDate))
-          );
-          score = calculateScore(validViolations, 500, totalWeeksCount, true);
-      } else {
-          score = calculateScore(cViolations, 500, totalWeeksCount, true);
+  // Tính điểm và xế́p hạng theo logic nhất quán với RankingTab (mode ALL: HK1×1 + HK2×2)
+  const { myRank, myScore, scoringLabel } = useMemo(() => {
+    const { relevantViolations, weeksCount, isRangeMode, weightedSemesters } = computeRankingContext(
+      violations, timeConfigs, 'ALL', ''
+    );
+
+    const baseScore = 500;
+    const calcClassScore = (classId: string): number => {
+      const clsV = relevantViolations.filter(v => v.classId === classId);
+      if (weightedSemesters) {
+        const hk1V = weightedSemesters.hk1.violations.filter(v => v.classId === classId);
+        const hk2V = weightedSemesters.hk2.violations.filter(v => v.classId === classId);
+        return parseFloat((calculateScore(hk1V, baseScore, weightedSemesters.hk1.weeksCount, true) +
+                           calculateScore(hk2V, baseScore, weightedSemesters.hk2.weeksCount, true) * 2).toFixed(2));
       }
+      return calculateScore(clsV, baseScore, weeksCount, isRangeMode);
+    };
 
-      return { id: c.id, avgScore: score };
-  }).sort((a, b) => b.avgScore - a.avgScore);
+    const gradeClasses = classes.filter(c => c.grade === cls?.grade);
+    const gradeRankings = gradeClasses
+      .map(c => ({ id: c.id, score: calcClassScore(c.id) }))
+      .sort((a, b) => b.score - a.score);
 
-  const myRank = gradeRankings.findIndex(r => r.id === targetClassId) + 1;
-  const myStats = gradeRankings.find(r => r.id === targetClassId);
-  
+    const rank = gradeRankings.findIndex(r => r.id === targetClassId) + 1;
+    const score = gradeRankings.find(r => r.id === targetClassId)?.score ?? 0;
+
+    const label = weightedSemesters
+      ? `${weightedSemesters.hk1.name} ×1 + ${weightedSemesters.hk2.name} ×2`
+      : `Trên tổng ${totalWeeksCount} tuần cấu hình`;
+
+    return { myRank: rank, myScore: score, scoringLabel: label };
+  }, [violations, timeConfigs, classes, cls, targetClassId, totalWeeksCount]);
+
   const minusViolations = clsViolations.filter(v => v.points > 0);
   const plusViolations = clsViolations.filter(v => v.points < 0);
 
@@ -171,15 +183,15 @@ const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ setViewingViolation, se
            <div className="absolute top-0 right-0 p-4 opacity-20"><Award size={64} /></div>
            <div className="relative z-10">
              <div className="text-blue-100 text-xs font-bold uppercase mb-1">Thứ hạng (Khối {cls.grade})</div>
-             <div className="text-4xl font-black flex items-end gap-2">#{myRank}<span className="text-base font-normal text-blue-200 mb-1">/ {gradeClasses.length}</span></div>
+             <div className="text-4xl font-black flex items-end gap-2">#{myRank}<span className="text-base font-normal text-blue-200 mb-1">/ {classes.filter(c => c.grade === cls.grade).length}</span></div>
              <div className="text--[10px] text-blue-200 mt-1">Tính theo cấu hình tuần</div>
            </div>
         </div>
         
         <div className="bg-white border-l-4 border-l-green-500 rounded-xl shadow-sm p-4">
            <div className="text-slate-500 text-xs font-bold uppercase mb-1 flex items-center gap-1"><TrendingUp size={14} /> Tổng Điểm</div>
-           <div className="text-3xl font-black text-slate-800">{myStats?.avgScore?.toFixed(2)}</div>
-           <div className="text-xs text-slate-400 mt-1">Trên tổng {totalWeeksCount} tuần cấu hình</div>
+           <div className="text-3xl font-black text-slate-800">{myScore.toFixed(2)}</div>
+           <div className="text-xs text-slate-400 mt-1">{scoringLabel}</div>
         </div>
       </div>
 
