@@ -691,16 +691,40 @@ export const exportToExcel = (
           };
         }
 
-        // Set độ rộng cột
+        // Set độ rộng cột — tự nhận diện từ header
         const customWidth = colWidths[col];
         if (customWidth) {
           worksheet.getColumn(col + 1).width = customWidth;
         } else {
-          // Độ rộng mặc định theo kiểu
-          const cellWidth = 15;
-          worksheet.getColumn(col + 1).width = cellWidth;
+          // Tự động set độ rộng thông minh theo kiểu cột
+          let autoWidth = 15; // mặc định
+          if (nameKeywords.some(k => headerText.includes(k))) {
+            autoWidth = 28; // Cột tên cần rộng hơn
+          } else if (dateKeywords.some(k => headerText.includes(k))) {
+            autoWidth = 18; // Cột ngày
+          } else if (roleKeywords.some(k => headerText.includes(k))) {
+            autoWidth = 18; // Cột vai trò
+          } else if (pointsKeywords.some(k => headerText.includes(k))) {
+            autoWidth = 16; // Cột điểm
+          } else if (headerText.includes('stt') || headerText.includes('#')) {
+            autoWidth = 8; // Cột STT nhỏ gọn
+          } else if (headerText.includes('ghi chú') || headerText.includes('note') || headerText.includes('nội dung') || headerText.includes('lý do')) {
+            autoWidth = 32; // Cột ghi chú / nội dung rộng
+          } else if (headerText.includes('lớp') || headerText.includes('khối')) {
+            autoWidth = 12; // Cột lớp / khối
+          }
+          worksheet.getColumn(col + 1).width = autoWidth;
         }
       }
+
+      // Phân tích header để xác định kiểu cột (dùng cho format số thông minh)
+      const colTypes: string[] = data[0].map((h: any) => {
+        const ht = String(h).toLowerCase();
+        if (ht.includes('stt') || ht.includes('#') || ht.includes('thứ hạng') || ht.includes('hạng')) return 'index';
+        if (ht.includes('số lượt') || ht.includes('số lỗi') || ht.includes('tổng kết') || ht.includes('count') || ht.includes('lượt')) return 'count';
+        if (pointsKeywords.some(k => ht.includes(k))) return 'points';
+        return 'text';
+      });
 
       // Xử lý hàng dữ liệu
       for (let row = 1; row < data.length; row++) {
@@ -711,13 +735,27 @@ export const exportToExcel = (
 
         for (let col = 0; col < data[row].length; col++) {
           const cell = dataRow.getCell(col + 1);
-          cell.value = data[row][col];
+          const rawValue = data[row][col];
+          cell.value = rawValue;
 
-          // Định dạng số
-          const cellValue = String(data[row][col]);
+          // Định dạng số thông minh: phân biệt số nguyên vs số thập phân
+          const cellValue = String(rawValue);
           if (/^-?\d+(\.\d+)?$/.test(cellValue)) {
-            cell.numFmt = '#,##0.00';
-            cell.alignment = { horizontal: 'center' };
+            const numVal = Number(cellValue);
+            const colType = colTypes[col] || 'text';
+
+            // STT, số lượt, hạng → luôn là số nguyên
+            if (colType === 'index' || colType === 'count') {
+              cell.value = Math.round(numVal);
+              cell.numFmt = '#,##0';
+            } else if (Number.isInteger(numVal)) {
+              // Số nguyên → không có phần thập phân
+              cell.numFmt = '#,##0';
+            } else {
+              // Số thập phân thực sự → giữ 2 chữ số
+              cell.numFmt = '#,##0.00';
+            }
+            cell.alignment = { horizontal: 'center', vertical: 'middle' };
           }
 
           // Áp dụng màu nền xen kẽ
@@ -735,11 +773,13 @@ export const exportToExcel = (
             right: { style: 'thin', color: { argb: 'FFE5E5E5' } }
           };
 
-          // Căn chỉnh text
-          cell.alignment = {
-            vertical: 'middle',
-            wrapText: true
-          };
+          // Căn chỉnh text (chỉ set nếu chưa được set bởi logic số ở trên)
+          if (!cell.alignment || !cell.alignment.horizontal) {
+            cell.alignment = {
+              vertical: 'middle',
+              wrapText: true
+            };
+          }
         }
       }
 
