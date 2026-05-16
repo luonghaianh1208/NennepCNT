@@ -1,6 +1,7 @@
 
 import { RoleConfig, ClassEntity, Student, Criteria, User, Violation, TimeConfig } from './types';
 import * as XLSX from 'xlsx';
+import Excel from 'exceljs';
 
 // Đổi tên thành INITIAL_... để làm giá trị khởi tạo cho State
 export const INITIAL_ROLE_DEFINITIONS: Record<string, RoleConfig> = {
@@ -588,15 +589,177 @@ export const findDuplicateViolations = (violations: Violation[]): Violation[] =>
   });
 };
 
-// --- EXCEL EXPORT FUNCTION ---
-export const exportToExcel = (data: any[][], fileName: string) => {
-  try {
-    const workbook = XLSX.utils.book_new();
-    const worksheet = XLSX.utils.aoa_to_sheet(data);
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
-    XLSX.writeFile(workbook, `${fileName}.xlsx`);
-  } catch (error) {
-    console.error("Lỗi xuất Excel:", error);
-    alert("Có lỗi xảy ra khi xuất file Excel.");
-  }
+// --- EXCEL EXPORT FUNCTION (ExcelJS với freezePane, styling, column width) ---
+export interface ExcelExportOptions {
+  columnWidths?: number[];
+  headerColor?: string;      // Màu nền header (hex)
+  alternateRowColor?: string; // Màu nền hàng chẵn/lẻ
+  textKeywords?: {
+    points?: string[];       // Từ khóa nhận diện cột điểm
+    name?: string[];         // Từ khóa nhận diện cột tên
+    date?: string[];         // Từ khóa nhận diện cột ngày
+    role?: string[];         // Từ khóa nhận diện cột vai trò
+  };
+}
+
+export const exportToExcel = (
+  data: any[][],
+  fileName: string,
+  options?: ExcelExportOptions
+) => {
+  (async () => {
+    try {
+      if (!data || data.length === 0) {
+        alert('Không có dữ liệu để xuất Excel.');
+        return;
+      }
+
+      // Khởi tạo workbook và worksheet
+      const workbook = new Excel.Workbook();
+      const worksheet = workbook.addWorksheet('Sheet1');
+
+      // Cấu hình freeze pane (cố định hàng tiêu đề)
+      worksheet.views = [
+        {
+          state: 'frozen',
+          xSplit: 0,
+          ySplit: 1,
+          topRow: 1,
+          activeCell: 'B2'
+        }
+      ];
+
+      // Cấu hình autofilter cho hàng tiêu đề
+      worksheet.autoFilter = {
+        from: { column: 1, row: 1 },
+        to: { column: data[0].length, row: data.length }
+      };
+
+      // Màu sắc mặc định
+      const headerColor = options?.headerColor || '1e40af'; // blue-800
+      const alternateRowColor = options?.alternateRowColor || 'f0f9ff'; // blue-50
+      const pointsKeywords = options?.textKeywords?.points || ['điểm', 'error', 'lỗi', 'bonus'];
+      const nameKeywords = options?.textKeywords?.name || ['tên', 'học sinh', 'giáo viên', 'homeroom'];
+      const dateKeywords = options?.textKeywords?.date || ['ngày', 'thời gian', 'date'];
+      const roleKeywords = options?.textKeywords?.role || ['vai trò', 'role', 'chức vụ'];
+
+      // Xử lý hàng tiêu đề
+      const headerRow = worksheet.getRow(1);
+      const colWidths = options?.columnWidths || [];
+
+      for (let col = 0; col < data[0].length; col++) {
+        const cell = headerRow.getCell(col + 1);
+        cell.value = data[0][col];
+        cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: headerColor }
+        };
+        cell.alignment = {
+          horizontal: 'center',
+          vertical: 'middle',
+          wrapText: true
+        };
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FF000000' } },
+          bottom: { style: 'thin', color: { argb: 'FF000000' } },
+          left: { style: 'thin', color: { argb: 'FF000000' } },
+          right: { style: 'thin', color: { argb: 'FF000000' } }
+        };
+
+        // Tự động phát hiện kiểu dữ liệu từ header để set màu
+        const headerText = String(data[0][col]).toLowerCase();
+        let cellColor = headerColor; // mặc định
+
+        if (pointsKeywords.some(k => headerText.includes(k))) {
+          cellColor = 'dc2626'; // red-600 cho điểm
+        } else if (nameKeywords.some(k => headerText.includes(k))) {
+          cellColor = '1e40af'; // blue-800 cho tên
+        } else if (dateKeywords.some(k => headerText.includes(k))) {
+          cellColor = '7c3aed'; // violet-600 cho ngày
+        } else if (roleKeywords.some(k => headerText.includes(k))) {
+          cellColor = '059669'; // emerald-600 cho vai trò
+        }
+
+        // Cập nhật màu nếu đã phát hiện
+        if (cellColor !== headerColor) {
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: cellColor }
+          };
+        }
+
+        // Set độ rộng cột
+        const customWidth = colWidths[col];
+        if (customWidth) {
+          worksheet.getColumn(col + 1).width = customWidth;
+        } else {
+          // Độ rộng mặc định theo kiểu
+          const cellWidth = 15;
+          worksheet.getColumn(col + 1).width = cellWidth;
+        }
+      }
+
+      // Xử lý hàng dữ liệu
+      for (let row = 1; row < data.length; row++) {
+        const dataRow = worksheet.getRow(row + 1);
+
+        // Màu nền xen kẽ
+        const rowBgColor = row % 2 === 0 ? alternateRowColor : 'FFFFFF';
+
+        for (let col = 0; col < data[row].length; col++) {
+          const cell = dataRow.getCell(col + 1);
+          cell.value = data[row][col];
+
+          // Định dạng số
+          const cellValue = String(data[row][col]);
+          if (/^-?\d+(\.\d+)?$/.test(cellValue)) {
+            cell.numFmt = '#,##0.00';
+            cell.alignment = { horizontal: 'center' };
+          }
+
+          // Áp dụng màu nền xen kẽ
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: rowBgColor }
+          };
+
+          // Border
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FFE5E5E5' } },
+            bottom: { style: 'thin', color: { argb: 'FFE5E5E5' } },
+            left: { style: 'thin', color: { argb: 'FFE5E5E5' } },
+            right: { style: 'thin', color: { argb: 'FFE5E5E5' } }
+          };
+
+          // Căn chỉnh text
+          cell.alignment = {
+            vertical: 'middle',
+            wrapText: true
+          };
+        }
+      }
+
+      // Tạo buffer và download
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+
+      // Tạo link download
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${fileName}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+    } catch (error) {
+      console.error('Lỗi xuất Excel:', error);
+      alert('Có lỗi xảy ra khi xuất file Excel.');
+    }
+  })();
 };
