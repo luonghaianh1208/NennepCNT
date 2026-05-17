@@ -1,11 +1,28 @@
 
-import React, { useState, useRef } from 'react';
-import { Plus, Edit, Trash2, Save, Check, X, FileSpreadsheet, Download } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Plus, Edit, Trash2, Save, Check, X, FileSpreadsheet, Download, Users } from 'lucide-react';
 import { User, RoleConfig } from '../../types';
 import { exportToExcel } from '../../utils';
 import { useAppStore } from '../../contexts/AppContext';
 import { useModal } from '../../contexts/ModalContext';
+import { supabase } from '../../services/supabase';
 import * as XLSX from 'xlsx';
+
+interface RoleOption {
+  id: string;
+  name: string;
+  label: string;
+  color: string;
+}
+
+interface UserProfile {
+  id: string;
+  name: string;
+  username: string;
+  email?: string;
+  role_ids: string[];
+  class_id?: string;
+}
 
 const SettingsAccountsTab: React.FC = () => {
   const { users, setUsers, classes, roleConfigs, currentUser, setCurrentUser, setUnsavedChanges, syncUsers } = useAppStore();
@@ -17,7 +34,47 @@ const SettingsAccountsTab: React.FC = () => {
   const [newUserRole, setNewUserRole] = useState<string>('RED_FLAG');
   const [newUserClass, setNewUserClass] = useState('');
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [assignRolesUser, setAssignRolesUser] = useState<UserProfile | null>(null);
+  const [availableRoles, setAvailableRoles] = useState<RoleOption[]>([]);
+  const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
   const excelAccountInputRef = useRef<HTMLInputElement>(null);
+
+  // Load roles for role assignment modal
+  useEffect(() => {
+    if (assignRolesUser) {
+      loadRoles();
+    }
+  }, [assignRolesUser]);
+
+  const loadRoles = async () => {
+    const { data } = await supabase.from('roles').select('*').order('name');
+    if (data) setAvailableRoles(data);
+  };
+
+  const openAssignRoles = (user: UserProfile) => {
+    setAssignRolesUser(user);
+    setSelectedRoleIds(user.role_ids || []);
+  };
+
+  const toggleRole = (roleId: string) => {
+    setSelectedRoleIds(prev =>
+      prev.includes(roleId) ? prev.filter(id => id !== roleId) : [...prev, roleId]
+    );
+  };
+
+  const handleSaveRoles = async () => {
+    if (!assignRolesUser) return;
+    const { error } = await supabase
+      .from('user_profiles')
+      .update({ role_ids: selectedRoleIds, updated_at: new Date().toISOString() })
+      .eq('id', assignRolesUser.id);
+    if (error) {
+      showToast('Lỗi khi cập nhật vai trò', 'error');
+    } else {
+      showToast('Đã cập nhật vai trò thành công!', 'success');
+      setAssignRolesUser(null);
+    }
+  };
 
   const handleAddUser = () => {
     if (!newUserFullName || !newUserUsername || !newUserPassword) return showToast('Vui lòng nhập đầy đủ thông tin bắt buộc', 'error');
@@ -246,6 +303,7 @@ const SettingsAccountsTab: React.FC = () => {
                     </td>
                     <td className="px-4 py-3 text-slate-500">{u.className || '-'}</td>
                     <td className="px-4 py-3 text-right flex justify-end gap-2">
+                      <button onClick={() => openAssignRoles(u as unknown as UserProfile)} className="text-slate-400 hover:text-purple-600" title="Phân quyền"><Users size={16}/></button>
                       <button onClick={() => setEditingUser({ ...u })} className="text-slate-400 hover:text-blue-600"><Edit size={16}/></button>
                       {u.id !== 'U1' && <button onClick={() => handleDeleteUser(u.id)} className="text-slate-400 hover:text-red-600"><Trash2 size={16}/></button>}
                     </td>
@@ -308,6 +366,49 @@ const SettingsAccountsTab: React.FC = () => {
               <button onClick={() => setEditingUser(null)} className="px-4 py-2 text-slate-600 font-medium hover:bg-slate-200 rounded-lg">Hủy</button>
               <button onClick={handleSaveUserEdit} className="px-6 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 flex items-center gap-2">
                 <Save size={18}/> Lưu thông tin
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal phân vai trò */}
+      {assignRolesUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95">
+            <div className="bg-purple-50 p-4 border-b border-purple-200 flex justify-between items-center">
+              <h3 className="font-bold text-lg text-purple-800 flex items-center gap-2">
+                <Users size={20}/> Phân quyền: {assignRolesUser.name}
+              </h3>
+              <button onClick={() => setAssignRolesUser(null)} className="p-1 rounded-full hover:bg-purple-200 text-purple-500"><X size={20}/></button>
+            </div>
+            <div className="p-6 space-y-3">
+              <p className="text-sm text-slate-500 mb-4">Chọn vai trò cho tài khoản này:</p>
+              <div className="grid grid-cols-1 gap-2 max-h-80 overflow-y-auto">
+                {availableRoles.map(role => (
+                  <button
+                    key={role.id}
+                    onClick={() => toggleRole(role.id)}
+                    className={`p-3 rounded-lg border text-sm flex items-center justify-between transition-all ${
+                      selectedRoleIds.includes(role.id)
+                        ? 'border-purple-500 bg-purple-50 ring-1 ring-purple-500'
+                        : 'border-slate-200 hover:border-purple-300'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className={`w-3 h-3 rounded-full bg-${role.color}-500 shadow-sm`}></span>
+                      <span className="font-medium">{role.label}</span>
+                      <code className="text-xs text-slate-400 font-mono ml-1">{role.name}</code>
+                    </span>
+                    {selectedRoleIds.includes(role.id) && <Check size={16} className="text-purple-600"/>}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="bg-purple-50 p-4 border-t border-purple-200 flex justify-end gap-2">
+              <button onClick={() => setAssignRolesUser(null)} className="px-4 py-2 text-slate-600 font-medium hover:bg-slate-200 rounded-lg">Hủy</button>
+              <button onClick={handleSaveRoles} className="px-6 py-2 bg-purple-600 text-white font-bold rounded-lg hover:bg-purple-700 flex items-center gap-2">
+                <Save size={18}/> Lưu vai trò
               </button>
             </div>
           </div>

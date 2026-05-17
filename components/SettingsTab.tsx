@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Save, Settings, Calendar, GraduationCap, Users, AlertTriangle, Star, UserPlus, ClipboardList } from 'lucide-react';
+import { Save, Settings, Calendar, GraduationCap, Users, AlertTriangle, Star, UserPlus, ClipboardList, Lock, Shield } from 'lucide-react';
 import { useAppStore } from '../contexts/AppContext';
 import { useModal } from '../contexts/ModalContext';
 
@@ -11,11 +11,13 @@ import SettingsStudentsTab from './settings/SettingsStudentsTab';
 import SettingsCriteriaTab from './settings/SettingsCriteriaTab';
 import SettingsAccountsTab from './settings/SettingsAccountsTab';
 import SettingsAuditLogTab from './settings/SettingsAuditLogTab';
+import SettingsPermissionsTab from './settings/SettingsPermissionsTab';
 
-type SubTab = 'ROLES' | 'TIME' | 'CLASSES' | 'STUDENTS' | 'CRITERIA_VIOLATION' | 'CRITERIA_ACHIEVEMENT' | 'ACCOUNTS' | 'AUDIT_LOG';
+type SubTab = 'ROLES' | 'PERMISSIONS' | 'TIME' | 'CLASSES' | 'STUDENTS' | 'CRITERIA_VIOLATION' | 'CRITERIA_ACHIEVEMENT' | 'ACCOUNTS' | 'AUDIT_LOG';
 
 const SUB_TABS: { id: SubTab; label: string; icon: React.ReactNode }[] = [
-  { id: 'ROLES', label: 'Quản lý chung', icon: <Settings size={16} /> },
+  { id: 'ROLES', label: 'Vai trò', icon: <Shield size={16} /> },
+  { id: 'PERMISSIONS', label: 'Quyền hạn', icon: <Lock size={16} /> },
   { id: 'TIME', label: 'Thời gian', icon: <Calendar size={16} /> },
   { id: 'CLASSES', label: 'Lớp học', icon: <GraduationCap size={16} /> },
   { id: 'STUDENTS', label: 'Học sinh', icon: <Users size={16} /> },
@@ -82,6 +84,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ initialSubTab }) => {
 
       {/* Sub-tab Content */}
       {activeSubTab === 'ROLES' && <SettingsRolesTab />}
+      {activeSubTab === 'PERMISSIONS' && <SettingsPermissionsTab />}
       {activeSubTab === 'TIME' && <SettingsTimeTab />}
       {activeSubTab === 'CLASSES' && <SettingsClassesTab />}
       {activeSubTab === 'STUDENTS' && <SettingsStudentsTab />}
