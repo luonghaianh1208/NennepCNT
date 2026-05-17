@@ -1,11 +1,11 @@
 const ZALO_API_BASE = 'https://bot-api.zaloplatforms.com/bot';
 
-export function getZaloApiUrl(): string {
+function buildZaloUrl(endpoint: string): string {
   const token = Deno.env.get('ZALO_BOT_TOKEN');
   if (!token) {
     throw new Error('ZALO_BOT_TOKEN is not set');
   }
-  return `${ZALO_API_BASE}${token}`;
+  return `${ZALO_API_BASE}${token}${endpoint}`;
 }
 
 export interface SendMessageRequest {
@@ -19,7 +19,7 @@ export async function sendGroupMessage(groupId: string, message: string): Promis
     throw new Error('ZALO_BOT_TOKEN is not set');
   }
 
-  const url = `${ZALO_API_BASE}${token}/sendMessage`;
+  const url = buildZaloUrl('/sendMessage');
 
   const body: SendMessageRequest = {
     recipient: { group_id: groupId },
@@ -47,7 +47,7 @@ export async function sendUserMessage(userId: string, message: string): Promise<
     throw new Error('ZALO_BOT_TOKEN is not set');
   }
 
-  const url = `${ZALO_API_BASE}${token}/sendMessage`;
+  const url = buildZaloUrl('/sendMessage');
 
   const body: SendMessageRequest = {
     recipient: { user_id: userId },

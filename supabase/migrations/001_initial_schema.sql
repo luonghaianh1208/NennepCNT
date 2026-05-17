@@ -85,7 +85,7 @@ CREATE TABLE violations (
   points           INTEGER     NOT NULL,
   note             TEXT,
   images           TEXT[] DEFAULT '{}',
-  reported_by      VARCHAR(64) REFERENCES user_profiles(id),
+  reported_by      UUID REFERENCES user_profiles(id),
   is_security_report BOOLEAN DEFAULT FALSE,
   timestamp        BIGINT      NOT NULL,
   created_at       TIMESTAMPTZ DEFAULT NOW()
@@ -105,7 +105,7 @@ CREATE TABLE time_configs (
 CREATE TABLE audit_logs (
   id              VARCHAR(64) PRIMARY KEY,
   timestamp       BIGINT      NOT NULL,
-  user_id         VARCHAR(64) REFERENCES user_profiles(id),
+  user_id         UUID REFERENCES user_profiles(id),
   user_name       VARCHAR(128),
   user_role       VARCHAR(64),
   action          audit_action NOT NULL,
@@ -130,6 +130,7 @@ CREATE TABLE zalo_groups (
 );
 
 -- Indexes
+CREATE INDEX idx_violations_criteria ON violations(criteria_id);
 CREATE INDEX idx_violations_date ON violations(date);
 CREATE INDEX idx_violations_class ON violations(class_id);
 CREATE INDEX idx_violations_student ON violations(student_id);

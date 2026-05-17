@@ -4,7 +4,8 @@ import { handleStatistics, handleRanking } from './handlers/statistics.ts';
 import { handleQA } from './handlers/qa.ts';
 import type { ZaloWebhookPayload } from './types.ts';
 
-const ZALO_BOT_TOKEN = '4301556490455089646:eKbxLdsqDQwrgpkqYmfokxwTbDKjPCzBonitsmbktwPRtbuhsefECzLGowBBvBUc';
+const ZALO_BOT_TOKEN = Deno.env.get('ZALO_BOT_TOKEN')!;
+const ZALO_APP_SECRET = Deno.env.get('ZALO_APP_SECRET')!;
 
 Deno.serve(async (req) => {
   // Handle CORS preflight
@@ -25,7 +26,8 @@ Deno.serve(async (req) => {
     const hubVerifyToken = url.searchParams.get('hub.verify_token');
     const hubChallenge = url.searchParams.get('hub.challenge');
 
-    if (hubVerifyToken === ZALO_BOT_TOKEN.split(':')[1]) {
+    const expectedToken = Deno.env.get('ZALO_BOT_SECRET_TOKEN') || ZALO_BOT_TOKEN.split(':')[1];
+    if (hubVerifyToken === expectedToken) {
       return new Response(hubChallenge, { status: 200 });
     }
     return new Response('Forbidden', { status: 403 });
@@ -34,14 +36,30 @@ Deno.serve(async (req) => {
   // POST: Handle incoming events
   if (req.method === 'POST') {
     try {
+      // Verify webhook signature
+      const signature = req.headers.get('X-Zalo-Signature');
+      if (signature && !verifySignature(await req.clone().text(), signature, ZALO_APP_SECRET)) {
+        console.error('Invalid webhook signature');
+        return new Response(JSON.stringify({ success: false, error: 'Invalid signature' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
       const payload: ZaloWebhookPayload = await req.json();
 
-      // Handle follow event (private message)
+      // Handle follow event (user follows bot - can be private or in group)
       if (payload.event === 'follow') {
         const userId = payload.sender_id;
+        const groupId = payload.group_id;
         const content = payload.message?.content?.trim() ?? '';
         const response = await processCommand(content);
-        await sendUserMessage(userId, response);
+
+        if (groupId) {
+          await sendGroupMessage(groupId, response);
+        } else {
+          await sendUserMessage(userId, response);
+        }
         return new Response(JSON.stringify({ success: true }), {
           headers: { 'Content-Type': 'application/json' },
         });
@@ -115,6 +133,20 @@ async function processCommand(content: string): Promise<string> {
 
   // Unknown command - show help
   return `Tôi không hiểu lệnh "${content}"\n\n${getHelpText()}`;
+}
+
+async function verifySignature(body: string, signature: string, secret: string): Promise<boolean> {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const signatureBuffer = await crypto.subtle.sign('HMAC', key, encoder.encode(body));
+  const expectedSignature = btoa(String.fromCharCode(...new Uint8Array(signatureBuffer)));
+  return expectedSignature === signature;
 }
 
 function extractPeriod(input: string): string {

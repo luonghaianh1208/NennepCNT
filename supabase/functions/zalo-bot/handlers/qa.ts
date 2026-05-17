@@ -87,11 +87,12 @@ async function queryClassViolations(admin: ReturnType<typeof getSupabaseAdmin>, 
 }
 
 async function queryStudentViolations(admin: ReturnType<typeof getSupabaseAdmin>, studentName: string) {
-  // Find student by name (case-insensitive)
+  // Find student by name (case-insensitive) - escape SQL wildcards
+  const escapedName = studentName.replace(/[%_]/g, '\\$&');
   const { data: students } = await admin
     .from('students')
     .select('id, name, classId')
-    .ilike('name', `%${studentName}%`)
+    .ilike('name', `%${escapedName}%`)
     .limit(1);
 
   if (!students || students.length === 0) {

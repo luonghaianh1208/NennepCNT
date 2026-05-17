@@ -36,7 +36,8 @@ async function sendWeeklyReport(): Promise<void> {
   const now = new Date();
   const day = now.getDay();
   const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Adjust for Sunday
-  const weekStart = new Date(now.setDate(diff));
+  const weekStart = new Date(now);
+  weekStart.setDate(now.getDate() + diff);
   weekStart.setHours(0, 0, 0, 0);
   const weekEnd = new Date(weekStart);
   weekEnd.setDate(weekStart.getDate() + 6);

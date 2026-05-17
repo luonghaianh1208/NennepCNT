@@ -1,8 +1,10 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string) || 'https://jzhxdwriskdxcivirbip.supabase.co';
-const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string) || 'sb_publishable_8aeDZx1n9pjMll6gH7lrEQ_4EMONMid';
-
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error('Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY environment variables');
+}
 export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey);
 
 // ── Auth helpers ──────────────────────────────────────────────
@@ -53,7 +55,7 @@ export const batchCreateViolations = (records: any[]) =>
   supabase.from('violations').insert(records);
 
 export const batchUpdateViolations = (records: any[]) =>
-  Promise.all(records.map(r => supabase.from('violations').update(r).eq('id', r.id)));
+  supabase.from('violations').upsert(records, { onConflict: 'id' });
 
 export const syncSettings = (payload: {
   classes?: any[];
@@ -98,5 +100,8 @@ export const uploadViolationImage = async (
     .from('violation-images')
     .getPublicUrl(fileName);
 
+  if (!urlData?.publicUrl) {
+    throw new Error('Failed to get public URL after upload');
+  }
   return urlData.publicUrl;
 };

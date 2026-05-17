@@ -13,12 +13,20 @@ CREATE POLICY "Public read violation-images"
 ON storage.objects FOR SELECT
 USING (bucket_id = 'violation-images');
 
--- Authenticated users can upload
-CREATE POLICY "Users with image.upload can upload"
+-- Helper function for storage permissions (security definer to use has_permission)
+CREATE OR REPLACE FUNCTION storage_has_permission(p_slug TEXT)
+RETURNS BOOLEAN AS $$
+BEGIN
+  RETURN has_permission(p_slug);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Authenticated users with image.upload permission can upload
+CREATE POLICY "Users with image.upload permission can upload"
 ON storage.objects FOR INSERT
 WITH CHECK (
   bucket_id = 'violation-images'
-  AND auth.role() = 'authenticated'
+  AND storage_has_permission('image.upload')
 );
 
 -- Admin can delete

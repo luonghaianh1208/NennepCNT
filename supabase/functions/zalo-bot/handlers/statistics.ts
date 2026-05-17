@@ -68,10 +68,11 @@ export async function handleStatistics(period: string): Promise<ViolationStats> 
     .gte('timestamp', startTimestamp)
     .lte('timestamp', endTimestamp);
 
-  // Query achievements in period
+  // Get achievements from violations table (type='PLUS')
   const { data: achievements } = await admin
-    .from('achievements')
+    .from('violations')
     .select('*')
+    .eq('type', 'PLUS')
     .gte('timestamp', startTimestamp)
     .lte('timestamp', endTimestamp);
 
