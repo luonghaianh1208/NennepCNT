@@ -17,13 +17,7 @@ Hệ thống có các chức năng:
 - Thống kê vi phạm theo tuần/tháng/học kỳ
 - Hỏi đáp về thông tin lớp và học sinh
 
-Khi người dùng hỏi về:
-- "thống kê", "tk", "báo cáo" → gọi handleStatistics
-- "xếp hạng", "ranking", "rank" → gọi handleRanking
-- "hỏi lớp", "hỏi hs", "hỏi học sinh" → gọi handleQA
-- "help", "trợ giúp", "?" → trả về hướng dẫn
-
-Nếu câu hỏi không rõ ràng, hãy trả lời thân thiện và hỏi thêm chi tiết. Luôn trả lời bằng tiếng Việt, ngắn gọn, dễ hiểu.`;
+Hãy trả lời đầy đủ và chi tiết, KHÔNG VIẾT NGẮN GỌN. Nếu câu hỏi không rõ ràng, hãy trả lời thân thiện và hỏi thêm chi tiết. Luôn trả lời bằng tiếng Việt, đầy đủ ý, dễ hiểu.`;
 
 // Check if message contains command keywords
 function isRuleBasedCommand(text: string): boolean {
@@ -81,7 +75,7 @@ async function callGeminiAI(userMessage: string): Promise<string> {
       }],
       generationConfig: {
         temperature: 0.7,
-        maxOutputTokens: 500,
+        maxOutputTokens: 1500,
       }
     })
   });
@@ -94,6 +88,57 @@ async function callGeminiAI(userMessage: string): Promise<string> {
 
   const data = await response.json();
   return data.candidates?.[0]?.content?.parts?.[0]?.text || null;
+}
+
+// Remove markdown formatting for Zalo compatibility
+function cleanMarkdown(text: string): string {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '$1')  // Bold
+    .replace(/\*(.+?)\*/g, '$1')      // Italic
+    .replace(/__(.+?)__/g, '$1')      // Underline
+    .replace(/`(.+?)`/g, '$1')         // Inline code
+    .replace(/#+\s*(.+)/g, '$1')     // Headers
+    .replace(/\[(.+?)\]\(.+?\)/g, '$1') // Links
+    .replace(/\n{3,}/g, '\n\n')      // Multiple newlines
+    .trim();
+}
+
+// Split long message into multiple parts
+function splitMessage(text: string, maxLength: number): string[] {
+  if (text.length <= maxLength) {
+    return [text];
+  }
+
+  const parts: string[] = [];
+  const lines = text.split('\n');
+  let currentPart = '';
+
+  for (const line of lines) {
+    if (currentPart.length + line.length + 1 <= maxLength) {
+      currentPart += (currentPart ? '\n' : '') + line;
+    } else {
+      if (currentPart) {
+        parts.push(currentPart);
+      }
+      // If single line is too long, split by words
+      if (line.length > maxLength) {
+        let remaining = line;
+        while (remaining.length > maxLength) {
+          parts.push(remaining.slice(0, maxLength));
+          remaining = remaining.slice(maxLength);
+        }
+        currentPart = remaining;
+      } else {
+        currentPart = line;
+      }
+    }
+  }
+
+  if (currentPart) {
+    parts.push(currentPart);
+  }
+
+  return parts;
 }
 
 async function processCommand(content: string): Promise<string> {
@@ -172,16 +217,22 @@ Deno.serve(async (req) => {
       }
 
       const payload: ZaloWebhookPayload = await req.json();
-      const eventName = payload?.result?.event_name;
+      console.log('Received payload:', JSON.stringify(payload));
+
+      // Handle both payload formats:
+      // 1. {"ok":true,"result":{"event_name":"message.text.received",...}} (test format)
+      // 2. {"event_name":"message.text.received","message":{...}} (actual Zalo format)
+      const eventName = payload?.result?.event_name || payload?.event_name;
+      const message = payload?.result?.message || payload?.message;
 
       // Handle follow event
       if (eventName === 'follow' || eventName === 'user.follow') {
-        const senderId = payload.result.message.from.id;
-        const chatType = payload.result.message.chat.chat_type;
+        const senderId = message.from.id;
+        const chatType = message.chat.chat_type;
         const response = getHelpText();
 
         if (chatType === 'GROUP') {
-          await sendGroupMessage(payload.result.message.chat.id, response);
+          await sendGroupMessage(message.chat.id, response);
         } else {
           await sendUserMessage(senderId, response);
         }
@@ -197,7 +248,6 @@ Deno.serve(async (req) => {
         });
       }
 
-      const message = payload.result.message;
       const senderId = message.from.id;
       const chatType = message.chat.chat_type;
       const chatId = message.chat.id;
@@ -210,14 +260,28 @@ Deno.serve(async (req) => {
       }
 
       // Process command and get AI response
+      console.log('Processing message:', text);
       const response = await processCommand(text);
+      console.log('Sending response to:', chatType, chatId);
 
-      // Send response based on chat type
-      if (chatType === 'GROUP') {
-        await sendGroupMessage(chatId, response);
-      } else {
-        await sendUserMessage(senderId, response);
+      // Send response based on chat type - split into multiple messages if needed
+      const cleanResponse = cleanMarkdown(response);
+      const messages = splitMessage(cleanResponse, 2000);
+
+      for (let i = 0; i < messages.length; i++) {
+        const part = messages[i];
+        const prefix = messages.length > 1 ? `[${i + 1}/${messages.length}]\n` : '';
+        if (chatType === 'GROUP') {
+          await sendGroupMessage(chatId, prefix + part);
+        } else {
+          await sendUserMessage(senderId, prefix + part);
+        }
+        // Small delay between messages to avoid rate limit
+        if (i < messages.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
       }
+      console.log(`Sent ${messages.length} message(s)`);
 
       return new Response(JSON.stringify({ success: true }), {
         headers: { 'Content-Type': 'application/json' },

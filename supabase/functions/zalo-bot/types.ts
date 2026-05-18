@@ -1,6 +1,6 @@
 export interface ZaloWebhookPayload {
-  ok: boolean;
-  result: {
+  ok?: boolean;
+  result?: {
     event_name: string;
     message: {
       message_id: string;
@@ -16,6 +16,22 @@ export interface ZaloWebhookPayload {
       };
       text?: string;
     };
+  };
+  // Alternative format without ok/result wrapper (actual Zalo payload)
+  event_name?: string;
+  message?: {
+    message_id: string;
+    date: number;
+    from: {
+      id: string;
+      display_name: string;
+      is_bot: boolean;
+    };
+    chat: {
+      id: string;
+      chat_type: 'PRIVATE' | 'GROUP';
+    };
+    text?: string;
   };
 }
 

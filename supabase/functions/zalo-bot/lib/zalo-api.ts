@@ -13,7 +13,7 @@ export interface ZaloSendMessageRequest {
   text: string;
 }
 
-export async function sendGroupMessage(groupId: string, message: string): Promise<void> {
+export async function sendGroupMessage(groupId: string, message: string): Promise<unknown> {
   const token = Deno.env.get('ZALO_BOT_TOKEN');
   if (!token) {
     throw new Error('ZALO_BOT_TOKEN is not set');
@@ -33,15 +33,20 @@ export async function sendGroupMessage(groupId: string, message: string): Promis
       'Authorization': `Bearer ${token}`,
     },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(10000), // 10 second timeout
   });
 
+  const responseText = await response.text();
+  console.log('Zalo API response:', response.status, responseText);
+
   if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Zalo API error: ${response.status} - ${errorText}`);
+    throw new Error(`Zalo API error: ${response.status} - ${responseText}`);
   }
+
+  return JSON.parse(responseText);
 }
 
-export async function sendUserMessage(userId: string, message: string): Promise<void> {
+export async function sendUserMessage(userId: string, message: string): Promise<unknown> {
   const token = Deno.env.get('ZALO_BOT_TOKEN');
   if (!token) {
     throw new Error('ZALO_BOT_TOKEN is not set');
@@ -61,10 +66,15 @@ export async function sendUserMessage(userId: string, message: string): Promise<
       'Authorization': `Bearer ${token}`,
     },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(10000), // 10 second timeout
   });
 
+  const responseText = await response.text();
+  console.log('Zalo API response:', response.status, responseText);
+
   if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Zalo API error: ${response.status} - ${errorText}`);
+    throw new Error(`Zalo API error: ${response.status} - ${responseText}`);
   }
+
+  return JSON.parse(responseText);
 }

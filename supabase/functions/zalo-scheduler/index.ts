@@ -120,8 +120,8 @@ async function sendZaloMessage(groupId: string, message: string): Promise<void> 
       'Authorization': `Bearer ${ZALO_BOT_TOKEN}`,
     },
     body: JSON.stringify({
-      recipient: { group_id: groupId },
-      message: { text: message },
+      chat_id: groupId,
+      text: message,
     }),
   });
 }
