@@ -1,11 +1,9 @@
-import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { sendGroupMessage, sendUserMessage } from './lib/zalo-api.ts';
 import { handleStatistics, handleRanking } from './handlers/statistics.ts';
 import { handleQA } from './handlers/qa.ts';
 import type { ZaloWebhookPayload } from './types.ts';
 
 const ZALO_BOT_TOKEN = Deno.env.get('ZALO_BOT_TOKEN')!;
-const ZALO_APP_SECRET = Deno.env.get('ZALO_APP_SECRET')!;
 const ZALO_BOT_SECRET_TOKEN = Deno.env.get('ZALO_BOT_SECRET_TOKEN')!;
 
 Deno.serve(async (req) => {
@@ -48,51 +46,38 @@ Deno.serve(async (req) => {
       }
 
       const payload: ZaloWebhookPayload = await req.json();
+      const eventName = payload?.result?.event_name;
 
-      // Handle follow event (user follows bot - can be private or in group)
-      if (payload.event === 'follow') {
-        const userId = payload.sender_id;
-        const groupId = payload.group_id;
-        const content = (payload.message && typeof payload.message === 'object') ? (payload.message.content ?? '') : '';
-        const response = await processCommand(content);
-
-        if (groupId) {
-          await sendGroupMessage(groupId, response);
-        } else {
-          await sendUserMessage(userId, response);
-        }
-        return new Response(JSON.stringify({ success: true }), {
+      // Only handle message events
+      if (!eventName?.startsWith('message.')) {
+        return new Response(JSON.stringify({ success: true, ignored: true }), {
           headers: { 'Content-Type': 'application/json' },
         });
       }
 
-      // Handle group_message event
-      if (payload.event === 'group_message') {
-        // Only respond when msg_type is "reply" (bot was mentioned/replied to)
-        if (payload.message?.msg_type !== 'reply') {
-          return new Response(JSON.stringify({ success: true, ignored: true }), {
-            headers: { 'Content-Type': 'application/json' },
-          });
-        }
+      const message = payload.result.message;
+      const senderId = message.from.id;
+      const chatType = message.chat.chat_type;
+      const chatId = message.chat.id;
+      const text = message.text?.trim() ?? '';
 
-        const groupId = payload.group_id;
-        if (!groupId) {
-          return new Response(JSON.stringify({ success: false, error: 'No group_id' }), {
-            headers: { 'Content-Type': 'application/json' },
-          });
-        }
-
-        const content = (payload.message && typeof payload.message === 'object') ? (payload.message.content ?? '') : '';
-        const response = await processCommand(content);
-        await sendGroupMessage(groupId, response);
-
-        return new Response(JSON.stringify({ success: true }), {
+      if (!text) {
+        return new Response(JSON.stringify({ success: true, ignored: true }), {
           headers: { 'Content-Type': 'application/json' },
         });
       }
 
-      // Unknown event type
-      return new Response(JSON.stringify({ success: true, ignored: true }), {
+      // Process command and get response
+      const response = await processCommand(text);
+
+      // Send response based on chat type
+      if (chatType === 'GROUP') {
+        await sendGroupMessage(chatId, response);
+      } else {
+        await sendUserMessage(senderId, response);
+      }
+
+      return new Response(JSON.stringify({ success: true }), {
         headers: { 'Content-Type': 'application/json' },
       });
     } catch (error) {
@@ -134,20 +119,6 @@ async function processCommand(content: string): Promise<string> {
 
   // Unknown command - show help
   return `Tôi không hiểu lệnh "${content}"\n\n${getHelpText()}`;
-}
-
-async function verifySignature(body: string, signature: string, secret: string): Promise<boolean> {
-  const encoder = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    'raw',
-    encoder.encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  );
-  const signatureBuffer = await crypto.subtle.sign('HMAC', key, encoder.encode(body));
-  const expectedSignature = btoa(String.fromCharCode(...new Uint8Array(signatureBuffer)));
-  return expectedSignature === signature;
 }
 
 function extractPeriod(input: string): string {

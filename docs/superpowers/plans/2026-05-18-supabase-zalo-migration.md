@@ -885,26 +885,26 @@ export async function createThumbnail(file: File | Blob, maxSize = 200): Promise
 
 ## PHASE 6 — Deployment & Cutover
 
-### Task 13: Environment Setup + Deploy ⏳ CHƯA LÀM
+### Task 13: Environment Setup + Deploy 🔄 ĐANG THỰC HIỆN
 
-- [ ] **Step 1: Chạy SQL migrations trong Supabase**
-  - `supabase/migrations/001_initial_schema.sql`
-  - `supabase/migrations/002_storage_bucket.sql`
-  - `supabase/migrations/003_zalo_scheduler.sql`
+- [x] **Step 1: Chạy SQL migrations trong Supabase** ✅
+  - `supabase db push` đã chạy thành công cả 3 migrations
+  - Fixed: `uuid_generate_v4()` → `gen_random_uuid()` (Supabase pgcrypto)
 
-- [ ] **Step 2: Deploy Edge Functions**
-  ```bash
-  supabase login
-  supabase link --project-ref jzhxdwriskdxcivirbip
-  supabase functions deploy zalo-bot
-  supabase functions deploy zalo-scheduler
-  ```
+- [x] **Step 2: Deploy Edge Functions** ✅
+  - `supabase functions deploy zalo-bot` ✅
+  - `supabase functions deploy zalo-scheduler` ✅
+  - Đã set secrets: `ZALO_BOT_TOKEN`, `ZALO_BOT_SECRET_TOKEN`
 
-- [ ] **Step 3: Deploy frontend lên Netlify** (giữ nguyên)
+- [x] **Step 3: Đăng ký Webhook với Zalo** ✅
+  - Webhook URL: `https://jzhxdwriskdxcivirbip.supabase.co/functions/v1/zalo-bot`
+  - Secret token: `CntBotSecret2026`
+  - Verify token: `CntBotSecret2026`
+  - Đã test: `{"success":true}` với các commands help, thống kê, hỏi lớp
+
+- [ ] **Step 4: Deploy frontend lên Netlify** ⏳
   - Build: `npm run build`
   - Update VITE_SUPABASE_URL trong Netlify env vars
-
-- [ ] **Step 4: DNS/SSL verification**
 
 - [ ] **Step 5: Disable GAS deployment** (không xóa, để backup)
 
@@ -999,7 +999,8 @@ Task 13 (Deploy)       → prerequisites: Task 12
 | Task | Description | Status | Notes |
 |------|-------------|--------|-------|
 | Task 6 (Step 4) | AppContext Integration | ⏳ Chưa làm | Cần tích hợp Supabase vào AppContext thay GAS |
-| Task 13 | Deployment & Cutover | ⏳ Chưa làm | Cần deploy lên production |
+| Task 13 | Deployment & Cutover | 🔄 Đang thực hiện | SQL ✅, Edge Funcs ✅, Zalo Webhook ✅ |
+| Task 13 (Step 4-5) | Frontend Deploy + GAS Cutover | ⏳ Chưa làm | Netlify + env vars |
 
 ### Files Created
 

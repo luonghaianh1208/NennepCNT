@@ -1,20 +1,22 @@
 export interface ZaloWebhookPayload {
-  event: string;
-  sender_id: string;
-  group_id?: string;
-  message: {
-    msg_type: string;
-    content: string;
-    message_id: string;
+  ok: boolean;
+  result: {
+    event_name: string;
+    message: {
+      message_id: string;
+      date: number;
+      from: {
+        id: string;
+        display_name: string;
+        is_bot: boolean;
+      };
+      chat: {
+        id: string;
+        chat_type: 'PRIVATE' | 'GROUP';
+      };
+      text?: string;
+    };
   };
-  timestamp: number;
-}
-
-export interface ZaloGroupConfig {
-  group_id: string;
-  group_name: string;
-  notify_types: string[];
-  class_id: string | null;
 }
 
 export interface ViolationStats {
@@ -23,4 +25,11 @@ export interface ViolationStats {
   topStudents: { name: string; classId: string; points: number }[];
   topClasses: { name: string; grade: number; avgScore: number }[];
   periodLabel: string;
+}
+
+export interface ZaloGroupConfig {
+  group_id: string;
+  group_name: string;
+  notify_types: string[];
+  class_id: string | null;
 }
