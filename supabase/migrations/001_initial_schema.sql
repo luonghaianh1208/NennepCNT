@@ -1,5 +1,6 @@
--- Enable UUID
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+-- Enable UUID (pgcrypto provides gen_random_uuid; uuid-ossp may also be available)
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp" SCHEMA pg_catalog;
 
 -- ENUMS
 CREATE TYPE violation_type AS ENUM ('MINUS', 'PLUS');
@@ -11,7 +12,7 @@ CREATE TYPE audit_action AS ENUM (
 
 -- permissions
 CREATE TABLE permissions (
-  id          UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   slug        VARCHAR(64) UNIQUE NOT NULL,
   label       VARCHAR(128) NOT NULL,
   description TEXT,
@@ -20,7 +21,7 @@ CREATE TABLE permissions (
 
 -- roles
 CREATE TABLE roles (
-  id          UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   name        VARCHAR(64) UNIQUE NOT NULL,
   label       VARCHAR(128) NOT NULL,
   color       VARCHAR(32) DEFAULT 'gray',
@@ -121,7 +122,7 @@ CREATE TABLE audit_logs (
 
 -- zalo_groups
 CREATE TABLE zalo_groups (
-  id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   group_name  VARCHAR(128) NOT NULL,
   group_id    VARCHAR(64) NOT NULL,
   notify_types VARCHAR(32)[] DEFAULT '{}',

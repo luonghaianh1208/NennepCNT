@@ -6,6 +6,7 @@ import type { ZaloWebhookPayload } from './types.ts';
 
 const ZALO_BOT_TOKEN = Deno.env.get('ZALO_BOT_TOKEN')!;
 const ZALO_APP_SECRET = Deno.env.get('ZALO_APP_SECRET')!;
+const ZALO_BOT_SECRET_TOKEN = Deno.env.get('ZALO_BOT_SECRET_TOKEN')!;
 
 Deno.serve(async (req) => {
   // Handle CORS preflight
@@ -26,7 +27,7 @@ Deno.serve(async (req) => {
     const hubVerifyToken = url.searchParams.get('hub.verify_token');
     const hubChallenge = url.searchParams.get('hub.challenge');
 
-    const expectedToken = Deno.env.get('ZALO_BOT_SECRET_TOKEN') || ZALO_BOT_TOKEN.split(':')[1];
+    const expectedToken = ZALO_BOT_SECRET_TOKEN;
     if (hubVerifyToken === expectedToken) {
       return new Response(hubChallenge, { status: 200 });
     }
@@ -36,11 +37,11 @@ Deno.serve(async (req) => {
   // POST: Handle incoming events
   if (req.method === 'POST') {
     try {
-      // Verify webhook signature
-      const signature = req.headers.get('X-Zalo-Signature');
-      if (signature && !verifySignature(await req.clone().text(), signature, ZALO_APP_SECRET)) {
-        console.error('Invalid webhook signature');
-        return new Response(JSON.stringify({ success: false, error: 'Invalid signature' }), {
+      // Verify X-Bot-Api-Secret-Token header (required by Zalo webhook)
+      const apiSecretToken = req.headers.get('X-Bot-Api-Secret-Token');
+      if (apiSecretToken !== ZALO_BOT_SECRET_TOKEN) {
+        console.error('Invalid bot api secret token');
+        return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), {
           status: 401,
           headers: { 'Content-Type': 'application/json' },
         });
@@ -52,7 +53,7 @@ Deno.serve(async (req) => {
       if (payload.event === 'follow') {
         const userId = payload.sender_id;
         const groupId = payload.group_id;
-        const content = payload.message?.content?.trim() ?? '';
+        const content = (payload.message && typeof payload.message === 'object') ? (payload.message.content ?? '') : '';
         const response = await processCommand(content);
 
         if (groupId) {
@@ -81,7 +82,7 @@ Deno.serve(async (req) => {
           });
         }
 
-        const content = payload.message?.content?.trim() ?? '';
+        const content = (payload.message && typeof payload.message === 'object') ? (payload.message.content ?? '') : '';
         const response = await processCommand(content);
         await sendGroupMessage(groupId, response);
 

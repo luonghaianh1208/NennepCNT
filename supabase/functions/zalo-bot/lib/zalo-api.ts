@@ -23,7 +23,7 @@ export async function sendGroupMessage(groupId: string, message: string): Promis
 
   const body: SendMessageRequest = {
     recipient: { group_id: groupId },
-    message: { text },
+    message: { text: message },
   };
 
   const response = await fetch(url, {
@@ -51,7 +51,7 @@ export async function sendUserMessage(userId: string, message: string): Promise<
 
   const body: SendMessageRequest = {
     recipient: { user_id: userId },
-    message: { text },
+    message: { text: message },
   };
 
   const response = await fetch(url, {
