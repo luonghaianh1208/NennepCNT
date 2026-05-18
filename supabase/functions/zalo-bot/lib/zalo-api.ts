@@ -8,9 +8,9 @@ function buildZaloUrl(endpoint: string): string {
   return `${ZALO_API_BASE}${token}${endpoint}`;
 }
 
-export interface SendMessageRequest {
-  recipient: { group_id?: string; user_id?: string };
-  message: { text: string };
+export interface ZaloSendMessageRequest {
+  chat_id: string;
+  text: string;
 }
 
 export async function sendGroupMessage(groupId: string, message: string): Promise<void> {
@@ -21,16 +21,16 @@ export async function sendGroupMessage(groupId: string, message: string): Promis
 
   const url = buildZaloUrl('/sendMessage');
 
-  const body: SendMessageRequest = {
-    recipient: { group_id: groupId },
-    message: { text: message },
+  const body: ZaloSendMessageRequest = {
+    chat_id: groupId,
+    text: message,
   };
 
   const response = await fetch(url, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
     },
     body: JSON.stringify(body),
   });
@@ -49,16 +49,16 @@ export async function sendUserMessage(userId: string, message: string): Promise<
 
   const url = buildZaloUrl('/sendMessage');
 
-  const body: SendMessageRequest = {
-    recipient: { user_id: userId },
-    message: { text: message },
+  const body: ZaloSendMessageRequest = {
+    chat_id: userId,
+    text: message,
   };
 
   const response = await fetch(url, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
     },
     body: JSON.stringify(body),
   });
