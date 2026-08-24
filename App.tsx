@@ -388,7 +388,7 @@ export default function App() {
         )}
 
         {/* Bản quyền — cố định, không cấu hình theo từng trường */}
-        <div className="pt-6 pb-2 text-center">
+        <div className="pt-6 pb-24 text-center">
           <button
             onClick={() => setShowAbout(true)}
             className="text-[11px] text-slate-400 hover:text-slate-600 transition-colors"
