@@ -27,6 +27,7 @@ dist-ssr
 worktrees
 
 # Firebase
+.env
 firebase-admin-key.json
 *-firebase-adminsdk-*.json
 .firebase

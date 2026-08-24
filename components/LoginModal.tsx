@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { LogIn, X, Mail, ArrowLeft, KeyRound } from 'lucide-react';
-import { api } from '../services/googleApi';
+import { api, setRememberLogin } from '../services/firebase';
 import { GUEST_USER, INITIAL_ROLE_DEFINITIONS } from '../utils';
 import { useAppStore } from '../contexts/AppContext';
 
@@ -34,19 +34,14 @@ const LoginModal: React.FC<LoginModalProps> = ({ onClose, onSuccess }) => {
     setLoginError('');
     setIsLoggingIn(true);
     try {
+      // Firebase Auth tự lưu phiên; không còn lưu mật khẩu ở trình duyệt nữa
+      await setRememberLogin(rememberMe);
       const result = await api.verifyLogin(loginUsername, loginPassword);
 
       if (result?.success && result.user) {
         const user = result.user;
         setCurrentUser(user);
         onClose();
-
-        localStorage.setItem('nnp_user_session', JSON.stringify(user));
-        if (rememberMe) {
-          localStorage.setItem('nnp_user_creds', btoa(`${loginUsername}:${loginPassword}`));
-        } else {
-          localStorage.removeItem('nnp_user_creds');
-        }
 
         setLoginUsername('');
         setLoginPassword('');

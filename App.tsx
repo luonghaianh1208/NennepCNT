@@ -21,7 +21,7 @@ import {
 import { Violation } from './types';
 import { INITIAL_ROLE_DEFINITIONS, GUEST_USER } from './utils';
 import { useAppStore } from './contexts/AppContext';
-import { api } from './services/googleApi';
+import { api, onAuthChange, signOut } from './services/firebase';
 
 import DashboardTab from './components/DashboardTab';
 import EntryTab from './components/EntryTab';
@@ -82,39 +82,33 @@ export default function App() {
   useEffect(() => {
     if (!isLoading && !isRefreshing) return;
     const timer = setTimeout(() => {
-      showToast('⏳ Đang kết nối server... (GAS cold start có thể mất 3–5s, vui lòng chờ)', 'info');
+      showToast('⏳ Đang tải dữ liệu, vui lòng chờ...', 'info');
     }, 3000);
     return () => clearTimeout(timer);
   }, [isLoading, isRefreshing]);
 
-  // ✅ Auto Login
+  // ✅ Tự khôi phục phiên đăng nhập — Firebase Auth tự giữ token, không lưu
+  // mật khẩu ở localStorage nữa
   useEffect(() => {
-    const savedUser = localStorage.getItem('nnp_user_session');
-    if (savedUser) {
-      try {
-        const user = JSON.parse(savedUser);
-        if (user && user.role && user.role !== 'GUEST') {
-          setCurrentUser(user);
-          const userRoleKey = user.role.toUpperCase();
-          const roleConfig = roleConfigs[userRoleKey] || roleConfigs['GUEST'] || INITIAL_ROLE_DEFINITIONS[userRoleKey];
-          if (roleConfig?.canEntry) setActiveTab('entry');
-          else if (roleConfig?.isAdmin) setActiveTab('settings');
-          else setActiveTab('dashboard');
-        }
-      } catch (e) {
-        localStorage.removeItem('nnp_user_session');
+    return onAuthChange(user => {
+      if (user && user.role && user.role !== 'GUEST') {
+        setCurrentUser(user);
+        const userRoleKey = String(user.role).toUpperCase();
+        const roleConfig = roleConfigs[userRoleKey] || roleConfigs['GUEST'] || INITIAL_ROLE_DEFINITIONS[userRoleKey];
+        if (roleConfig?.canEntry) setActiveTab('entry');
+        else if (roleConfig?.isAdmin) setActiveTab('settings');
+        else setActiveTab('dashboard');
       }
-    }
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleLogout = async () => {
     const ok = await showConfirm({ title: 'Đăng xuất', message: 'Bạn có chắc muốn đăng xuất?', type: 'confirm' });
     if (ok) {
+      await signOut();
       setCurrentUser(GUEST_USER);
       setActiveTab('dashboard');
-      localStorage.removeItem('nnp_user_creds');
-      localStorage.removeItem('nnp_user_session');
     }
   };
 

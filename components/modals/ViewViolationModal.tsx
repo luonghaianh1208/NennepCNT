@@ -57,10 +57,18 @@ const ViewViolationModal: React.FC<ViewViolationModalProps> = ({
                   href={img}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 w-full p-3 rounded-xl border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+                  title="Bấm để xem ảnh cỡ lớn"
+                  className="block rounded-xl overflow-hidden border border-blue-200 bg-slate-100 hover:border-blue-400 transition-colors"
                 >
-                  <Link2 size={18} />
-                  <span className="font-semibold text-sm">Xem ảnh minh chứng {images.length > 1 ? idx + 1 : ''}</span>
+                  <img
+                    src={img}
+                    alt={`Ảnh minh chứng ${idx + 1}`}
+                    loading="lazy"
+                    className="w-full max-h-72 object-contain bg-slate-900/5"
+                  />
+                  <span className="flex items-center gap-2 px-3 py-2 text-blue-700 text-sm font-semibold">
+                    <Link2 size={16} /> Ảnh minh chứng {images.length > 1 ? idx + 1 : ''} — bấm để phóng to
+                  </span>
                 </a>
               ))}
             </div>

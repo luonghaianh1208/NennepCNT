@@ -1,0 +1,6 @@
+{
+  "projects": {
+    "default": "nennep-demo",
+    "demo": "nennep-demo"
+  }
+}

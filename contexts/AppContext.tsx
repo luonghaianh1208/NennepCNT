@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { User, Violation, ClassEntity, Student, Criteria, TimeConfig, RoleConfig, AppTheme, AuditLog, AuditAction } from '../types';
 import { INITIAL_ROLE_DEFINITIONS, GUEST_USER, INITIAL_TIME_CONFIGS } from '../utils';
-import { api } from '../services/googleApi';
+import { api } from '../services/firebase';
 
 // ─── MAX audit entries to keep in localStorage ───────────────────────────────
 const MAX_AUDIT_ENTRIES = 500;
