@@ -17,14 +17,14 @@ type SubTab = 'BRANDING' | 'ROLES' | 'TIME' | 'CLASSES' | 'STUDENTS' | 'CRITERIA
 
 const SUB_TABS: { id: SubTab; label: string; icon: React.ReactNode }[] = [
   { id: 'BRANDING', label: 'Thương hiệu', icon: <Palette size={16} /> },
-  { id: 'ROLES', label: 'Quản lý chung', icon: <Settings size={16} /> },
+  { id: 'ROLES', label: 'Vai trò', icon: <Settings size={16} /> },
   { id: 'TIME', label: 'Thời gian', icon: <Calendar size={16} /> },
   { id: 'CLASSES', label: 'Lớp học', icon: <GraduationCap size={16} /> },
   { id: 'STUDENTS', label: 'Học sinh', icon: <Users size={16} /> },
   { id: 'CRITERIA_VIOLATION', label: 'Vi phạm', icon: <AlertTriangle size={16} /> },
   { id: 'CRITERIA_ACHIEVEMENT', label: 'Thành tích', icon: <Star size={16} /> },
   { id: 'ACCOUNTS', label: 'Tài khoản', icon: <UserPlus size={16} /> },
-  { id: 'AUDIT_LOG', label: 'Audit Log', icon: <ClipboardList size={16} /> },
+  { id: 'AUDIT_LOG', label: 'Log', icon: <ClipboardList size={16} /> },
 ];
 
 interface SettingsTabProps {
