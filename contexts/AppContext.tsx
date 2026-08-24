@@ -223,6 +223,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     else setIsRefreshing(true);
 
     try {
+      // Danh bạ học sinh/tài khoản chạy song song ngay từ đầu: nó không chặn
+      // giao diện, nhưng phải có sớm vì màn hình Nhập lỗi cần chọn học sinh
+      const directoryPromise = api.getDirectory();
+
       // ── Đợt 1: danh mục + khoảng thời gian đang diễn ra ──────────────────
       const core = await api.getCoreData();
       setClasses(core.classes);
@@ -265,7 +269,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
       // ── Đợt 2: chạy nền, không chặn giao diện ────────────────────────────
       setIsBackgroundLoading(true);
-      api.getDirectory()
+      directoryPromise
         .then(({ students: st, users: us }) => {
           setStudents(st);
           setUsers(us);

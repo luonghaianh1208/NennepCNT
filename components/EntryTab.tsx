@@ -188,6 +188,18 @@ const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Chưa có danh sách học sinh mà import thì mọi dòng đều khớp trượt —
+    // thà bắt chờ vài giây còn hơn nhập sai hàng loạt
+    if (!students.length || !classes.length) {
+      e.target.value = '';
+      await showAlert(
+        'Đang tải dữ liệu',
+        'Danh sách lớp và học sinh chưa tải xong. Vui lòng thử lại sau vài giây để hệ thống nhận diện đúng tên.',
+        'info',
+      );
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = async (event) => {
       try {
@@ -730,10 +742,24 @@ const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
               <label className="block text-sm font-bold text-slate-800 mb-1">
                 Học sinh <span className="text-red-500">*</span>
               </label>
-              <select className="w-full p-3 rounded-lg border-2 border-slate-300 bg-white" value={selectedStudentId} onChange={(e) => setSelectedStudentId(e.target.value)} disabled={!selectedClassId}>
-                <option value="">-- Chọn Học Sinh --</option>
+              {/* Danh sách học sinh tải song song lúc mở app; trong lúc chờ thì
+                  khoá ô chọn lại để không ai tưởng lớp mình không có học sinh */}
+              <select
+                className="w-full p-3 rounded-lg border-2 border-slate-300 bg-white disabled:bg-slate-50 disabled:text-slate-400"
+                value={selectedStudentId}
+                onChange={(e) => setSelectedStudentId(e.target.value)}
+                disabled={!selectedClassId || !students.length}
+              >
+                <option value="">
+                  {students.length ? '-- Chọn Học Sinh --' : 'Đang tải danh sách học sinh...'}
+                </option>
                 {students.filter(s => s.classId === selectedClassId).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
+              {!students.length && (
+                <p className="text-xs text-blue-600 mt-1 animate-pulse">
+                  Danh sách học sinh đang được tải, chỉ mất một lát.
+                </p>
+              )}
             </div>
           )}
 
