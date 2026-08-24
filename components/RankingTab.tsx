@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Trophy, Download, X, FileSpreadsheet, Layers, FileText } from 'lucide-react';
 import { Violation } from '../types';
 import { calculateScore, getEarliestViolationDate, getLatestViolationDate, formatDateDisplay, exportToExcel, computeRankingContext } from '../utils';
-import { generateWeeklyReport } from '../utils/reportGenerator';
+// Trình tạo báo cáo .docx nặng gần 500KB, chỉ nạp khi bấm xuất báo cáo
 import { useAppStore } from '../contexts/AppContext';
 import { useModal } from '../contexts/ModalContext';
 
@@ -46,6 +46,7 @@ const RankingTab: React.FC<RankingTabProps> = ({
     setIsGeneratingReport(true);
     try {
       const isLeader = currentUser.role.toUpperCase() === 'LEADER';
+      const { generateWeeklyReport } = await import('../utils/reportGenerator');
       await generateWeeklyReport({ weekConfig, allWeekConfigs: timeConfigs, violations, classes, students, criteria, currentUser, isLeader });
       showToast(`Đã xuất báo cáo ${weekConfig.name} thành công!`, 'success');
     } catch (err) {

@@ -6,8 +6,7 @@ import { api } from '../services/firebase';
 import { isDateInRange, removeVietnameseTones, exportToExcel, getLocalDateString, matchVietnamese, fuzzyMatchScore } from '../utils';
 import { useAppStore } from '../contexts/AppContext';
 import { useModal } from '../contexts/ModalContext';
-import * as XLSX from 'xlsx';
-import ExcelJS from 'exceljs';
+// xlsx + exceljs chỉ dùng khi import/tải file mẫu → nạp động, xem chú thích ở utils.ts
 import { saveAs } from 'file-saver';
 
 interface EntryTabProps {
@@ -106,6 +105,7 @@ const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
       ? ['Tên lỗi vi phạm', 'Điểm trừ']
       : ['Tên thành tích', 'Điểm cộng'];
 
+    const ExcelJS = (await import('exceljs')).default;
     const wb = new ExcelJS.Workbook();
 
     // ── SHEET 2: Danh sách tiêu chí ──────────────────────────────────
@@ -190,6 +190,7 @@ const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
     const reader = new FileReader();
     reader.onload = async (event) => {
       try {
+        const XLSX = await import('xlsx');
         const data = new Uint8Array(event.target?.result as ArrayBuffer);
         const workbook = XLSX.read(data, { type: 'array', cellDates: true });
         const sheet = workbook.Sheets[workbook.SheetNames[0]];

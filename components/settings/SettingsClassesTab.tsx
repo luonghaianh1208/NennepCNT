@@ -5,7 +5,6 @@ import { ClassEntity } from '../../types';
 import { exportToExcel } from '../../utils';
 import { useAppStore } from '../../contexts/AppContext';
 import { useModal } from '../../contexts/ModalContext';
-import * as XLSX from 'xlsx';
 
 const SettingsClassesTab: React.FC = () => {
   const { classes, setClasses, students, setStudents, setUnsavedChanges } = useAppStore();
@@ -54,8 +53,9 @@ const SettingsClassesTab: React.FC = () => {
     const existingClassIds = new Set(classes.map(c => c.id));
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       try {
+        const XLSX = await import('xlsx');
         const data = new Uint8Array(event.target?.result as ArrayBuffer);
         const workbook = XLSX.read(data, { type: 'array' });
         const sheet = workbook.Sheets[workbook.SheetNames[0]];

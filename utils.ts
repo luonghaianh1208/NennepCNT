@@ -1,7 +1,7 @@
 
 import { RoleConfig, ClassEntity, Student, Criteria, User, Violation, TimeConfig } from './types';
-import * as XLSX from 'xlsx';
-import Excel from 'exceljs';
+// exceljs (~900KB) chỉ cần khi người dùng bấm xuất Excel → nạp động trong hàm,
+// không kéo vào gói chính làm chậm lần mở app đầu tiên
 
 // Đổi tên thành INITIAL_... để làm giá trị khởi tạo cho State
 export const INITIAL_ROLE_DEFINITIONS: Record<string, RoleConfig> = {
@@ -615,6 +615,7 @@ export const exportToExcel = (
       }
 
       // Khởi tạo workbook và worksheet
+      const Excel = (await import('exceljs')).default;
       const workbook = new Excel.Workbook();
       const worksheet = workbook.addWorksheet('Sheet1');
 

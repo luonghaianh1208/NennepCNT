@@ -24,14 +24,23 @@ import { useAppStore } from './contexts/AppContext';
 import { api, onAuthChange, signOut } from './services/firebase';
 
 import DashboardTab from './components/DashboardTab';
-import EntryTab from './components/EntryTab';
-import ListTab from './components/ListTab';
 import AboutModal from './components/AboutModal';
-import RankingTab from './components/RankingTab';
-import ClassDetailTab from './components/ClassDetailTab';
-import SettingsTab from './components/SettingsTab';
-import TaskForceTab from './components/TaskForceTab';
 import LoginModal from './components/LoginModal';
+
+// Các tab còn lại nạp khi người dùng bấm vào, không kéo hết vào lần mở app đầu.
+// Riêng ClassDetailTab kéo theo recharts nên tách ra là đáng nhất.
+const EntryTab = React.lazy(() => import('./components/EntryTab'));
+const ListTab = React.lazy(() => import('./components/ListTab'));
+const RankingTab = React.lazy(() => import('./components/RankingTab'));
+const ClassDetailTab = React.lazy(() => import('./components/ClassDetailTab'));
+const SettingsTab = React.lazy(() => import('./components/SettingsTab'));
+const TaskForceTab = React.lazy(() => import('./components/TaskForceTab'));
+
+const TabFallback = () => (
+  <div className="flex justify-center items-center py-20 text-slate-400">
+    <Loader2 size={28} className="animate-spin" />
+  </div>
+);
 
 import ViewViolationModal from './components/modals/ViewViolationModal';
 import EditViolationModal from './components/modals/EditViolationModal';
@@ -312,6 +321,7 @@ export default function App() {
 
       {/* ── MAIN CONTENT ───────────────────────────────────────────────────── */}
       <main className="flex-1 p-4 overflow-y-auto scroll-smooth">
+        <React.Suspense fallback={<TabFallback />}>
         {activeTab === 'dashboard' && <DashboardTab />}
         {activeTab === 'entry' && currentUser.role !== 'GUEST' && canCurrentUserEntry() && (
           <EntryTab onNavigateToCriteria={(mode) => {
@@ -361,6 +371,7 @@ export default function App() {
         {activeTab === 'settings' && !isCurrentUserAdmin() && (
           <div className="text-center py-20 text-slate-400">Bạn không có quyền truy cập.</div>
         )}
+        </React.Suspense>
       </main>
 
       {/* ── BOTTOM NAV ─────────────────────────────────────────────────────── */}

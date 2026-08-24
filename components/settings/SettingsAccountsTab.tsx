@@ -1,87 +1,134 @@
 
 import React, { useState, useRef } from 'react';
-import { Plus, Edit, Trash2, Save, Check, X, FileSpreadsheet, Download } from 'lucide-react';
+import { Plus, Edit, Trash2, Save, Check, X, FileSpreadsheet, Download, KeyRound, Lock, Unlock } from 'lucide-react';
 import { User, RoleConfig } from '../../types';
 import { exportToExcel } from '../../utils';
 import { useAppStore } from '../../contexts/AppContext';
 import { useModal } from '../../contexts/ModalContext';
-import * as XLSX from 'xlsx';
+import { accounts } from '../../services/firebase';
 
 const SettingsAccountsTab: React.FC = () => {
-  const { users, setUsers, classes, roleConfigs, currentUser, setCurrentUser, setUnsavedChanges, syncUsers } = useAppStore();
+  const { users, setUsers, classes, roleConfigs, currentUser, setCurrentUser, refreshData, syncUsers } = useAppStore();
   const { showAlert, showConfirm, showToast } = useModal();
 
   const [newUserFullName, setNewUserFullName] = useState('');
   const [newUserUsername, setNewUserUsername] = useState('');
-  const [newUserPassword, setNewUserPassword] = useState('');
   const [newUserRole, setNewUserRole] = useState<string>('RED_FLAG');
   const [newUserClass, setNewUserClass] = useState('');
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [busy, setBusy] = useState(false);
   const excelAccountInputRef = useRef<HTMLInputElement>(null);
 
-  const handleAddUser = () => {
-    if (!newUserFullName || !newUserUsername || !newUserPassword) return showToast('Vui lòng nhập đầy đủ thông tin bắt buộc', 'error');
-    if (users.find(u => u.username === newUserUsername)) return showToast('Tên đăng nhập/Email đã tồn tại', 'error');
-    const newUser: User = {
-      id: `U${Date.now()}`,
-      name: newUserFullName,
-      username: newUserUsername,
-      password: newUserPassword,
-      role: newUserRole,
-      className: newUserClass || undefined
-    };
-    setUsers([...users, newUser]);
-    setNewUserFullName('');
-    setNewUserUsername('');
-    setNewUserPassword('');
-    setNewUserClass('');
-    // Lưu ngay lập tức — dùng syncUsers (KHÔNG qua syncSettings để tránh mất password)
-    setTimeout(async () => {
-      const ok = await syncUsers();
-      if (ok) showToast('Đã thêm và lưu tài khoản!', 'success');
-      else showToast('Thêm tài khoản thành công (cục bộ). Có lỗi khi đồng bộ lên server.', 'info');
-    }, 0);
+  // Tài khoản do Cloud Function tạo: người dùng nhận email tự đặt mật khẩu,
+  // quản trị viên không đặt hộ mật khẩu cho ai
+  const handleAddUser = async () => {
+    if (!newUserFullName || !newUserUsername) return showToast('Nhập họ tên và email', 'error');
+    if (!newUserUsername.includes('@')) return showToast('Tài khoản phải là email thật để nhận thư đặt mật khẩu', 'error');
+    if (users.find(u => u.username === newUserUsername || u.email === newUserUsername)) {
+      return showToast('Email này đã có tài khoản', 'error');
+    }
+
+    setBusy(true);
+    try {
+      await accounts.create({
+        name: newUserFullName,
+        email: newUserUsername,
+        role: newUserRole,
+        className: newUserClass || '',
+      });
+      setNewUserFullName('');
+      setNewUserUsername('');
+      setNewUserClass('');
+      await refreshData();
+      showToast('Đã tạo tài khoản. Thư đặt mật khẩu đã gửi tới email của người dùng.', 'success');
+    } catch (e: any) {
+      showToast(e.message, 'error');
+    } finally {
+      setBusy(false);
+    }
   };
 
+  // Xoá hẳn chỉ được phép khi tài khoản chưa từng nhập bản ghi nào; còn lại thì khoá
   const handleDeleteUser = async (id: string) => {
-    if (id === 'U1') return showAlert('Không thể xóa', 'Không thể xóa Admin mặc định', 'error');
-    const ok = await showConfirm({ title: 'Xóa tài khoản', message: 'Xóa tài khoản này?', type: 'danger', confirmText: 'Xóa' });
-    if (ok) {
-      setUsers(users.filter(u => u.id !== id));
-      // Lưu ngay — chỉ sync Users, tránh mất password qua syncSettings
-      setTimeout(async () => {
-        await syncUsers();
-        showToast('Đã xóa tài khoản!', 'success');
-      }, 0);
+    const ok = await showConfirm({
+      title: 'Xoá tài khoản',
+      message: 'Xoá vĩnh viễn tài khoản này? Nếu người này đã từng nhập dữ liệu, hệ thống sẽ chỉ cho khoá để giữ dấu vết người nhập liệu.',
+      type: 'danger',
+      confirmText: 'Xoá',
+    });
+    if (!ok) return;
+
+    setBusy(true);
+    try {
+      await accounts.remove(id);
+      await refreshData();
+      showToast('Đã xoá tài khoản.', 'success');
+    } catch (e: any) {
+      showAlert('Không xoá được', e.message, 'error');
+    } finally {
+      setBusy(false);
     }
   };
 
-  const handleSaveUserEdit = () => {
-    if (!editingUser) return;
-    if (!editingUser.name || !editingUser.username) return showToast('Tên và Username không được để trống', 'error');
-    const originalUser = users.find(u => u.id === editingUser.id);
-    if (originalUser?.username !== editingUser.username) {
-      if (users.find(u => u.username === editingUser.username)) return showToast('Username này đã tồn tại', 'error');
+  const handleToggleStatus = async (u: User & { active?: boolean }) => {
+    const willActivate = u.active === false;
+    setBusy(true);
+    try {
+      await accounts.setStatus(u.id, willActivate);
+      await refreshData();
+      showToast(willActivate ? 'Đã mở khoá tài khoản.' : 'Đã khoá đăng nhập của tài khoản này.', 'success');
+    } catch (e: any) {
+      showToast(e.message, 'error');
+    } finally {
+      setBusy(false);
     }
-    setUsers(users.map(u => u.id === editingUser.id ? editingUser : u));
-    if (currentUser.id === editingUser.id) setCurrentUser(editingUser);
-    setEditingUser(null);
-    // Lưu ngay — chỉ sync Users
-    setTimeout(async () => {
-      const ok = await syncUsers();
-      if (ok) showToast('Đã lưu thông tin tài khoản!', 'success');
-      else showToast('Đã cập nhật (cục bộ). Có lỗi khi đồng bộ lên server.', 'info');
-    }, 0);
+  };
+
+  const handleSendReset = async (u: User) => {
+    const email = u.email || u.username;
+    if (!email?.includes('@')) return showToast('Tài khoản này chưa có email hợp lệ', 'error');
+    setBusy(true);
+    try {
+      await accounts.sendReset(email);
+      showToast(`Đã gửi thư đặt lại mật khẩu tới ${email}`, 'success');
+    } catch (e: any) {
+      showToast(e.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleSaveUserEdit = async () => {
+    if (!editingUser) return;
+    if (!editingUser.name) return showToast('Tên không được để trống', 'error');
+
+    const original = users.find(u => u.id === editingUser.id);
+    setBusy(true);
+    try {
+      // Vai trò nằm trong custom claim của Firebase Auth nên phải đi qua Cloud Function
+      if (original && original.role !== editingUser.role) {
+        await accounts.setRole(editingUser.id, editingUser.role);
+      }
+      setUsers(users.map(u => (u.id === editingUser.id ? editingUser : u)));
+      if (currentUser.id === editingUser.id) setCurrentUser(editingUser);
+      await syncUsers();
+      setEditingUser(null);
+      showToast('Đã lưu thông tin tài khoản!', 'success');
+    } catch (e: any) {
+      showAlert('Không lưu được', e.message, 'error');
+    } finally {
+      setBusy(false);
+    }
   };
 
   // --- TẢI FILE EXCEL MẪU ---
   const handleDownloadAccountTemplate = () => {
     const roleKeys = Object.keys(roleConfigs).join(' / ');
     const data = [
-      ['Ho_ten', 'Username', 'Password', 'Lop', 'Role'],
-      ['Nguyễn Văn A', 'nguyenvana', '123456', '10A1', 'RED_FLAG'],
-      ['Trần Thị B', 'tranthib', '123456', '10A2', 'TEACHER'],
-      [`(Role hợp lệ: ${roleKeys})`, '', '', '', ''],
+      ['Ho_ten', 'Email', 'Lop', 'Role'],
+      ['Nguyễn Văn A', 'nguyenvana@truong.edu.vn', '10A1', 'RED_FLAG'],
+      ['Trần Thị B', 'tranthib@truong.edu.vn', '10A2', 'TEACHER'],
+      [`(Role hợp lệ: ${roleKeys})`, 'Mỗi người nhận email tự đặt mật khẩu', '', ''],
     ];
     exportToExcel(data, 'Mau_Import_TaiKhoan');
   };
@@ -91,40 +138,36 @@ const SettingsAccountsTab: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Set username đã tồn tại để kiểm tra trùng
-    const existingUsernames = new Set(users.map(u => u.username));
-    // Set ID đã tồn tại
-    const existingIds = new Set(users.map(u => u.id));
+    const existingEmails = new Set(users.map(u => (u.email || u.username || '').toLowerCase()));
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       try {
+        const XLSX = await import('xlsx');
         const data = new Uint8Array(event.target?.result as ArrayBuffer);
         const workbook = XLSX.read(data, { type: 'array' });
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
         const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
 
-        const newUsers: User[] = [];
-        let count = 0;
+        const pending: { name: string; email: string; role: string; className: string }[] = [];
         let dupCount = 0;
 
         for (let i = 1; i < rows.length; i++) {
           const row = rows[i];
           if (!row || row.every((cell: any) => cell === '' || cell === null || cell === undefined)) continue;
 
-          const [hoTen, username, password, lop, roleRaw] = row;
+          const [hoTen, emailRaw, lop, roleRaw] = row;
           const name = String(hoTen || '').trim();
-          const uname = String(username || '').trim();
-          const pwd = String(password || '').trim();
+          const email = String(emailRaw || '').trim().toLowerCase();
           const classNameStr = String(lop || '').trim();
           const roleStr = String(roleRaw || '').trim().toUpperCase().replace(/\s/g, '_');
 
-          if (!name || !uname || !pwd) continue;
-
-          if (existingUsernames.has(uname)) {
+          if (!name || !email.includes('@')) continue;
+          if (existingEmails.has(email)) {
             dupCount++;
             continue;
           }
+          existingEmails.add(email);
 
           // Map role linh hoạt
           let role = roleConfigs[roleStr] ? roleStr : 'GUEST';
@@ -135,39 +178,39 @@ const SettingsAccountsTab: React.FC = () => {
           if (roleStr.includes('BCH')) role = 'BCH';
 
           const cls = classes.find(c => c.name === classNameStr || c.id === classNameStr);
-
-          // Sinh ID unique: timestamp + index
-          let newId = `U_${Date.now()}_${i}`;
-          while (existingIds.has(newId)) {
-            newId = `U_${Date.now()}_${i}_${Math.floor(Math.random() * 9999)}`;
-          }
-          existingIds.add(newId);
-          existingUsernames.add(uname); // Tránh trùng trong cùng lượt
-
-          newUsers.push({
-            id: newId,
-            name,
-            username: uname,
-            password: pwd,
-            role,
-            className: cls?.id,
-          });
-          count++;
+          pending.push({ name, email, role, className: cls?.id ?? '' });
         }
 
         e.target.value = '';
 
-        if (count > 0) {
-          setUsers([...users, ...newUsers]);
-          setUnsavedChanges(true);
+        if (!pending.length) {
+          showToast(`Không có tài khoản hợp lệ.${dupCount > 0 ? ` (${dupCount} email đã tồn tại)` : ''}`, 'error');
+          return;
+        }
+
+        setBusy(true);
+        showToast(`Đang tạo ${pending.length} tài khoản và gửi thư đặt mật khẩu...`, 'info');
+        try {
+          // Cloud Function nhận tối đa 200 mỗi lượt
+          let created = 0;
+          const failed: { email: string; reason: string }[] = [];
+          for (let i = 0; i < pending.length; i += 200) {
+            const res = await accounts.importMany(pending.slice(i, i + 200));
+            created += res.created.length;
+            failed.push(...res.failed);
+          }
+          await refreshData();
+
           const note = [
-            `Đã thêm ${count} tài khoản.`,
-            dupCount > 0 ? `Bỏ qua ${dupCount} username đã tồn tại.` : '',
-            'Nhớ bấm LƯU.',
+            `Đã tạo ${created} tài khoản, mỗi người nhận một email đặt mật khẩu.`,
+            dupCount > 0 ? `Bỏ qua ${dupCount} email đã tồn tại.` : '',
+            failed.length ? `${failed.length} dòng lỗi: ${failed.slice(0, 3).map(f => f.email).join(', ')}...` : '',
           ].filter(Boolean).join(' ');
-          showToast(note, 'success');
-        } else {
-          showToast(`Không có tài khoản hợp lệ.${dupCount > 0 ? ` (${dupCount} username đã tồn tại)` : ''}`, 'error');
+          showAlert(failed.length ? 'Hoàn tất, có dòng lỗi' : 'Hoàn tất', note, failed.length ? 'info' : 'success');
+        } catch (err: any) {
+          showAlert('Không tạo được tài khoản', err.message, 'error');
+        } finally {
+          setBusy(false);
         }
       } catch (err) {
         e.target.value = '';
@@ -203,8 +246,7 @@ const SettingsAccountsTab: React.FC = () => {
 
         <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 mb-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
           <input className="p-2 border rounded text-sm" placeholder="Họ tên" value={newUserFullName} onChange={e => setNewUserFullName(e.target.value)}/>
-          <input className="p-2 border rounded text-sm" placeholder="Username/Email" value={newUserUsername} onChange={e => setNewUserUsername(e.target.value)}/>
-          <input className="p-2 border rounded text-sm" type="password" placeholder="Mật khẩu" value={newUserPassword} onChange={e => setNewUserPassword(e.target.value)}/>
+          <input className="p-2 border rounded text-sm" type="email" placeholder="Email nhận thư đặt mật khẩu" value={newUserUsername} onChange={e => setNewUserUsername(e.target.value)}/>
           <select className="p-2 border rounded text-sm bg-white" value={newUserRole} onChange={e => setNewUserRole(e.target.value)}>
             {Object.entries(roleConfigs).map(([key, config]: [string, RoleConfig]) => (
               <option key={key} value={key}>{config.label}</option>
@@ -215,9 +257,13 @@ const SettingsAccountsTab: React.FC = () => {
               <option value="">- Chọn Lớp -</option>
               {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
-            <button onClick={handleAddUser} className="bg-blue-600 text-white px-3 rounded font-bold"><Plus size={18}/></button>
+            <button onClick={handleAddUser} disabled={busy} className="bg-blue-600 text-white px-3 rounded font-bold disabled:opacity-50"><Plus size={18}/></button>
           </div>
         </div>
+
+        <p className="text-xs text-slate-500 -mt-2 mb-4">
+          Người dùng tự đặt mật khẩu qua thư hệ thống gửi — quản trị viên không cần (và không thể) đặt hộ mật khẩu.
+        </p>
 
         <div className="max-h-96 overflow-y-auto border border-slate-200 rounded-lg">
           <table className="w-full text-sm text-left">
@@ -236,7 +282,10 @@ const SettingsAccountsTab: React.FC = () => {
                 return (
                   <tr key={u.id} className="border-b last:border-0 hover:bg-slate-50">
                     <td className="px-4 py-3 font-medium text-slate-700">
-                      {u.name} {u.id === 'U1' && <span className="text-[10px] bg-blue-100 text-blue-600 px-1 rounded ml-1">DEFAULT</span>}
+                      {u.name}
+                      {(u as any).active === false && (
+                        <span className="text-[10px] bg-slate-200 text-slate-600 px-1 rounded ml-1">ĐÃ KHOÁ</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-slate-500">{u.username}</td>
                     <td className="px-4 py-3">
@@ -246,8 +295,16 @@ const SettingsAccountsTab: React.FC = () => {
                     </td>
                     <td className="px-4 py-3 text-slate-500">{u.className || '-'}</td>
                     <td className="px-4 py-3 text-right flex justify-end gap-2">
+                      <button onClick={() => handleSendReset(u)} disabled={busy} title="Gửi thư đặt lại mật khẩu"
+                        className="text-slate-400 hover:text-amber-600 disabled:opacity-40"><KeyRound size={16}/></button>
+                      <button onClick={() => handleToggleStatus(u as any)} disabled={busy}
+                        title={(u as any).active === false ? 'Mở khoá đăng nhập' : 'Khoá đăng nhập (giữ nguyên dữ liệu đã nhập)'}
+                        className="text-slate-400 hover:text-slate-700 disabled:opacity-40">
+                        {(u as any).active === false ? <Unlock size={16}/> : <Lock size={16}/>}
+                      </button>
                       <button onClick={() => setEditingUser({ ...u })} className="text-slate-400 hover:text-blue-600"><Edit size={16}/></button>
-                      {u.id !== 'U1' && <button onClick={() => handleDeleteUser(u.id)} className="text-slate-400 hover:text-red-600"><Trash2 size={16}/></button>}
+                      <button onClick={() => handleDeleteUser(u.id)} disabled={busy}
+                        className="text-slate-400 hover:text-red-600 disabled:opacity-40"><Trash2 size={16}/></button>
                     </td>
                   </tr>
                 );
@@ -271,12 +328,21 @@ const SettingsAccountsTab: React.FC = () => {
                 <input className="w-full p-2 border rounded-lg" value={editingUser.name} onChange={e => setEditingUser({...editingUser, name: e.target.value})}/>
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Username / Email</label>
-                <input className="w-full p-2 border rounded-lg bg-slate-50" value={editingUser.username} onChange={e => setEditingUser({...editingUser, username: e.target.value})}/>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Email đăng nhập</label>
+                <input className="w-full p-2 border rounded-lg bg-slate-100 text-slate-500" value={editingUser.email || editingUser.username} readOnly/>
+                <p className="text-xs text-slate-400 mt-1">
+                  Email là danh tính đăng nhập nên không sửa tại đây. Cần đổi thì tạo tài khoản mới rồi khoá tài khoản cũ.
+                </p>
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Mật khẩu mới (Để trống nếu không đổi)</label>
-                <input className="w-full p-2 border rounded-lg" type="password" placeholder="******" onChange={e => { if(e.target.value) setEditingUser({...editingUser, password: e.target.value}) }}/>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Mật khẩu</label>
+                <button
+                  onClick={() => handleSendReset(editingUser)}
+                  disabled={busy}
+                  className="w-full p-2 border border-amber-300 bg-amber-50 text-amber-800 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 hover:bg-amber-100 disabled:opacity-50"
+                >
+                  <KeyRound size={16}/> Gửi thư đặt lại mật khẩu
+                </button>
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Vai trò &amp; Màu sắc</label>
