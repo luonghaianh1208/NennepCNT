@@ -258,14 +258,23 @@ const AchievementBulkEntry: React.FC = () => {
 
       {/* ── Bảng các lớp được khen thưởng ─────────────────────────────────── */}
       <div className="border border-slate-200 rounded-xl overflow-hidden">
-        <table className="w-full text-sm">
+        {/* Tên lớp cần rộng để đọc được, còn số người và điểm chỉ vài ký tự */}
+        <div className="overflow-x-auto">
+        <table className="w-full text-sm table-fixed min-w-[440px]">
+          <colgroup>
+            <col className="w-[38%]" />
+            <col className="w-[16%]" />
+            <col className="w-[26%]" />
+            <col className="w-[13%]" />
+            <col className="w-[7%]" />
+          </colgroup>
           <thead className="bg-slate-50 text-xs uppercase text-slate-500 font-bold">
             <tr>
               <th className="px-3 py-2 text-left">Lớp</th>
-              <th className="px-3 py-2 text-left w-32">Số người tham gia</th>
-              <th className="px-3 py-2 text-left w-40">Giải thưởng</th>
-              <th className="px-3 py-2 text-left w-28">Số điểm</th>
-              <th className="w-10"></th>
+              <th className="px-2 py-2 text-left">Số người</th>
+              <th className="px-2 py-2 text-left">Giải thưởng</th>
+              <th className="px-2 py-2 text-left">Điểm</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -286,16 +295,16 @@ const AchievementBulkEntry: React.FC = () => {
                         .map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="px-2 py-2">
                     <input
                       type="number" min={0}
-                      className="w-full p-2 rounded border border-slate-200 bg-white"
-                      placeholder="Số người"
+                      className="w-full p-2 rounded border border-slate-200 bg-white text-center"
+                      placeholder="0"
                       value={row.participants}
                       onChange={e => updateRow(i, { participants: e.target.value })}
                     />
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="px-2 py-2">
                     <select
                       className="w-full p-2 rounded border border-slate-200 bg-white"
                       value={row.prize}
@@ -304,17 +313,17 @@ const AchievementBulkEntry: React.FC = () => {
                       {PRIZES.map(p => <option key={p} value={p}>{p}</option>)}
                     </select>
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="px-2 py-2">
                     <input
                       type="number" min={0}
-                      className={`w-full p-2 rounded border bg-white font-bold ${suggested ? 'border-green-300 text-green-700' : 'border-slate-200 text-slate-700'}`}
-                      placeholder="Điểm"
+                      className={`w-full p-2 rounded border bg-white font-bold text-center ${suggested ? 'border-green-300 text-green-700' : 'border-slate-200 text-slate-700'}`}
+                      placeholder="0"
                       title={suggested ? `Gợi ý từ tiêu chí "${suggested.content}"` : 'Hoạt động chưa có trong danh mục — tự nhập điểm'}
                       value={row.points}
                       onChange={e => updateRow(i, { points: e.target.value })}
                     />
                   </td>
-                  <td className="px-2">
+                  <td className="px-1 text-center">
                     {rows.length > 1 && (
                       <button onClick={() => setRows(rows.filter((_, j) => j !== i))} className="text-slate-300 hover:text-red-500">
                         <Trash2 size={16} />
@@ -326,6 +335,7 @@ const AchievementBulkEntry: React.FC = () => {
             })}
           </tbody>
         </table>
+        </div>
 
         <button
           onClick={() => setRows([...rows, { ...EMPTY_ROW }])}
