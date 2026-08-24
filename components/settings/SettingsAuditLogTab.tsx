@@ -8,20 +8,43 @@ const SettingsAuditLogTab: React.FC = () => {
   const { auditLogs, clearAuditLogs } = useAppStore();
   const { showConfirm, showToast } = useModal();
 
+  // Đỏ cho mọi thao tác xoá, xanh lá cho thêm mới, xanh dương cho tài khoản
+  const DELETE_STYLE = 'text-red-600 bg-red-50 border-red-100';
+  const CREATE_STYLE = 'text-green-600 bg-green-50 border-green-100';
+  const ACCOUNT_STYLE = 'text-blue-600 bg-blue-50 border-blue-100';
+
   const actionColors: Record<string, string> = {
-    DELETE_VIOLATION: 'text-red-600 bg-red-50 border-red-100',
+    DELETE_VIOLATION: DELETE_STYLE,
     BULK_DELETE: 'text-red-700 bg-red-100 border-red-200',
-    UPDATE_VIOLATION: 'text-blue-600 bg-blue-50 border-blue-100',
-    CREATE_VIOLATION: 'text-green-600 bg-green-50 border-green-100',
-    SYNC_SETTINGS: 'text-indigo-600 bg-indigo-50 border-indigo-100',
+    DELETE_CRITERIA: DELETE_STYLE,
+    DELETE_TIME_CONFIG: DELETE_STYLE,
+    DELETE_CLASS: DELETE_STYLE,
+    DELETE_STUDENT: DELETE_STYLE,
+    DELETE_ACCOUNT: DELETE_STYLE,
+    CREATE_CRITERIA: CREATE_STYLE,
+    CREATE_TIME_CONFIG: CREATE_STYLE,
+    CREATE_ACCOUNT: ACCOUNT_STYLE,
+    IMPORT_ACCOUNTS: ACCOUNT_STYLE,
+    RESET_PASSWORD: ACCOUNT_STYLE,
+    SET_ACCOUNT_STATUS: ACCOUNT_STYLE,
+    SET_ACCOUNT_ROLE: ACCOUNT_STYLE,
   };
 
   const actionLabels: Record<string, string> = {
-    DELETE_VIOLATION: 'Xóa',
-    BULK_DELETE: 'Xóa hàng loạt',
-    UPDATE_VIOLATION: 'Sửa',
-    CREATE_VIOLATION: 'Tạo mới',
-    SYNC_SETTINGS: 'Lưu cấu hình',
+    DELETE_VIOLATION: 'Xoá bản ghi',
+    BULK_DELETE: 'Xoá hàng loạt',
+    DELETE_CRITERIA: 'Xoá tiêu chí',
+    DELETE_TIME_CONFIG: 'Xoá mốc thời gian',
+    DELETE_CLASS: 'Xoá lớp',
+    DELETE_STUDENT: 'Xoá học sinh',
+    DELETE_ACCOUNT: 'Xoá tài khoản',
+    CREATE_CRITERIA: 'Thêm tiêu chí',
+    CREATE_TIME_CONFIG: 'Thêm mốc thời gian',
+    CREATE_ACCOUNT: 'Cấp tài khoản',
+    IMPORT_ACCOUNTS: 'Cấp hàng loạt',
+    RESET_PASSWORD: 'Gửi lại mật khẩu',
+    SET_ACCOUNT_STATUS: 'Khoá / mở tài khoản',
+    SET_ACCOUNT_ROLE: 'Đổi vai trò',
   };
 
   const handleClearLogs = async () => {

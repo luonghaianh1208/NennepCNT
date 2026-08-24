@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { User, Violation, ClassEntity, Student, Criteria, TimeConfig, RoleConfig, AppTheme, AuditLog, AuditAction } from '../types';
-import { INITIAL_ROLE_DEFINITIONS, GUEST_USER, INITIAL_TIME_CONFIGS, getLocalDateString } from '../utils';
+import { INITIAL_ROLE_DEFINITIONS, GUEST_USER, INITIAL_TIME_CONFIGS, getLocalDateString, diffConfigChanges } from '../utils';
 import { api, subscribeToRange } from '../services/firebase';
 import { FALLBACK_BRANDING, getConfigBranding, type TenantBranding } from '../services/tenantConfig';
 
@@ -231,13 +231,23 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const core = await api.getCoreData();
       setClasses(core.classes);
       setCriteria(core.criteria);
+      // Mốc so sánh cho lần lưu cấu hình tiếp theo — thiếu bước này thì lần lưu
+      // đầu tiên sẽ hiểu nhầm toàn bộ dữ liệu sẵn có là "vừa được thêm"
+      configSnapshot.current = {
+        ...configSnapshot.current,
+        criteria: core.criteria,
+        classes: core.classes,
+      };
 
       const configs = core.timeConfigs.map((tc: TimeConfig) => ({
         ...tc,
         startDate: normalizeDate(tc.startDate),
         endDate: normalizeDate(tc.endDate),
       }));
-      if (configs.length) setTimeConfigs(configs);
+      if (configs.length) {
+        setTimeConfigs(configs);
+        configSnapshot.current = { ...configSnapshot.current, timeConfigs: configs };
+      }
 
       const weeks = configs
         .filter((t: TimeConfig) => t.type === 'WEEK' && t.startDate && t.endDate)
@@ -273,6 +283,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         .then(({ students: st, users: us }) => {
           setStudents(st);
           setUsers(us);
+          configSnapshot.current = { ...configSnapshot.current, students: st };
         })
         .then(async () => {
           // Nạp nốt học kỳ đang diễn ra để xếp hạng và báo cáo có đủ số liệu
@@ -301,6 +312,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const refreshData = () => fetchData(false);
 
   // ── Sync settings ─────────────────────────────────────────────────────────
+  /**
+   * Ảnh chụp cấu hình lần gần nhất, để biết lần lưu này thêm gì và xoá gì.
+   * Chỉ ghi nhật ký đúng những thay đổi đó thay vì một dòng "đã lưu cấu hình"
+   * chung chung không nói lên điều gì.
+   */
+  const configSnapshot = useRef<{ criteria: Criteria[]; timeConfigs: TimeConfig[]; classes: ClassEntity[]; students: Student[] }>({
+    criteria: [], timeConfigs: [], classes: [], students: [],
+  });
+
+  const logConfigChanges = () => {
+    const after = { criteria, timeConfigs, classes, students };
+    diffConfigChanges(configSnapshot.current, after).forEach(c =>
+      logAction(currentUser, c.action as AuditAction, c.details, c.targetId));
+    configSnapshot.current = after;
+  };
+
   const syncSettings = async (): Promise<boolean> => {
     setIsRefreshing(true);
     // ⚠️ QUAN TRỌNG: KHÔNG gửi Users lên đây vì getAllData không trả về password
@@ -309,7 +336,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     try {
       await api.syncSettings(payload);
       setUnsavedChanges(false);
-      logAction(currentUser, 'SYNC_SETTINGS', `Đồng bộ cấu hình: ${classes.length} lớp, ${students.length} HS, ${criteria.length} tiêu chí`);
+      logConfigChanges();
       return true;
     } catch (e) {
       console.error(e);
@@ -323,9 +350,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const syncUsers = async (): Promise<boolean> => {
     setIsRefreshing(true);
     try {
+      // Thao tác tài khoản đã được máy chủ ghi nhật ký riêng
       await api.syncUsers(users);
       setUnsavedChanges(false);
-      logAction(currentUser, 'SYNC_SETTINGS', `Đồng bộ tài khoản: ${users.length} users`);
       return true;
     } catch (e) {
       console.error(e);
@@ -399,8 +426,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const snapshot = violations;
     setViolations(prev => prev.map(item => item.id === v.id ? v : item));
     try {
+      // Không ghi nhật ký: bản ghi vi phạm đã có sẵn người nhập liệu bên trong
       await api.updateViolation(v);
-      logAction(currentUser, 'UPDATE_VIOLATION', `Sửa bản ghi vi phạm`, v.id);
     } catch (e) {
       setViolations(snapshot);
       throw e;
@@ -411,7 +438,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setViolations(prev => [v, ...prev]);
     try {
       await api.createViolation(v);
-      logAction(currentUser, 'CREATE_VIOLATION', `Tạo bản ghi mới (${v.classId})`, v.id);
     } catch (e) {
       // Rollback: remove the optimistically added entry
       setViolations(prev => prev.filter(item => item.id !== v.id));
@@ -432,7 +458,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       await api.saveBranding(next);
       setBranding(next);
       if (next.shortName) document.title = next.shortName;
-      logAction(currentUser, 'SYNC_SETTINGS', `Cập nhật thương hiệu: ${next.schoolName}`);
       return true;
     } catch (e) {
       console.error('saveBranding error:', e);

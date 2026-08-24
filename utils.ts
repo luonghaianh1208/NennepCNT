@@ -206,6 +206,74 @@ export interface RankingContext {
 }
 
 /**
+ * So sánh cấu hình trước và sau khi lưu để biết cần ghi nhật ký những gì.
+ *
+ * Chủ trương: chỉ ghi việc XOÁ và việc THÊM tiêu chí / mốc thời gian. Ai nhập
+ * vi phạm hay thành tích thì đã nằm sẵn trong chính bản ghi đó, ghi lại lần nữa
+ * chỉ làm nhật ký dài ra mà không thêm thông tin.
+ */
+export interface ConfigSnapshot {
+  criteria: Criteria[];
+  timeConfigs: TimeConfig[];
+  classes: ClassEntity[];
+  students: Student[];
+}
+
+export interface ConfigChange {
+  action: string;
+  details: string;
+  targetId?: string;
+}
+
+export const diffConfigChanges = (before: ConfigSnapshot, after: ConfigSnapshot): ConfigChange[] => {
+  const ids = (list: { id: string }[]) => new Set(list.map(i => i.id));
+  const changes: ConfigChange[] = [];
+
+  const oldCriteria = ids(before.criteria);
+  after.criteria.filter(c => !oldCriteria.has(c.id)).forEach(c =>
+    changes.push({
+      action: 'CREATE_CRITERIA',
+      details: `Thêm tiêu chí "${c.content}" (${c.type === 'PLUS' ? '+' : '-'}${c.points}đ)`,
+      targetId: c.id,
+    }));
+
+  const oldTime = ids(before.timeConfigs);
+  after.timeConfigs.filter(t => !oldTime.has(t.id)).forEach(t =>
+    changes.push({
+      action: 'CREATE_TIME_CONFIG',
+      details: `Thêm mốc thời gian "${t.name}" (${t.startDate} → ${t.endDate})`,
+      targetId: t.id,
+    }));
+
+  const newCriteria = ids(after.criteria);
+  before.criteria.filter(c => !newCriteria.has(c.id)).forEach(c =>
+    changes.push({ action: 'DELETE_CRITERIA', details: `Xoá tiêu chí "${c.content}"`, targetId: c.id }));
+
+  const newTime = ids(after.timeConfigs);
+  before.timeConfigs.filter(t => !newTime.has(t.id)).forEach(t =>
+    changes.push({ action: 'DELETE_TIME_CONFIG', details: `Xoá mốc thời gian "${t.name}"`, targetId: t.id }));
+
+  const newClasses = ids(after.classes);
+  before.classes.filter(c => !newClasses.has(c.id)).forEach(c =>
+    changes.push({ action: 'DELETE_CLASS', details: `Xoá lớp "${c.name}"`, targetId: c.id }));
+
+  const newStudents = ids(after.students);
+  const removedStudents = before.students.filter(s => !newStudents.has(s.id));
+  if (removedStudents.length > 3) {
+    // Xoá cả danh sách thì gộp một dòng cho dễ đọc, vẫn nêu tên vài em đầu
+    changes.push({
+      action: 'DELETE_STUDENT',
+      details: `Xoá ${removedStudents.length} học sinh: ${removedStudents.slice(0, 3).map(s => s.name).join(', ')}...`,
+    });
+  } else {
+    removedStudents.forEach(s =>
+      changes.push({ action: 'DELETE_STUDENT', details: `Xoá học sinh "${s.name}"`, targetId: s.id }));
+  }
+
+  return changes;
+};
+
+/**
  * Đưa mọi kiểu ngày về dạng YYYY-MM-DD.
  *
  * Bắt buộc phải chuẩn hoá trước khi lưu: hệ thống lọc theo khoảng ngày bằng

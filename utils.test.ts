@@ -1,6 +1,68 @@
 import { describe, it, expect } from 'vitest';
-import { isDateOutsideAllConfigs, toISODate } from './utils';
+import { isDateOutsideAllConfigs, toISODate, diffConfigChanges, type ConfigSnapshot } from './utils';
 import { TimeConfig } from './types';
+
+describe('diffConfigChanges — chỉ ghi nhật ký việc xoá và việc thêm tiêu chí/mốc', () => {
+  const base: ConfigSnapshot = {
+    criteria: [
+      { id: 'C1', content: 'Đi học muộn', points: 5, type: 'MINUS' },
+      { id: 'C2', content: 'Nhất Flashmob', points: 50, type: 'PLUS' },
+    ],
+    timeConfigs: [{ id: 'W1', name: 'Tuần 1', type: 'WEEK', startDate: '2025-09-05', endDate: '2025-09-14' }],
+    classes: [{ id: 'L1', name: '10 Anh', grade: 10, homeroomTeacher: 'Cô A' }],
+    students: [
+      { id: 'S1', name: 'Nguyễn Văn A', classId: 'L1' },
+      { id: 'S2', name: 'Trần Thị B', classId: 'L1' },
+    ],
+  };
+
+  it('không thay đổi gì thì không ghi gì', () => {
+    expect(diffConfigChanges(base, base)).toHaveLength(0);
+  });
+
+  it('thêm tiêu chí thì ghi kèm nội dung và điểm', () => {
+    const after = { ...base, criteria: [...base.criteria, { id: 'C3', content: 'Nghỉ không phép', points: 30, type: 'MINUS' as const }] };
+    const [change] = diffConfigChanges(base, after);
+    expect(change.action).toBe('CREATE_CRITERIA');
+    expect(change.details).toContain('Nghỉ không phép');
+    expect(change.details).toContain('-30đ');
+  });
+
+  it('thêm mốc thời gian thì ghi kèm khoảng ngày', () => {
+    const after = { ...base, timeConfigs: [...base.timeConfigs, { id: 'W2', name: 'Tuần 2', type: 'WEEK' as const, startDate: '2025-09-15', endDate: '2025-09-21' }] };
+    const [change] = diffConfigChanges(base, after);
+    expect(change.action).toBe('CREATE_TIME_CONFIG');
+    expect(change.details).toContain('2025-09-15 → 2025-09-21');
+  });
+
+  it('xoá tiêu chí, mốc, lớp đều để lại dấu vết', () => {
+    const after: ConfigSnapshot = { criteria: [base.criteria[0]], timeConfigs: [], classes: [], students: base.students };
+    const actions = diffConfigChanges(base, after).map(c => c.action);
+    expect(actions).toContain('DELETE_CRITERIA');
+    expect(actions).toContain('DELETE_TIME_CONFIG');
+    expect(actions).toContain('DELETE_CLASS');
+  });
+
+  it('xoá vài học sinh thì ghi từng em', () => {
+    const after = { ...base, students: [base.students[0]] };
+    const [change] = diffConfigChanges(base, after);
+    expect(change.action).toBe('DELETE_STUDENT');
+    expect(change.details).toContain('Trần Thị B');
+  });
+
+  it('xoá nhiều học sinh thì gộp một dòng cho dễ đọc', () => {
+    const many = Array.from({ length: 12 }, (_, i) => ({ id: `S${i}`, name: `Học sinh ${i}`, classId: 'L1' }));
+    const changes = diffConfigChanges({ ...base, students: many }, { ...base, students: [] });
+    const removal = changes.filter(c => c.action === 'DELETE_STUDENT');
+    expect(removal).toHaveLength(1);
+    expect(removal[0].details).toContain('Xoá 12 học sinh');
+  });
+
+  it('sửa nội dung tiêu chí (không đổi id) thì không ghi — chỉ quan tâm thêm và xoá', () => {
+    const after = { ...base, criteria: [{ ...base.criteria[0], points: 10 }, base.criteria[1]] };
+    expect(diffConfigChanges(base, after)).toHaveLength(0);
+  });
+});
 
 describe('toISODate — chuẩn hoá ngày trước khi lưu', () => {
   it('giữ nguyên ngày đã đúng chuẩn', () => {

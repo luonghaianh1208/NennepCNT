@@ -70,12 +70,27 @@ export interface TimeConfig {
 }
 
 // --- Audit Log ---
+/**
+ * Chỉ ghi nhật ký những việc mà bản thân dữ liệu không tự nói lên được:
+ * mọi thao tác xoá, và việc thêm tiêu chí / mốc thời gian.
+ * Ai nhập vi phạm hay thành tích thì đã nằm sẵn trong chính bản ghi đó.
+ */
 export type AuditAction =
   | 'DELETE_VIOLATION'
   | 'BULK_DELETE'
-  | 'UPDATE_VIOLATION'
-  | 'CREATE_VIOLATION'
-  | 'SYNC_SETTINGS';
+  | 'DELETE_CRITERIA'
+  | 'DELETE_TIME_CONFIG'
+  | 'DELETE_CLASS'
+  | 'DELETE_STUDENT'
+  | 'CREATE_CRITERIA'
+  | 'CREATE_TIME_CONFIG'
+  // Thao tác tài khoản do máy chủ ghi
+  | 'CREATE_ACCOUNT'
+  | 'IMPORT_ACCOUNTS'
+  | 'RESET_PASSWORD'
+  | 'SET_ACCOUNT_STATUS'
+  | 'SET_ACCOUNT_ROLE'
+  | 'DELETE_ACCOUNT';
 
 export interface AuditLog {
   id: string;
