@@ -3,7 +3,7 @@ import React, { useState, useRef, useMemo } from 'react';
 import { AlertTriangle, Star, ChevronDown, Camera, X, CheckCircle2, Loader2, StopCircle, FileSpreadsheet, Download, Settings } from 'lucide-react';
 import { Violation } from '../types';
 import { api } from '../services/firebase';
-import { isDateInRange, removeVietnameseTones, exportToExcel, getLocalDateString, matchVietnamese, fuzzyMatchScore, toISODate } from '../utils';
+import { isDateInRange, removeVietnameseTones, exportToExcel, getLocalDateString, matchVietnamese, fuzzyMatchScore, toISODate, can } from '../utils';
 import { useAppStore } from '../contexts/AppContext';
 import { useModal } from '../contexts/ModalContext';
 import AchievementBulkEntry from './AchievementBulkEntry';
@@ -56,11 +56,11 @@ const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
   const abortImportRef = useRef<boolean>(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
-  const isAdmin = useMemo(() => {
-    if (!roleConfigs) return currentUser.role === 'ADMIN';
-    const roleKey = currentUser.role.toUpperCase();
-    return roleConfigs[roleKey]?.isAdmin || false;
-  }, [currentUser, roleConfigs]);
+  // Ghi khen thưởng và nhập Excel là hai quyền riêng, không gộp chung vào "admin"
+  const canEnterAchievement = useMemo(
+    () => can(roleConfigs, currentUser.role, 'entryAchievement'), [currentUser, roleConfigs]);
+  const canImportExcel = useMemo(
+    () => can(roleConfigs, currentUser.role, 'importExcel'), [currentUser, roleConfigs]);
 
   const filteredClasses = useMemo(() => {
     if (!selectedGrade || selectedGrade === 'Tất cả') return classes;
@@ -619,7 +619,7 @@ const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="px-4 py-3 border-b border-slate-100 font-semibold text-slate-700 bg-slate-50/50 flex justify-between items-center">
           <span>{entryMode === 'VIOLATION' ? 'Nhập Lỗi Vi Phạm' : 'Nhập Điểm Thành Tích'}</span>
-          {isAdmin && (
+          {canImportExcel && (
             <div className="flex items-center gap-2">
               {/* Nút tải Excel mẫu */}
               <button
@@ -645,7 +645,7 @@ const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
         </div>
 
         {/* ── HƯỚNG DẪN IMPORT EXCEL ───────────────────────────────────── */}
-        {isAdmin && (
+        {canImportExcel && (
           <div className="mx-4 mt-3 mb-0 bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-800">
             <div className="font-bold text-blue-900 mb-1.5 flex items-center gap-1">
               <FileSpreadsheet size={13} /> Hướng dẫn Import Excel
@@ -675,7 +675,7 @@ const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
         )}
 
         <div className="p-4 space-y-4">
-          {isAdmin && (
+          {canEnterAchievement && (
             <div className="flex bg-slate-100 p-1 rounded-lg mb-4">
               <button
                 onClick={() => { setEntryMode('VIOLATION'); setPreviewImage(null); }}

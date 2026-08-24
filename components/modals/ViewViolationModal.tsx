@@ -2,7 +2,7 @@
 import React from 'react';
 import { Eye, X, Link2, User, Trash2 } from 'lucide-react';
 import { Violation } from '../../types';
-import { safeParseImages, formatDateDisplay } from '../../utils';
+import { safeParseImages, formatDateDisplay, can } from '../../utils';
 import { useAppStore } from '../../contexts/AppContext';
 
 interface ViewViolationModalProps {
@@ -30,12 +30,8 @@ const ViewViolationModal: React.FC<ViewViolationModalProps> = ({
   const reporterRoleLabel = reporterRoleConfig ? reporterRoleConfig.label : 'Không rõ';
   const reporterColor = reporterRoleConfig ? reporterRoleConfig.color : 'gray';
 
-  const isCurrentUserAdmin = () => {
-    const roleKey = currentUser.role.toUpperCase();
-    return roleConfigs[roleKey]?.isAdmin || false;
-  };
-
-  const showReporterDetails = isCurrentUserAdmin() || currentUser.id === violation.reportedBy;
+  const showReporterDetails =
+    can(roleConfigs, currentUser.role, 'seeReporter') || currentUser.id === violation.reportedBy;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
@@ -126,7 +122,7 @@ const ViewViolationModal: React.FC<ViewViolationModalProps> = ({
           </div>
         </div>
         <div className="p-4 border-t bg-slate-50 flex justify-end">
-          {isCurrentUserAdmin() && (
+          {can(roleConfigs, currentUser.role, 'editOthers') && (
             <button
               onClick={() => {
                 onClose();

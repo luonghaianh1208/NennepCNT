@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { LogIn, X, Mail, ArrowLeft, KeyRound } from 'lucide-react';
 import { api, setRememberLogin } from '../services/firebase';
-import { GUEST_USER, INITIAL_ROLE_DEFINITIONS } from '../utils';
+import { GUEST_USER, INITIAL_ROLE_DEFINITIONS, canOpenSettings } from '../utils';
 import { useAppStore } from '../contexts/AppContext';
 
 interface LoginModalProps {
@@ -48,8 +48,8 @@ const LoginModal: React.FC<LoginModalProps> = ({ onClose, onSuccess }) => {
 
         const userRoleKey = user.role.toUpperCase();
         const roleConfig = roleConfigs[userRoleKey] || roleConfigs['GUEST'] || INITIAL_ROLE_DEFINITIONS[userRoleKey];
-        if (roleConfig?.canEntry) onSuccess('entry');
-        else if (roleConfig?.isAdmin) onSuccess('settings');
+        if (roleConfig?.entryViolation || roleConfig?.entryAchievement) onSuccess('entry');
+        else if (canOpenSettings(roleConfigs, user.role)) onSuccess('settings');
         else onSuccess('dashboard');
       } else {
         setLoginError(result?.error || 'Tên đăng nhập hoặc mật khẩu không đúng');

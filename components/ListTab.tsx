@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Download, Filter, Search, CheckSquare, Square, Trash2, Edit, Link2, ListChecks, ChevronDown, Copy, RefreshCw, AlertTriangle, X } from 'lucide-react';
 import { Violation } from '../types';
-import { safeParseImages, formatDateDisplay, isDateInRange, exportToExcel, findDuplicateViolations } from '../utils';
+import { safeParseImages, formatDateDisplay, isDateInRange, exportToExcel, findDuplicateViolations, can } from '../utils';
 import { useAppStore } from '../contexts/AppContext';
 import { useModal } from '../contexts/ModalContext';
 
@@ -79,22 +79,22 @@ const ListTab: React.FC<ListTabProps> = ({
   }, [filterMode, filterCriteriaType, filterConfigId, filterClassId, searchTerm, showDuplicatesOnly, showOutOfConfig]);
 
 
-  const isAdmin = useMemo(() => {
-     const roleKey = currentUser.role.toUpperCase();
-     return roleConfigs[roleKey]?.isAdmin || false;
-  }, [currentUser, roleConfigs]);
+  const canEditOthers = useMemo(() => can(roleConfigs, currentUser.role, 'editOthers'), [currentUser, roleConfigs]);
+  const canBulkDelete = useMemo(() => can(roleConfigs, currentUser.role, 'bulkDelete'), [currentUser, roleConfigs]);
+  const canSeeReporter = useMemo(() => can(roleConfigs, currentUser.role, 'seeReporter'), [currentUser, roleConfigs]);
+  const canModerate = useMemo(() => can(roleConfigs, currentUser.role, 'moderation'), [currentUser, roleConfigs]);
   // Tính violations nằm ngoài tất cả timeConfig (chỉ admin cần)
   const outOfConfigViolations = useMemo(() => {
-    if (!isAdmin) return [];
+    if (!canModerate) return [];
     if (timeConfigs.length === 0) return []; // Chưa có cấu hình nào thì không hiển thị cảnh báo
     return violations.filter(v => {
       return !timeConfigs.some(tc => isDateInRange(v.date, tc.startDate, tc.endDate));
     });
-  }, [violations, timeConfigs, isAdmin]);
+  }, [violations, timeConfigs, canModerate]);
 
   const filteredViolations = useMemo(() => {
     // --- LOGIC LỌC NGOÀI CẤU HÌNH (Chỉ admin) ---
-    if (showOutOfConfig && isAdmin) {
+    if (showOutOfConfig && canModerate) {
       let list = outOfConfigViolations;
       if (filterCriteriaType === 'MINUS') list = list.filter(v => v.points > 0);
       else if (filterCriteriaType === 'PLUS') list = list.filter(v => v.points < 0);
@@ -115,7 +115,7 @@ const ListTab: React.FC<ListTabProps> = ({
     let list = violations;
 
     // --- LOGIC LỌC TRÙNG LẶP (Dành cho Admin) — dùng util từ utils.ts ---
-    if (showDuplicatesOnly && isAdmin) {
+    if (showDuplicatesOnly && canModerate) {
         // Áp dụng bộ lọc Loại trước khi tìm trùng
         let subset = list;
         if (filterCriteriaType === 'MINUS') subset = subset.filter(v => v.points > 0);
@@ -162,11 +162,11 @@ const ListTab: React.FC<ListTabProps> = ({
     }
 
     return list;
-  }, [violations, filterClassId, filterMode, filterConfigId, filterCriteriaType, searchTerm, timeConfigs, classes, students, criteria, users, showDuplicatesOnly, isAdmin, showOutOfConfig, outOfConfigViolations]);
+  }, [violations, filterClassId, filterMode, filterConfigId, filterCriteriaType, searchTerm, timeConfigs, classes, students, criteria, users, showDuplicatesOnly, canModerate, showOutOfConfig, outOfConfigViolations]);
 
   // Thông báo khi lọc xong (Chỉ chạy khi showDuplicatesOnly chuyển sang true)
   useEffect(() => {
-    if (showDuplicatesOnly && isAdmin) {
+    if (showDuplicatesOnly && canModerate) {
         // Dùng setTimeout để đảm bảo UI render xong mới alert (tránh block render)
         const timer = setTimeout(() => {
             showToast(`Quét xong. Tìm thấy ${filteredViolations.length} bản ghi có dấu hiệu trùng lặp.`, 'info');
@@ -245,7 +245,7 @@ const ListTab: React.FC<ListTabProps> = ({
       const reporterRoleLabel = reporterRoleConfig ? reporterRoleConfig.label : 'Không rõ';
       
       const isReporterMe = v.reportedBy === currentUser.id;
-      const reporterName = (isAdmin || isReporterMe) ? (reporterUser?.name || v.reportedBy) : "Ẩn danh";
+      const reporterName = (canSeeReporter || isReporterMe) ? (reporterUser?.name || v.reportedBy) : "Ẩn danh";
       
       const displayPoint = v.points > 0 ? -v.points : Math.abs(v.points);
       const typeLabel = v.points > 0 ? "Vi phạm" : "Thành tích";
@@ -298,7 +298,7 @@ const ListTab: React.FC<ListTabProps> = ({
         <div className="flex justify-between items-center">
             <h2 className="text-xl font-bold text-slate-800">Tra Cứu Dữ Liệu</h2>
             <div className="flex gap-2">
-                {isAdmin && (
+                {canModerate && (
                     <button 
                         onClick={() => setShowDuplicatesOnly(!showDuplicatesOnly)}
                         className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium shadow transition-all active:scale-95 ${showDuplicatesOnly ? 'bg-orange-600 text-white' : 'bg-white text-orange-600 border border-orange-200 hover:bg-orange-50'}`}
@@ -308,7 +308,7 @@ const ListTab: React.FC<ListTabProps> = ({
                         <span className="hidden sm:inline">{showDuplicatesOnly ? 'Đang lọc trùng' : 'Lọc trùng lặp'}</span>
                     </button>
                 )}
-                {isAdmin && outOfConfigViolations.length > 0 && (
+                {canModerate && outOfConfigViolations.length > 0 && (
                   <button
                     onClick={() => {
                       setShowOutOfConfig(!showOutOfConfig);
@@ -366,7 +366,7 @@ const ListTab: React.FC<ListTabProps> = ({
       <div className={`bg-white p-3 rounded-xl border shadow-sm space-y-3 transition-colors ${showDuplicatesOnly ? 'border-orange-200 bg-orange-50/30' : 'border-slate-200'}`}>
          <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-slate-700 font-bold text-sm"><Filter size={16} /> Bộ lọc dữ liệu</div>
-            {isAdmin && filteredViolations.length > 0 && (
+            {canBulkDelete && filteredViolations.length > 0 && (
                 <button onClick={handleSelectAll} className="text-xs text-blue-600 font-medium hover:underline">
                   {selectedViolationIds.size === filteredViolations.length ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
                 </button>
@@ -461,7 +461,7 @@ const ListTab: React.FC<ListTabProps> = ({
 
           let reporterDisplay: React.ReactNode;
 
-          if (isAdmin || isReporterMe) {
+          if (canSeeReporter || isReporterMe) {
                const reporterClass = reporterUser?.className ? ` (${reporterUser.className})` : '';
                reporterDisplay = (
                   <span className={`text-[10px] px-1.5 py-0.5 rounded border bg-${reporterColor}-50 border-${reporterColor}-100 text-${reporterColor}-700 font-medium`}>
@@ -478,7 +478,7 @@ const ListTab: React.FC<ListTabProps> = ({
 
           return (
             <div key={v.id} className={`relative group bg-white rounded-xl shadow-sm border p-4 transition-all ${isSelected ? 'border-blue-500 ring-1 ring-blue-500 bg-blue-50/30' : 'border-slate-200 hover:border-blue-300'}`}>
-              {isAdmin && (
+              {canEditOthers && (
                 <div className="absolute top-3 right-3 z-20 cursor-pointer" onClick={(e) => { e.stopPropagation(); toggleSelection(v.id); }}>
                   {isSelected ? <CheckSquare className="text-blue-600" size={20} fill="white" /> : <Square className="text-slate-300 hover:text-blue-400" size={20} />}
                 </div>
@@ -519,7 +519,7 @@ const ListTab: React.FC<ListTabProps> = ({
                 
                 <div className="text-right flex flex-col justify-between h-full min-h-[80px]">
                   <div className={`text-lg font-bold ${v.points > 0 ? 'text-red-600' : 'text-green-600'}`}>{v.points > 0 ? `-${v.points}` : `+${Math.abs(v.points)}`}</div>
-                  {isAdmin && (
+                  {canEditOthers && (
                     <button onClick={(e) => { e.stopPropagation(); setEditingViolation(v); }} className="self-end p-1.5 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition-colors mt-auto"><Edit size={16} /></button>
                   )}
                 </div>
@@ -599,7 +599,7 @@ const ListTab: React.FC<ListTabProps> = ({
         )}
       </div>
 
-      {isAdmin && selectedViolationIds.size > 0 && (
+      {canBulkDelete && selectedViolationIds.size > 0 && (
         <div className="fixed bottom-20 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:max-w-2xl bg-slate-900 text-white p-3 rounded-xl shadow-xl flex items-center justify-between z-30 animate-in slide-in-from-bottom-5">
            <div className="font-bold pl-2">Đã chọn {selectedViolationIds.size} mục</div>
            <div className="flex gap-2">

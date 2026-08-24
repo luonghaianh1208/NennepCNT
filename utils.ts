@@ -1,19 +1,92 @@
 
-import { RoleConfig, ClassEntity, Student, Criteria, User, Violation, TimeConfig } from './types';
+import { RoleConfig, RolePermissions, PermissionKey, ClassEntity, Student, Criteria, User, Violation, TimeConfig } from './types';
 // exceljs (~900KB) chỉ cần khi người dùng bấm xuất Excel → nạp động trong hàm,
 // không kéo vào gói chính làm chậm lần mở app đầu tiên
 
 // Đổi tên thành INITIAL_... để làm giá trị khởi tạo cho State
-export const INITIAL_ROLE_DEFINITIONS: Record<string, RoleConfig> = {
-  ADMIN: { label: 'Quản trị viên', color: 'blue', canEntry: true, isAdmin: true },
-  BCH: { label: 'Ban Chấp Hành', color: 'purple', canEntry: true, isAdmin: false },
-  BCH_PHU_TRACH: { label: 'BCH Phụ trách NN', color: 'indigo', canEntry: true, isAdmin: false },
-  RED_FLAG: { label: 'Cờ đỏ', color: 'red', canEntry: true, isAdmin: false },
-  DISCIPLINE: { label: 'Nền nếp', color: 'orange', canEntry: true, isAdmin: false },
-  TEACHER: { label: 'Giáo viên CN', color: 'green', canEntry: false, isAdmin: false },
-  LEADER: { label: 'Lãnh đạo', color: 'indigo', canEntry: true, isAdmin: true },
-  GUEST: { label: 'Khách', color: 'gray', canEntry: false, isAdmin: false },
+/** Danh sách quyền kèm mô tả — dùng cho màn hình Vai trò và tài liệu hướng dẫn */
+export const PERMISSION_GROUPS: {
+  group: string;
+  items: { key: PermissionKey; label: string; hint: string }[];
+}[] = [
+  {
+    group: 'Nhập liệu',
+    items: [
+      { key: 'entryViolation', label: 'Ghi vi phạm', hint: 'Chấm lỗi hằng ngày, kèm ảnh minh chứng' },
+      { key: 'entryAchievement', label: 'Ghi khen thưởng', hint: 'Nhập điểm cộng, thành tích hoạt động' },
+      { key: 'importExcel', label: 'Nhập từ Excel', hint: 'Tải mẫu và nhập hàng loạt nhiều dòng' },
+    ],
+  },
+  {
+    group: 'Sửa và xoá',
+    items: [
+      { key: 'editOthers', label: 'Sửa/xoá bản ghi người khác', hint: 'Không có quyền này thì chỉ sửa được bản ghi của chính mình' },
+      { key: 'bulkDelete', label: 'Xoá hàng loạt', hint: 'Chọn nhiều dòng rồi xoá một lượt' },
+    ],
+  },
+  {
+    group: 'Xem',
+    items: [
+      { key: 'seeReporter', label: 'Thấy tên người nhập', hint: 'Không có thì cột người ghi hiện "Ẩn danh"' },
+      { key: 'ownClassOnly', label: 'Chỉ xem lớp phụ trách', hint: 'Bật lên là bị giới hạn trong lớp mình, không xem lớp khác' },
+      { key: 'moderation', label: 'Công cụ kiểm duyệt', hint: 'Lọc bản ghi trùng lặp và bản ghi ngoài mốc thời gian' },
+    ],
+  },
+  {
+    group: 'Quản trị',
+    items: [
+      { key: 'manageCatalog', label: 'Quản lý danh mục', hint: 'Lớp, học sinh, tiêu chí, mốc thời gian' },
+      { key: 'manageAccounts', label: 'Quản lý tài khoản', hint: 'Cấp, khoá, đổi vai trò, gửi lại mật khẩu' },
+      { key: 'manageTaskforce', label: 'Phân công Ban Nề Nếp', hint: 'Sắp lịch trực, phân công cờ đỏ' },
+      { key: 'manageSystem', label: 'Hệ thống', hint: 'Xem nhật ký và đổi thương hiệu nhà trường' },
+    ],
+  },
+];
+
+export const ALL_PERMISSIONS: PermissionKey[] = PERMISSION_GROUPS.flatMap(g => g.items.map(i => i.key));
+
+/** Vai trò mới tạo mặc định chưa có quyền gì */
+export const EMPTY_PERMISSIONS: RolePermissions = {
+  entryViolation: false, entryAchievement: false, importExcel: false,
+  editOthers: false, bulkDelete: false,
+  seeReporter: false, ownClassOnly: false, moderation: false,
+  manageCatalog: false, manageAccounts: false, manageTaskforce: false, manageSystem: false,
 };
+
+const withPermissions = (label: string, color: string, granted: PermissionKey[]): RoleConfig => ({
+  label,
+  color,
+  ...EMPTY_PERMISSIONS,
+  ...Object.fromEntries(granted.map(k => [k, true])),
+} as RoleConfig);
+
+export const INITIAL_ROLE_DEFINITIONS: Record<string, RoleConfig> = {
+  ADMIN: withPermissions('Quản trị viên', 'blue', ALL_PERMISSIONS.filter(p => p !== 'ownClassOnly')),
+  LEADER: withPermissions('Lãnh đạo', 'indigo', ['seeReporter']),
+  BCH_PHU_TRACH: withPermissions('BCH Phụ trách NN', 'indigo', [
+    'entryViolation', 'entryAchievement', 'importExcel',
+    'editOthers', 'bulkDelete', 'seeReporter', 'moderation', 'manageTaskforce',
+  ]),
+  BCH: withPermissions('Ban Chấp Hành', 'purple', ['entryViolation', 'entryAchievement', 'seeReporter']),
+  RED_FLAG: withPermissions('Cờ đỏ', 'red', ['entryViolation', 'ownClassOnly']),
+  DISCIPLINE: withPermissions('Nền nếp', 'orange', ['entryViolation', 'seeReporter', 'ownClassOnly']),
+  TEACHER: withPermissions('Giáo viên CN', 'green', ['ownClassOnly']),
+  GUEST: withPermissions('Khách', 'gray', []),
+};
+
+/** Vai trò này có quyền đó không */
+export const can = (
+  roleConfigs: Record<string, RoleConfig>,
+  role: string | undefined,
+  permission: PermissionKey,
+): boolean => !!roleConfigs?.[String(role ?? '').toUpperCase()]?.[permission];
+
+/** Có bất kỳ quyền quản trị nào thì mới vào được trang Thiết lập */
+export const canOpenSettings = (roleConfigs: Record<string, RoleConfig>, role: string | undefined): boolean =>
+  can(roleConfigs, role, 'manageCatalog') ||
+  can(roleConfigs, role, 'manageAccounts') ||
+  can(roleConfigs, role, 'manageTaskforce') ||
+  can(roleConfigs, role, 'manageSystem');
 
 export const MOCK_CLASSES: ClassEntity[] = [
   { id: '10A1', name: '10A1', grade: 10, homeroomTeacher: 'Cô Lan' },

@@ -261,6 +261,22 @@ export const api = {
     return { status: 'success', created: records.length };
   },
 
+  // 4f. Bảng vai trò và quyền — chính quy tắc bảo mật cũng đọc tài liệu này
+  getRoleConfigs: async (): Promise<Record<string, any> | null> => {
+    try {
+      const snap = await getDoc(doc(db, 'settings', 'roles'));
+      return snap.exists() ? (snap.data() as Record<string, any>) : null;
+    } catch (e) {
+      console.warn('Không đọc được bảng quyền:', e);
+      return null;
+    }
+  },
+
+  saveRoleConfigs: async (roles: Record<string, any>) => {
+    await setDoc(doc(db, 'settings', 'roles'), roles);
+    return { status: 'success' };
+  },
+
   // 4e. Thương hiệu của trường — tên, logo, khẩu hiệu, năm học
   getBranding: async (): Promise<Partial<TenantBranding> | null> => {
     try {

@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Hướng Dẫn Sử Dụng — Hệ Thống Quản Lý Nền Nếp</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700;900&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Be Vietnam Pro','Segoe UI',Arial,sans-serif;background:#f1f5f9;color:#1e293b;line-height:1.7}
+.wrap{max-width:940px;margin:0 auto;padding:0 20px 80px}
+header{background:linear-gradient(140deg,#b91c1c,#7f1d1d);color:#fff;padding:44px 20px 38px;margin-bottom:28px}
+header .inner{max-width:940px;margin:0 auto}
+header h1{font-size:30px;font-weight:900;color:#fde047;letter-spacing:.5px}
+header p{margin-top:8px;opacity:.9;font-size:15px}
+nav.toc{background:#fff;border-radius:12px;padding:18px 22px;margin-bottom:28px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+nav.toc h2{font-size:13px;text-transform:uppercase;letter-spacing:1.5px;color:#64748b;margin-bottom:10px}
+nav.toc ol{margin-left:20px;columns:2;column-gap:32px}
+nav.toc li{margin:5px 0}
+nav.toc a{color:#b91c1c;text-decoration:none;font-weight:600;font-size:14px}
+nav.toc a:hover{text-decoration:underline}
+section{background:#fff;border-radius:12px;padding:26px 28px;margin-bottom:22px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+h2{font-size:21px;font-weight:900;color:#b91c1c;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid #fde047}
+h3{font-size:16px;font-weight:700;color:#0f172a;margin:20px 0 8px}
+p{margin-bottom:10px}
+ul,ol{margin:0 0 12px 22px}
+li{margin:5px 0}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14px}
+th{background:#f8fafc;text-align:left;padding:9px 11px;border-bottom:2px solid #e2e8f0;font-weight:700}
+td{padding:9px 11px;border-bottom:1px solid #f1f5f9;vertical-align:top}
+td.tick{text-align:center;color:#16a34a;font-weight:900}
+td.role{text-align:center;color:#cbd5e1}
+.matrix{font-size:12.5px}
+.matrix th{text-align:center;font-size:11.5px;padding:8px 4px}
+.matrix th:first-child{text-align:left;min-width:190px}
+.matrix td:first-child{font-weight:600}
+.note{background:#fffbeb;border-left:4px solid #f59e0b;padding:12px 16px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px}
+.warn{background:#fef2f2;border-left:4px solid #dc2626;padding:12px 16px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px}
+.ok{background:#f0fdf4;border-left:4px solid #16a34a;padding:12px 16px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px}
+.steps{counter-reset:s;list-style:none;margin-left:0}
+.steps li{counter-increment:s;position:relative;padding-left:38px;margin:12px 0}
+.steps li::before{content:counter(s);position:absolute;left:0;top:1px;width:26px;height:26px;background:#b91c1c;color:#fde047;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px}
+code{background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:13px;font-family:Consolas,monospace}
+footer{text-align:center;color:#94a3b8;font-size:12.5px;padding:22px 0}
+@media print{body{background:#fff}section{box-shadow:none;border:1px solid #e2e8f0;break-inside:avoid}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="inner">
+    <h1>HƯỚNG DẪN SỬ DỤNG</h1>
+    <p>Hệ Thống Quản Lý Nền Nếp Học Sinh — dành cho quản trị viên và cán bộ nhà trường</p>
+  </div>
+</header>
+
+<div class="wrap">
+
+<nav class="toc">
+  <h2>Nội dung</h2>
+  <ol>
+    <li><a href="#dangnhap">Đăng nhập lần đầu</a></li>
+    <li><a href="#taikhoan">Cấp tài khoản</a></li>
+    <li><a href="#vaitro">Vai trò và quyền</a></li>
+    <li><a href="#vipham">Nhập vi phạm</a></li>
+    <li><a href="#khenthuong">Nhập khen thưởng</a></li>
+    <li><a href="#tracuu">Tra cứu và sửa dữ liệu</a></li>
+    <li><a href="#xephang">Xếp hạng và báo cáo</a></li>
+    <li><a href="#caudat">Thiết lập ban đầu</a></li>
+    <li><a href="#log">Nhật ký thao tác</a></li>
+    <li><a href="#suco">Xử lý tình huống thường gặp</a></li>
+  </ol>
+</nav>
+
+<section id="dangnhap">
+  <h2>1. Đăng nhập lần đầu</h2>
+  <ol class="steps">
+    <li>Mở đường dẫn hệ thống mà đơn vị triển khai đã bàn giao cho nhà trường.</li>
+    <li>Người chưa đăng nhập vẫn xem được Tổng quan, Tra cứu và Xếp hạng — học sinh và phụ huynh dùng phần này.</li>
+    <li>Bấm <strong>Đăng nhập</strong> ở góc phải trên, nhập <strong>email</strong> và mật khẩu.</li>
+  </ol>
+  <div class="note">
+    Chưa có mật khẩu? Bấm <strong>Quên mật khẩu</strong> ở màn hình đăng nhập, hệ thống gửi thư đặt mật khẩu tới email của bạn.
+    Nhớ kiểm tra cả hộp thư rác. Link trong thư có hạn khoảng một giờ; quá hạn thì xin quản trị viên gửi lại.
+  </div>
+</section>
+
+<section id="taikhoan">
+  <h2>2. Cấp tài khoản</h2>
+  <p>Vào <strong>Cấu hình → Tài khoản</strong>. Chỉ vai trò có quyền <em>Quản lý tài khoản</em> mới thấy mục này.</p>
+
+  <h3>Cấp từng tài khoản</h3>
+  <ol class="steps">
+    <li>Điền <strong>Họ tên</strong> và <strong>Email thật</strong> — email vừa là tên đăng nhập vừa là nơi nhận thư.</li>
+    <li>Chọn <strong>vai trò</strong>, chọn <strong>lớp</strong> nếu người đó phụ trách một lớp cụ thể.</li>
+    <li>Bấm nút <strong>+</strong>. Hệ thống tạo tài khoản và gửi thư đặt mật khẩu ngay.</li>
+  </ol>
+  <div class="ok">
+    Quản trị viên <strong>không đặt mật khẩu hộ</strong> bất kỳ ai. Mỗi người tự đặt mật khẩu của mình qua thư — kể cả quản trị viên cũng không đọc được mật khẩu người khác.
+  </div>
+
+  <h3>Cấp hàng loạt bằng Excel</h3>
+  <ol class="steps">
+    <li>Bấm <strong>Tải mẫu</strong> để lấy file Excel gồm 4 cột: <code>Ho_ten</code> · <code>Email</code> · <code>Lop</code> · <code>Role</code>.</li>
+    <li>Điền danh sách. Cột Role nhận <code>ADMIN</code>, <code>BCH</code>, <code>RED_FLAG</code>, <code>DISCIPLINE</code>, <code>LEADER</code>, <code>GUEST</code> — gõ tiếng Việt như "Cờ đỏ", "Nền nếp" hệ thống cũng tự nhận diện.</li>
+    <li>Bấm <strong>Import Excel</strong>. Tối đa 200 tài khoản mỗi lượt, thư gửi lần lượt.</li>
+    <li>Xong việc hệ thống báo số tài khoản đã tạo và liệt kê dòng lỗi nếu có.</li>
+  </ol>
+
+  <h3>Bốn nút thao tác trong bảng tài khoản</h3>
+  <table>
+    <tr><th style="width:130px">Nút</th><th>Công dụng</th></tr>
+    <tr><td>🔑 Chìa khoá</td><td>Gửi lại thư đặt mật khẩu — dùng khi người dùng quên mật khẩu hoặc link đã hết hạn</td></tr>
+    <tr><td>🔒 Ổ khoá</td><td>Khoá đăng nhập nhưng <strong>giữ nguyên</strong> mọi dữ liệu người đó đã nhập. Bấm lại để mở khoá</td></tr>
+    <tr><td>✏️ Bút</td><td>Sửa họ tên, vai trò, lớp phụ trách</td></tr>
+    <tr><td>🗑️ Thùng rác</td><td>Xoá vĩnh viễn — chỉ được phép khi người đó chưa từng nhập bản ghi nào</td></tr>
+  </table>
+  <div class="note">
+    Giáo viên nghỉ việc hay học sinh ra trường thì nên <strong>khoá</strong> chứ đừng xoá. Mỗi bản ghi vi phạm đều lưu người nhập; xoá tài khoản là mất dấu vết ai đã ghi, ảnh hưởng tới việc đối chiếu khi có khiếu nại.
+  </div>
+</section>
+
+<section id="vaitro">
+  <h2>3. Vai trò và quyền</h2>
+  <p>Vào <strong>Cấu hình → Vai trò</strong>. Bảng có 12 quyền, bấm vào ô để bật hoặc tắt cho từng vai trò, xong bấm <strong>Lưu thay đổi</strong>.</p>
+
+  <h3>Ý nghĩa 12 quyền</h3>
+  <table>
+    <tr><th style="width:230px">Quyền</th><th>Cho phép làm gì</th></tr>
+    <tr><td>Ghi vi phạm</td><td>Chấm lỗi hằng ngày, kèm ảnh minh chứng</td></tr>
+    <tr><td>Ghi khen thưởng</td><td>Nhập điểm cộng, thành tích hoạt động</td></tr>
+    <tr><td>Nhập từ Excel</td><td>Tải mẫu và nhập hàng loạt nhiều dòng cùng lúc</td></tr>
+    <tr><td>Sửa/xoá bản ghi người khác</td><td>Không có quyền này thì chỉ sửa được bản ghi do chính mình nhập</td></tr>
+    <tr><td>Xoá hàng loạt</td><td>Chọn nhiều dòng rồi xoá một lượt</td></tr>
+    <tr><td>Thấy tên người nhập</td><td>Không có thì cột người ghi hiện "Ẩn danh"</td></tr>
+    <tr><td>Chỉ xem lớp phụ trách</td><td><strong>Đây là giới hạn, không phải mở rộng</strong>: bật lên thì chỉ xem được lớp mình</td></tr>
+    <tr><td>Công cụ kiểm duyệt</td><td>Lọc bản ghi trùng lặp và bản ghi rơi ngoài mốc thời gian</td></tr>
+    <tr><td>Quản lý danh mục</td><td>Lớp, học sinh, tiêu chí, mốc thời gian</td></tr>
+    <tr><td>Quản lý tài khoản</td><td>Cấp, khoá, đổi vai trò, gửi lại mật khẩu</td></tr>
+    <tr><td>Phân công Ban Nề Nếp</td><td>Sắp lịch trực, phân công cờ đỏ</td></tr>
+    <tr><td>Hệ thống</td><td>Xem nhật ký và đổi thương hiệu nhà trường</td></tr>
+  </table>
+
+  <h3>Bảng quyền mặc định khi bàn giao</h3>
+  <table class="matrix">
+    <tr>
+      <th>Quyền</th><th>Quản trị</th><th>Lãnh đạo</th><th>BCH phụ trách</th><th>BCH</th><th>Cờ đỏ</th><th>Nền nếp</th><th>GVCN</th><th>Khách</th>
+    </tr>
+    <tr><td>Ghi vi phạm</td><td class="tick">✓</td><td class="role">–</td><td class="tick">✓</td><td class="tick">✓</td><td class="tick">✓</td><td class="tick">✓</td><td class="role">–</td><td class="role">–</td></tr>
+    <tr><td>Ghi khen thưởng</td><td class="tick">✓</td><td class="role">–</td><td class="tick">✓</td><td class="tick">✓</td><td class="role">–</td><td class="role">–</td><td class="role">–</td><td class="role">–</td></tr>
+    <tr><td>Nhập từ Excel</td><td class="tick">✓</td><td class="role">–</td><td class="tick">✓</td><td class="role">–</td><td class="role">–</td><td class="role">–</td><td class="role">–</td><td class="role">–</td></tr>
+    <tr><td>Sửa/xoá của người khác</td><td class="tick">✓</td><td class="role">–</td><td class="tick">✓</td><td class="role">–</td><td class="role">–</td><td class="role">–</td><td class="role">–</td><td class="role">–</td></tr>
+    <tr><td>Xoá hàng loạt</td><td class="tick">✓</td><td class="role">–</td><td class="tick">✓</td><td class="role">–</td><td class="role">–</td><td class="role">–</td><td class="role">–</td><td class="role">–</td></tr>
+    <tr><td>Thấy tên người nhập</td><td class="tick">✓</td><td class="tick">✓</td><td class="tick">✓</td><td class="tick">✓</td><td class="role">–</td><td class="tick">✓</td><td class="role">–</td><td class="role">–</td></tr>
+    <tr><td>Chỉ xem lớp phụ trách</td><td class="role">–</td><td class="role">–</td><td class="role">–</td><td class="role">–</td><td class="tick">✓</td><td class="tick">✓</td><td class="tick">✓</td><td class="role">–</td></tr>
+    <tr><td>Công cụ kiểm duyệt</td><td class="tick">✓</td><td class="role">–</td><td class="tick">✓</td><td class="role">–</td><td class="role">–</td><td class="role">–</td><td class="role">–</td><td class="role">–</td></tr>
+    <tr><td>Quản lý danh mục</td><td class="tick">✓</td><td class="role">–</td><td class="role">–</td><td class="role">–</td><td class="role">–</td><td class="role">–</td><td class="role">–</td><td class="role">–</td></tr>
+    <tr><td>Quản lý tài khoản</td><td class="tick">✓</td><td class="role">–</td><td class="role">–</td><td class="role">–</td><td class="role">–</td><td class="role">–</td><td class="role">–</td><td class="role">–</td></tr>
+    <tr><td>Phân công Ban Nề Nếp</td><td class="tick">✓</td><td class="role">–</td><td class="tick">✓</td><td class="role">–</td><td class="role">–</td><td class="role">–</td><td class="role">–</td><td class="role">–</td></tr>
+    <tr><td>Hệ thống</td><td class="tick">✓</td><td class="role">–</td><td class="role">–</td><td class="role">–</td><td class="role">–</td><td class="role">–</td><td class="role">–</td><td class="role">–</td></tr>
+  </table>
+
+  <div class="ok">
+    <strong>Vì sao cờ đỏ không được ghi khen thưởng?</strong> Cờ đỏ là học sinh. Để các em tự cộng điểm cho lớp mình hoặc lớp bạn là mở đường cho nể nang và xin xỏ. Điểm cộng thuộc thẩm quyền Ban Chấp hành Đoàn trường trở lên.
+  </div>
+  <div class="note">
+    Quyền không chỉ ẩn nút trên màn hình mà được kiểm soát ngay tại nơi lưu dữ liệu. Người không có quyền thì dù dùng cách nào cũng không ghi được — không thể lách.
+  </div>
+
+  <h3>Thêm vai trò mới</h3>
+  <p>Điền mã (viết hoa không dấu, ví dụ <code>TO_TRUONG</code>), tên hiển thị, chọn màu rồi bấm Thêm. Vai trò mới chưa có quyền nào, bật thêm trong bảng rồi Lưu.</p>
+</section>
+
+<section id="vipham">
+  <h2>4. Nhập vi phạm</h2>
+  <p>Vào tab <strong>Nhập Lỗi</strong>, chọn chế độ <strong>Nhập Vi Phạm</strong>.</p>
+  <ol class="steps">
+    <li>Chọn ngày ghi nhận — mặc định là hôm nay.</li>
+    <li>Chọn khối rồi chọn lớp.</li>
+    <li>Chọn <strong>Cá nhân</strong> (chọn tiếp học sinh) hoặc <strong>Tập thể</strong> (cả lớp chịu chung).</li>
+    <li>Chọn nội dung vi phạm từ danh sách tiêu chí.</li>
+    <li>Chụp hoặc tải ảnh minh chứng — bắt buộc với vi phạm.</li>
+    <li>Bấm <strong>Lưu Vi Phạm</strong>.</li>
+  </ol>
+  <div class="warn">
+    Nếu ngày ghi nhận nằm ngoài mọi tuần, tháng, học kỳ đã cấu hình thì hệ thống cảnh báo bằng viền vàng và hỏi lại trước khi lưu. Bản ghi kiểu đó <strong>không được tính vào xếp hạng và báo cáo</strong>. Gặp cảnh báo này thì đổi ngày, hoặc bổ sung mốc thời gian trong phần Cấu hình.
+  </div>
+
+  <h3>Nhập nhiều dòng bằng Excel</h3>
+  <ol class="steps">
+    <li>Bấm <strong>Tải mẫu</strong> — file có sẵn 100 dòng và danh sách tiêu chí ở sheet thứ hai.</li>
+    <li>Điền dữ liệu. Cột <code>Ten_HS</code> để trống nghĩa là vi phạm tập thể lớp.</li>
+    <li>Cột nội dung chọn từ menu thả xuống trong ô, hoặc gõ gần đúng — hệ thống tự nhận diện.</li>
+    <li>Bấm <strong>Import Excel</strong>, xem bảng đối chiếu rồi xác nhận.</li>
+  </ol>
+  <p>Trong bảng đối chiếu: chấm xanh là khớp chắc chắn, vàng là cần xem lại, đỏ là lỗi cần sửa trước khi nhập.</p>
+</section>
+
+<section id="khenthuong">
+  <h2>5. Nhập khen thưởng theo hoạt động</h2>
+  <p>Vào tab <strong>Nhập Lỗi</strong>, chuyển sang <strong>Nhập Thành Tích</strong>. Màn hình này thiết kế cho việc ghi thưởng nhiều lớp cùng lúc sau một hoạt động.</p>
+  <ol class="steps">
+    <li>Khai báo <strong>tên hoạt động</strong> (gõ vài chữ là có gợi ý hoạt động cũ), chọn nhóm và cấp độ.</li>
+    <li>Chọn ngày, tải ảnh trao giải nếu có — ảnh dùng chung cho tất cả các lớp trong hoạt động.</li>
+    <li>Ở bảng bên dưới, mỗi dòng một lớp: chọn lớp, điền số người tham gia, chọn giải thưởng.</li>
+    <li>Ô điểm <strong>viền xanh</strong> nghĩa là điểm lấy sẵn từ tiêu chí đã có. Hoạt động mới thì tự điền điểm.</li>
+    <li>Bấm <strong>Lưu thành tích cho N lớp</strong>.</li>
+  </ol>
+  <div class="note">
+    Hoạt động chưa có trong danh mục sẽ được hệ thống tự thêm thành tiêu chí mới, lần sau chọn lại là có điểm sẵn. Số người tham gia chỉ để đối chiếu mức thưởng, không tự cộng vào điểm.
+  </div>
+</section>
+
+<section id="tracuu">
+  <h2>6. Tra cứu và sửa dữ liệu</h2>
+  <p>Tab <strong>Tra Cứu</strong> mở cho mọi người, kể cả chưa đăng nhập.</p>
+  <ul>
+    <li><strong>Bộ lọc</strong>: theo mốc thời gian, theo loại (vi phạm hay thành tích), theo lớp.</li>
+    <li><strong>Ô tìm kiếm</strong>: gõ tên học sinh, tên lớp, nội dung lỗi hoặc ghi chú.</li>
+    <li><strong>Sửa hoặc xoá</strong>: bấm biểu tượng bút hoặc thùng rác ở cuối dòng. Người không có quyền sửa bản ghi của người khác thì chỉ thao tác được với bản ghi mình nhập.</li>
+    <li><strong>Xoá hàng loạt</strong>: tick chọn nhiều dòng rồi bấm xoá.</li>
+    <li><strong>Lọc trùng lặp</strong> và <strong>ngoài cấu hình</strong>: hai công cụ kiểm duyệt, giúp phát hiện bản ghi bị nhập hai lần hoặc bị sai ngày.</li>
+    <li><strong>Xuất Excel</strong>: xuất đúng danh sách đang lọc.</li>
+  </ul>
+  <div class="note">
+    Chọn mốc thời gian cũ mà thấy dòng chữ "đang lấy thêm dữ liệu" là bình thường — hệ thống chỉ tải sẵn tuần đang diễn ra để mở app cho nhanh, dữ liệu cũ lấy thêm khi cần.
+  </div>
+</section>
+
+<section id="xephang">
+  <h2>7. Xếp hạng và báo cáo</h2>
+  <ul>
+    <li>Tab <strong>Xếp Hạng</strong> tính điểm tự động theo tuần, tháng hoặc học kỳ, tách riêng từng khối.</li>
+    <li>Chọn chế độ <strong>Theo Tuần</strong> rồi bấm xuất để lấy <strong>báo cáo Word</strong> đúng mẫu nhà trường.</li>
+    <li>Tab <strong>Lớp</strong> xem chi tiết một lớp: biểu đồ diễn biến và danh sách bản ghi.</li>
+  </ul>
+  <div class="ok">
+    Dữ liệu của tuần đang diễn ra <strong>đồng bộ trực tiếp</strong>: một người nhập, mọi máy đang mở đều thấy trong khoảng một giây, không ai phải bấm làm mới. Chỉ báo "Trực tiếp · Tuần N" trên thanh tiêu đề cho biết tuần nào đang được theo dõi.
+  </div>
+</section>
+
+<section id="caudat">
+  <h2>8. Thiết lập ban đầu</h2>
+  <p>Vào <strong>Cấu hình</strong>. Thứ tự nên làm khi mới nhận hệ thống:</p>
+  <ol class="steps">
+    <li><strong>Thương hiệu</strong> — nhập tên trường, tên rút gọn, khẩu hiệu, tải logo. Nội dung này hiện trên thanh tiêu đề và trang giới thiệu.</li>
+    <li><strong>Thời gian</strong> — khai báo các tuần, tháng, học kỳ của năm học. <em>Bước này phải làm trước</em>, vì mọi bản ghi đều dựa vào mốc thời gian để tính xếp hạng.</li>
+    <li><strong>Lớp học</strong> rồi <strong>Học sinh</strong> — nhập tay hoặc tải mẫu Excel rồi import.</li>
+    <li><strong>Vi phạm</strong> và <strong>Thành tích</strong> — bộ tiêu chí và điểm số tương ứng.</li>
+    <li><strong>Vai trò</strong> — rà lại bảng quyền cho phù hợp với cách tổ chức của trường.</li>
+    <li><strong>Tài khoản</strong> — cấp tài khoản cho cán bộ và cờ đỏ.</li>
+  </ol>
+  <div class="warn">
+    Sau khi sửa lớp, học sinh, tiêu chí hoặc mốc thời gian, nhớ bấm <strong>Lưu</strong>. Nếu hệ thống báo "dữ liệu chưa tải xong" thì tải lại trang rồi thao tác lại — đây là cơ chế bảo vệ, tránh việc lưu nhầm lúc dữ liệu chưa về đủ khiến mất danh sách.
+  </div>
+</section>
+
+<section id="log">
+  <h2>9. Nhật ký thao tác</h2>
+  <p>Vào <strong>Cấu hình → Log</strong>. Nhật ký ghi lại những việc mà bản thân dữ liệu không tự nói lên được:</p>
+  <ul>
+    <li>Mọi thao tác <strong>xoá</strong>: xoá bản ghi (đơn và hàng loạt), xoá tiêu chí, mốc thời gian, lớp, học sinh, tài khoản</li>
+    <li>Việc <strong>thêm</strong> tiêu chí và mốc thời gian</li>
+    <li>Thao tác <strong>tài khoản</strong>: cấp mới, cấp hàng loạt, gửi lại mật khẩu, khoá/mở, đổi vai trò</li>
+  </ul>
+  <p>Với bản ghi bị xoá, nhật ký lưu ảnh chụp nhanh <em>trước khi xoá</em>: lớp nào, ngày nào, tiêu chí gì, bao nhiêu điểm — đủ để dựng lại khi cần đối chiếu.</p>
+  <p>Việc nhập vi phạm và khen thưởng không ghi vào nhật ký, vì mỗi bản ghi đã có sẵn tên người nhập bên trong.</p>
+</section>
+
+<section id="suco">
+  <h2>10. Xử lý tình huống thường gặp</h2>
+  <table>
+    <tr><th style="width:290px">Tình huống</th><th>Cách xử lý</th></tr>
+    <tr><td>Không nhận được thư đặt mật khẩu</td><td>Kiểm tra hộp thư rác. Vẫn không có thì nhờ quản trị viên bấm nút 🔑 để gửi lại.</td></tr>
+    <tr><td>Link đặt mật khẩu báo hết hạn</td><td>Link chỉ sống khoảng một giờ. Nhờ quản trị viên gửi lại, hoặc tự bấm "Quên mật khẩu" ở màn hình đăng nhập.</td></tr>
+    <tr><td>Nhập xong nhưng không thấy trong xếp hạng</td><td>Kiểm tra ngày ghi nhận có nằm trong tuần/tháng/học kỳ đã cấu hình không. Vào Tra cứu, bật bộ lọc "ngoài cấu hình" để xem các bản ghi bị lệch.</td></tr>
+    <tr><td>Ô chọn học sinh trống khi vừa mở app</td><td>Danh sách học sinh đang tải, đợi vài giây. Trong lúc đó nút Import Excel cũng tạm khoá để tránh nhập sai tên.</td></tr>
+    <tr><td>Import Excel báo dòng lỗi</td><td>Thường do tên lớp hoặc tên tiêu chí không khớp. Xem cột lý do trong bảng đối chiếu, sửa file rồi nhập lại.</td></tr>
+    <tr><td>Muốn xoá tiêu chí đang dùng</td><td>Hệ thống báo tiêu chí đó đang gắn với bao nhiêu bản ghi. Xoá đi thì bản ghi vẫn còn nhưng mất tên tiêu chí — cân nhắc giữ lại nếu chỉ muốn ngưng dùng.</td></tr>
+    <tr><td>Nhân sự chuyển công tác</td><td>Khoá tài khoản (nút 🔒) thay vì xoá, để giữ nguyên dấu vết người nhập liệu trong dữ liệu cũ.</td></tr>
+    <tr><td>Máy hiện dữ liệu cũ</td><td>Bấm nút làm mới trên thanh tiêu đề. Riêng tuần đang diễn ra thì tự cập nhật, không cần bấm.</td></tr>
+  </table>
+</section>
+
+<footer>
+  Hệ Thống Quản Lý Nền Nếp · Phát triển bởi 2Anh AI Education — Lương Hải Anh<br/>
+  © 2026 · Bảo lưu mọi quyền
+</footer>
+
+</div>
+</body>
+</html>

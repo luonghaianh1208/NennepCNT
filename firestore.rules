@@ -1,8 +1,10 @@
 rules_version = '2';
 
-// Quy tắc cho BẢN DEMO: ai cũng xem được (khách hàng mở link là thấy ngay,
-// không cần đăng nhập), nhưng chỉ tài khoản đã đăng nhập mới ghi được.
-// Bản triển khai thật cho từng trường sẽ siết chặt theo vai trò.
+// Phân quyền thực thi ngay tại tầng dữ liệu, không chỉ ẩn nút trên giao diện.
+//
+// Vai trò của người dùng nằm trong custom claim `role`; bảng quyền của từng vai
+// trò nằm ở tài liệu settings/roles do quản trị viên chỉnh trong ứng dụng. Quy
+// tắc đọc thẳng bảng đó, nên đổi quyền trong app là có hiệu lực ngay.
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -10,24 +12,61 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function isAdmin() {
-      return signedIn() && request.auth.token.role == 'ADMIN';
+    function roleKey() {
+      return request.auth.token.role is string ? request.auth.token.role : 'GUEST';
     }
 
-    // Vi phạm: cờ đỏ, nền nếp, BCH đều ghi được sau khi đăng nhập
-    match /violations/{id}   { allow read: if true; allow write: if signedIn(); }
-    // Điểm thưởng: chỉ quản trị viên được ghi
-    match /achievements/{id} { allow read: if true; allow write: if isAdmin(); }
-    match /auditLogs/{id}    { allow read: if signedIn(); allow create: if signedIn(); }
+    // Bảng quyền; trường chưa cấu hình thì trả về rỗng
+    function roles() {
+      return exists(/databases/$(database)/documents/settings/roles)
+        ? get(/databases/$(database)/documents/settings/roles).data
+        : {};
+    }
 
-    // Danh mục: đọc công khai, chỉ quản trị viên được sửa
-    match /classes/{id}     { allow read: if true; allow write: if isAdmin(); }
-    match /students/{id}    { allow read: if true; allow write: if isAdmin(); }
-    match /criteria/{id}    { allow read: if true; allow write: if isAdmin(); }
-    match /timeConfigs/{id} { allow read: if true; allow write: if isAdmin(); }
-    match /settings/{id}    { allow read: if true; allow write: if isAdmin(); }
+    // Người đang đăng nhập có quyền này không
+    function may(permission) {
+      return signedIn()
+        && roles().get(roleKey(), {}).get(permission, false) == true;
+    }
 
-    // Hồ sơ tài khoản: đọc được để hiển thị tên người nhập liệu và tra tên đăng nhập
-    match /users/{id}       { allow read: if true; allow write: if isAdmin(); }
+    // Trường chưa lưu bảng quyền lần nào thì ADMIN vẫn làm được mọi việc,
+    // tránh tình huống mới bàn giao mà không ai sửa được gì
+    function mayOrAdmin(permission) {
+      return may(permission) || (signedIn() && roleKey() == 'ADMIN');
+    }
+
+    // ── Dữ liệu nghiệp vụ ────────────────────────────────────────────────
+    // Đọc công khai để học sinh và phụ huynh tra cứu không cần đăng nhập
+    match /violations/{id} {
+      allow read: if true;
+      allow create, update: if mayOrAdmin('entryViolation');
+      allow delete: if mayOrAdmin('entryViolation');
+    }
+
+    match /achievements/{id} {
+      allow read: if true;
+      // Khen thưởng là quyền riêng: cờ đỏ ghi được vi phạm nhưng không ghi được điểm cộng
+      allow write: if mayOrAdmin('entryAchievement');
+    }
+
+    match /auditLogs/{id} {
+      allow read: if signedIn();
+      allow create: if signedIn();
+    }
+
+    // ── Danh mục ─────────────────────────────────────────────────────────
+    match /classes/{id}     { allow read: if true; allow write: if mayOrAdmin('manageCatalog'); }
+    match /students/{id}    { allow read: if true; allow write: if mayOrAdmin('manageCatalog'); }
+    match /criteria/{id}    { allow read: if true; allow write: if mayOrAdmin('manageCatalog'); }
+    match /timeConfigs/{id} { allow read: if true; allow write: if mayOrAdmin('manageCatalog'); }
+
+    // ── Thiết lập hệ thống ───────────────────────────────────────────────
+    match /settings/branding { allow read: if true; allow write: if mayOrAdmin('manageSystem'); }
+    // Bảng quyền: ai sửa được quyền thì cũng phải là người quản lý tài khoản
+    match /settings/roles    { allow read: if true; allow write: if mayOrAdmin('manageAccounts'); }
+    match /settings/{id}     { allow read: if true; allow write: if mayOrAdmin('manageSystem'); }
+
+    // Hồ sơ tài khoản: đọc được để hiện tên người nhập liệu
+    match /users/{id}       { allow read: if true; allow write: if mayOrAdmin('manageAccounts'); }
   }
 }

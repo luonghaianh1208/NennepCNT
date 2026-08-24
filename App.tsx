@@ -19,7 +19,7 @@ import {
   LayoutDashboard,
 } from 'lucide-react';
 import { Violation } from './types';
-import { INITIAL_ROLE_DEFINITIONS, GUEST_USER } from './utils';
+import { INITIAL_ROLE_DEFINITIONS, GUEST_USER, can, canOpenSettings } from './utils';
 import { useAppStore } from './contexts/AppContext';
 import { api, onAuthChange, signOut } from './services/firebase';
 
@@ -105,8 +105,8 @@ export default function App() {
         setCurrentUser(user);
         const userRoleKey = String(user.role).toUpperCase();
         const roleConfig = roleConfigs[userRoleKey] || roleConfigs['GUEST'] || INITIAL_ROLE_DEFINITIONS[userRoleKey];
-        if (roleConfig?.canEntry) setActiveTab('entry');
-        else if (roleConfig?.isAdmin) setActiveTab('settings');
+        if (roleConfig?.entryViolation) setActiveTab('entry');
+        else if (canOpenSettings(roleConfigs, user.role)) setActiveTab('settings');
         else setActiveTab('dashboard');
       }
     });
@@ -202,15 +202,12 @@ export default function App() {
     }
   };
 
-  const isCurrentUserAdmin = () => {
-    const roleKey = currentUser.role.toUpperCase();
-    return roleConfigs[roleKey]?.isAdmin || false;
-  };
+  // Vào được trang Thiết lập khi có bất kỳ quyền quản trị nào
+  const isCurrentUserAdmin = () => canOpenSettings(roleConfigs, currentUser.role);
 
-  const canCurrentUserEntry = () => {
-    const roleKey = currentUser.role.toUpperCase();
-    return roleConfigs[roleKey]?.canEntry || false;
-  };
+  const canCurrentUserEntry = () =>
+    can(roleConfigs, currentUser.role, 'entryViolation') ||
+    can(roleConfigs, currentUser.role, 'entryAchievement');
 
   // ─── Đoàn falling-star particles ─────────────────────────────────────────
   const doanStars = useMemo(() => Array.from({ length: 18 }, (_, i) => ({
@@ -375,7 +372,7 @@ export default function App() {
         {activeTab === 'detail' && (
           <ClassDetailTab setViewingViolation={setViewingViolation} selectedClassId={classDetailSelectedId} setSelectedClassId={setClassDetailSelectedId} />
         )}
-        {activeTab === 'taskforce' && (isCurrentUserAdmin() || ['BCH_PHU_TRACH', 'BCH', 'RED_FLAG', 'DISCIPLINE'].includes(currentUser.role)) && (
+        {activeTab === 'taskforce' && (can(roleConfigs, currentUser.role, 'manageTaskforce') || canCurrentUserEntry()) && (
           <TaskForceTab />
         )}
         {activeTab === 'settings' && isCurrentUserAdmin() && (
@@ -429,7 +426,7 @@ export default function App() {
             <span className="text-[10px] font-bold mt-1">Lớp</span>
           </button>
 
-          {(isCurrentUserAdmin() || ['BCH_PHU_TRACH', 'BCH', 'RED_FLAG', 'DISCIPLINE'].includes(currentUser.role)) && (
+          {(can(roleConfigs, currentUser.role, 'manageTaskforce') || canCurrentUserEntry()) && (
             <button onClick={() => setActiveTab('taskforce')} className={`flex flex-col items-center py-3 px-2 flex-1 transition-colors ${activeTab === 'taskforce' ? 'text-red-700' : 'text-slate-400 hover:text-slate-600'}`}>
               <Users size={24} strokeWidth={activeTab === 'taskforce' ? 2.5 : 2} />
               <span className="text-[10px] font-bold mt-1">Ban NN</span>

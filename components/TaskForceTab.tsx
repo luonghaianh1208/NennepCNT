@@ -2,7 +2,7 @@
 import React, { useMemo, useState } from 'react';
 import { User, RoleConfig } from '../types';
 import { Shield, Save, Edit, Zap, X, Check, Download } from 'lucide-react';
-import { exportToExcel } from '../utils';
+import { exportToExcel, can } from '../utils';
 import { useAppStore } from '../contexts/AppContext';
 import { useModal } from '../contexts/ModalContext';
 
@@ -29,13 +29,12 @@ const TaskForceTab: React.FC = () => {
   };
 
   const isManager = useMemo(() => {
-     const role = currentUser.role.toUpperCase();
-     return role === 'ADMIN' || role === 'BCH_PHU_TRACH';
-  }, [currentUser]);
+     return can(roleConfigs, currentUser.role, 'manageTaskforce');
+  }, [currentUser, roleConfigs]);
 
   const taskForceRoles = useMemo(() => {
     return (Object.entries(roleConfigs) as [string, RoleConfig][])
-        .filter(([key, config]) => config.canEntry && !config.isAdmin)
+        .filter(([, config]) => config.entryViolation && !config.manageCatalog)
         .map(([key, config]) => ({ key, label: config.label }));
   }, [roleConfigs]);
 
@@ -46,7 +45,7 @@ const TaskForceTab: React.FC = () => {
 
       return users.filter(u => {
           const config = roleConfigs[u.role] || roleConfigs['GUEST'];
-          const isTaskForce = config.canEntry && !config.isAdmin;
+          const isTaskForce = config.entryViolation && !config.manageCatalog;
           if (!isTaskForce) return false;
           if (filterRole !== 'ALL' && u.role !== filterRole) return false;
           return true;

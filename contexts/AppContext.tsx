@@ -30,6 +30,9 @@ interface AppContextType {
   branding: TenantBranding;
   saveBranding: (next: TenantBranding) => Promise<boolean>;
 
+  /** Lưu bảng vai trò và quyền xuống cơ sở dữ liệu */
+  saveRoleConfigs: (next: Record<string, RoleConfig>) => Promise<boolean>;
+
   // Audit
   auditLogs: AuditLog[];
   clearAuditLogs: () => void;
@@ -453,6 +456,27 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
   }, []);
 
+  // ── Bảng vai trò và quyền ─────────────────────────────────────────────────
+  // Chưa cấu hình thì dùng bảng mặc định; trường nào sửa thì lấy bản đã lưu
+  useEffect(() => {
+    api.getRoleConfigs().then(saved => {
+      if (saved && Object.keys(saved).length) {
+        setRoleConfigs(saved as Record<string, RoleConfig>);
+      }
+    });
+  }, []);
+
+  const saveRoleConfigs = async (next: Record<string, RoleConfig>): Promise<boolean> => {
+    try {
+      await api.saveRoleConfigs(next);
+      setRoleConfigs(next);
+      return true;
+    } catch (e) {
+      console.error('saveRoleConfigs error:', e);
+      return false;
+    }
+  };
+
   const saveBranding = async (next: TenantBranding): Promise<boolean> => {
     try {
       await api.saveBranding(next);
@@ -509,7 +533,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       appTheme, setAppTheme,
       isLoading, isRefreshing, isBackgroundLoading, liveWeek,
       ensureRangeLoaded, ensureAllLoaded,
-      branding, saveBranding,
+      branding, saveBranding, saveRoleConfigs,
       unsavedChanges, setUnsavedChanges,
       academicYear, setAcademicYear,
       fetchData, refreshData, syncSettings, syncUsers,

@@ -3,11 +3,42 @@ export type Role = string; // Chuyển từ Union Type sang string để hỗ tr
 
 export type AppTheme = 'DOAN';
 
-export interface RoleConfig {
+/**
+ * 12 quyền của hệ thống. Mỗi vai trò bật/tắt từng quyền trong Thiết lập → Vai trò.
+ * Quyền được thực thi ở cả giao diện lẫn tầng dữ liệu (xem firestore.rules).
+ */
+export interface RolePermissions {
+  /** Chấm lỗi hằng ngày */
+  entryViolation: boolean;
+  /** Nhập điểm cộng, thành tích hoạt động — tách hẳn khỏi ghi vi phạm */
+  entryAchievement: boolean;
+  /** Tải mẫu và nhập hàng loạt từ Excel */
+  importExcel: boolean;
+  /** Sửa hoặc xoá bản ghi do người khác nhập (không có thì chỉ sửa được của mình) */
+  editOthers: boolean;
+  /** Chọn nhiều dòng rồi xoá một lượt */
+  bulkDelete: boolean;
+  /** Thấy tên người nhập liệu, thay vì hiện "Ẩn danh" */
+  seeReporter: boolean;
+  /** Bị giới hạn chỉ xem lớp mình phụ trách */
+  ownClassOnly: boolean;
+  /** Lọc bản ghi trùng lặp và bản ghi ngoài mốc thời gian */
+  moderation: boolean;
+  /** Lớp, học sinh, tiêu chí, mốc thời gian */
+  manageCatalog: boolean;
+  /** Cấp, khoá, đổi vai trò, gửi lại mật khẩu */
+  manageAccounts: boolean;
+  /** Phân công trực và cờ đỏ */
+  manageTaskforce: boolean;
+  /** Xem nhật ký và đổi thương hiệu nhà trường */
+  manageSystem: boolean;
+}
+
+export type PermissionKey = keyof RolePermissions;
+
+export interface RoleConfig extends RolePermissions {
   label: string;
   color: string;
-  canEntry: boolean;
-  isAdmin: boolean; // Thêm quyền Admin
 }
 
 export interface User {
