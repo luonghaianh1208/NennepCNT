@@ -206,6 +206,59 @@ export interface RankingContext {
 }
 
 /**
+ * Đưa mọi kiểu ngày về dạng YYYY-MM-DD.
+ *
+ * Bắt buộc phải chuẩn hoá trước khi lưu: hệ thống lọc theo khoảng ngày bằng
+ * cách so sánh chuỗi, nên một bản ghi ghi "20/05/2026" sẽ vô hình với xếp hạng,
+ * tổng quan và đồng bộ trực tiếp dù vẫn nằm trong kho dữ liệu.
+ */
+/**
+ * Excel lưu ngày bằng số thứ tự ngày tính từ 30/12/1899, không kèm múi giờ.
+ * Quy đổi theo giờ UTC để không bị lệch một ngày khi máy ở múi giờ khác.
+ */
+export const excelSerialToISO = (serial: number): string => {
+  if (!isFinite(serial) || serial <= 0) return '';
+  const EXCEL_EPOCH_UTC = Date.UTC(1899, 11, 30);
+  const d = new Date(EXCEL_EPOCH_UTC + Math.round(serial) * 86400000);
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  return `${d.getUTCFullYear()}-${m}-${day}`;
+};
+
+export const toISODate = (value: unknown): string => {
+  // Ô ngày đọc từ Excel về dưới dạng số thứ tự
+  if (typeof value === 'number') return excelSerialToISO(value);
+
+  if (value instanceof Date && !isNaN(value.getTime())) {
+    const y = value.getFullYear();
+    const m = String(value.getMonth() + 1).padStart(2, '0');
+    const d = String(value.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  const s = String(value ?? '').trim();
+  if (!s) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+
+  // dd/mm/yyyy và d-m-yyyy — cách người Việt vẫn gõ trong Excel
+  const dmy = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})/);
+  if (dmy) {
+    const [, d, m, y] = dmy;
+    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  }
+
+  // yyyy/mm/dd
+  const ymd = s.match(/^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})/);
+  if (ymd) {
+    const [, y, m, d] = ymd;
+    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  }
+
+  const parsed = new Date(s);
+  return isNaN(parsed.getTime()) ? '' : toISODate(parsed);
+};
+
+/**
  * Ngày nằm ngoài mọi mốc thời gian đã cấu hình thì bản ghi vẫn lưu được nhưng
  * không lọt vào xếp hạng, tổng quan hay báo cáo — cần cảnh báo người nhập.
  */

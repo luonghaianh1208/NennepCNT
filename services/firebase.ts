@@ -12,6 +12,7 @@ import type { Auth } from 'firebase/auth';
 import type { FirebaseStorage } from 'firebase/storage';
 import type { Functions } from 'firebase/functions';
 import type { TenantConfig, TenantBranding } from './tenantConfig';
+import { toISODate } from '../utils';
 import {
   initializeFirestore,
   getDoc,
@@ -58,6 +59,9 @@ export const initFirebase = (config: TenantConfig['firebase']) => {
   // và vẫn xem được khi mạng trường chập chờn
   db = initializeFirestore(app, {
     localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+    // Lớp phòng thủ thứ hai sau sanitize(): một field undefined lọt qua cũng
+    // không được phép làm hỏng cả lô ghi
+    ignoreUndefinedProperties: true,
   });
   auth = getAuth(app);
   storage = getStorage(app);
@@ -68,6 +72,24 @@ export const initFirebase = (config: TenantConfig['firebase']) => {
 };
 
 const MAX_BATCH = 400; // dưới hạn 500 thao tác/batch của Firestore
+
+/**
+ * Dọn bản ghi trước khi ghi xuống Firestore.
+ *
+ * Hai chuyện Firestore khắt khe hơn backend cũ:
+ * - Từ chối thẳng thừng giá trị `undefined` (ví dụ vi phạm tập thể không có
+ *   studentId) và làm hỏng cả lô ghi, không riêng bản ghi đó.
+ * - Lọc theo khoảng ngày là so sánh chuỗi, nên ngày phải ở dạng YYYY-MM-DD;
+ *   ghi "20/05/2026" thì bản ghi vô hình với xếp hạng và đồng bộ trực tiếp.
+ */
+export const sanitize = <T extends Record<string, any>>(record: T): T => {
+  const clean: Record<string, any> = {};
+  Object.entries(record ?? {}).forEach(([key, value]) => {
+    if (value === undefined) return;
+    clean[key] = key === 'date' ? toISODate(value) : value;
+  });
+  return clean as T;
+};
 
 /** Nơi gọi vẫn kiểm tra `result.error` như thời còn dùng Apps Script */
 type BatchResult = { status: string; created?: number; updated?: number; error?: string };
@@ -94,11 +116,22 @@ const commitInChunks = async (
 /** Đồng bộ một collection về đúng danh sách truyền vào: ghi mới, xoá phần thừa */
 const replaceCollection = async (name: string, items: any[]) => {
   const existing = await getDocs(collection(db, name));
+
+  // Chốt chặn mất dữ liệu: danh sách gửi lên trống trong khi hệ thống đang có
+  // dữ liệu thì gần như chắc chắn là do tải chưa xong hoặc tải lỗi, không phải
+  // ý định xoá sạch của người dùng. Thà báo lỗi còn hơn xoá nhầm cả trường.
+  if (!items.length && existing.size > 0) {
+    throw new Error(
+      `Không thể lưu: danh sách "${name}" đang trống trong khi hệ thống có ${existing.size} bản ghi. ` +
+        'Nhiều khả năng dữ liệu chưa tải xong — hãy tải lại trang rồi thử lại.',
+    );
+  }
+
   const keep = new Set(items.map((i) => String(i.id)));
   const stale = existing.docs.filter((d) => !keep.has(d.id));
 
   await commitInChunks(items, (batch, item) =>
-    batch.set(doc(db, name, String(item.id)), { ...item, id: String(item.id) }),
+    batch.set(doc(db, name, String(item.id)), sanitize({ ...item, id: String(item.id) })),
   );
   await commitInChunks(stale, (batch, d) => batch.delete(doc(db, name, d.id)));
 };
@@ -180,7 +213,7 @@ export const api = {
   // 2. Thêm mới vi phạm / thành tích
   createViolation: async (violation: any) => {
     const target = collectionFor(violation.points);
-    await setDoc(doc(db, target, String(violation.id)), violation);
+    await setDoc(doc(db, target, String(violation.id)), sanitize(violation));
     return { status: 'success' };
   },
 
@@ -206,7 +239,7 @@ export const api = {
   updateViolation: async (violation: any) => {
     const target = collectionFor(violation.points);
     const other = target === 'violations' ? 'achievements' : 'violations';
-    await setDoc(doc(db, target, String(violation.id)), violation);
+    await setDoc(doc(db, target, String(violation.id)), sanitize(violation));
     await deleteDoc(doc(db, other, String(violation.id))).catch(() => {});
     return { status: 'success' };
   },
@@ -215,7 +248,7 @@ export const api = {
   batchUpdateViolations: async (records: any[]): Promise<BatchResult> => {
     await commitInChunks(records, (batch, r) => {
       const target = collectionFor(r.points);
-      batch.set(doc(db, target, String(r.id)), r);
+      batch.set(doc(db, target, String(r.id)), sanitize(r));
     });
     return { status: 'success', updated: records.length };
   },
@@ -223,7 +256,7 @@ export const api = {
   // 4c. Tạo hàng loạt (import Excel)
   batchCreateViolations: async (records: any[]): Promise<BatchResult> => {
     await commitInChunks(records, (batch, r) => {
-      batch.set(doc(db, collectionFor(r.points), String(r.id)), r);
+      batch.set(doc(db, collectionFor(r.points), String(r.id)), sanitize(r));
     });
     return { status: 'success', created: records.length };
   },
@@ -240,7 +273,7 @@ export const api = {
   },
 
   saveBranding: async (branding: Partial<TenantBranding>) => {
-    await setDoc(doc(db, 'settings', 'branding'), branding, { merge: true });
+    await setDoc(doc(db, 'settings', 'branding'), sanitize(branding), { merge: true });
     return { status: 'success' };
   },
 
@@ -258,7 +291,7 @@ export const api = {
 
   // 4d. Thêm một tiêu chí mới (dùng khi nhập thành tích cho hoạt động chưa có sẵn)
   createCriteria: async (criteria: { id: string; content: string; points: number; type: string }) => {
-    await setDoc(doc(db, 'criteria', criteria.id), criteria);
+    await setDoc(doc(db, 'criteria', criteria.id), sanitize(criteria));
     return { status: 'success' };
   },
 
@@ -302,7 +335,7 @@ export const api = {
 
   // 7. Ghi nhật ký thao tác
   saveAuditLog: async (log: any) => {
-    await addDoc(collection(db, 'auditLogs'), log);
+    await addDoc(collection(db, 'auditLogs'), sanitize(log));
     return { status: 'success' };
   },
 

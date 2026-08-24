@@ -3,7 +3,7 @@ import React, { useState, useRef, useMemo } from 'react';
 import { AlertTriangle, Star, ChevronDown, Camera, X, CheckCircle2, Loader2, StopCircle, FileSpreadsheet, Download, Settings } from 'lucide-react';
 import { Violation } from '../types';
 import { api } from '../services/firebase';
-import { isDateInRange, removeVietnameseTones, exportToExcel, getLocalDateString, matchVietnamese, fuzzyMatchScore } from '../utils';
+import { isDateInRange, removeVietnameseTones, exportToExcel, getLocalDateString, matchVietnamese, fuzzyMatchScore, toISODate } from '../utils';
 import { useAppStore } from '../contexts/AppContext';
 import { useModal } from '../contexts/ModalContext';
 import AchievementBulkEntry from './AchievementBulkEntry';
@@ -205,7 +205,9 @@ const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
       try {
         const XLSX = await import('xlsx');
         const data = new Uint8Array(event.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+        // KHÔNG dùng cellDates: để ô ngày về dạng số thứ tự của Excel, quy đổi
+        // bằng tay theo UTC — tránh lệch một ngày do múi giờ máy người dùng
+        const workbook = XLSX.read(data, { type: 'array' });
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
         const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
 
@@ -224,16 +226,9 @@ const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
           if (!row || row.every((cell: any) => cell === '' || cell === null || cell === undefined)) continue;
 
           // --- Xử lý ngày ---
-          const ngayRaw = row[0];
-          let ngay: string;
-          if (ngayRaw instanceof Date) {
-            const y = ngayRaw.getFullYear();
-            const m = String(ngayRaw.getMonth() + 1).padStart(2, '0');
-            const d = String(ngayRaw.getDate()).padStart(2, '0');
-            ngay = `${y}-${m}-${d}`;
-          } else {
-            ngay = String(ngayRaw || '').trim() || getLocalDateString();
-          }
+          // Chuẩn hoá về YYYY-MM-DD ngay từ đây: ô Excel có thể là kiểu ngày,
+          // cũng có thể là chữ do người dùng gõ tay "20/05/2026"
+          const ngay = toISODate(row[0]) || getLocalDateString();
 
           const tenLop = String(row[1] || '').trim();
           const tenHS = String(row[2] || '').trim();
