@@ -1,5 +1,5 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { Trash2, FileSpreadsheet, Download } from 'lucide-react';
 import { Criteria } from '../../types';
 import { exportToExcel } from '../../utils';
@@ -11,8 +11,15 @@ interface Props {
 }
 
 const SettingsCriteriaTab: React.FC<Props> = ({ type }) => {
-  const { criteria, setCriteria, setUnsavedChanges } = useAppStore();
+  const { criteria, setCriteria, violations, setUnsavedChanges } = useAppStore();
   const { showConfirm, showToast } = useModal();
+
+  /** Số bản ghi đang gắn với từng tiêu chí — xoá tiêu chí là chúng mất chỗ bám */
+  const usageCount = useMemo(() => {
+    const map = new Map<string, number>();
+    violations.forEach(v => map.set(v.criteriaId, (map.get(v.criteriaId) ?? 0) + 1));
+    return map;
+  }, [violations]);
 
   const [newCriteriaContent, setNewCriteriaContent] = useState('');
   const [newCriteriaPoints, setNewCriteriaPoints] = useState('');
@@ -30,7 +37,23 @@ const SettingsCriteriaTab: React.FC<Props> = ({ type }) => {
   };
 
   const handleDeleteCriteria = async (id: string) => {
-    const ok = await showConfirm({ title: 'Xóa tiêu chí', message: 'Bạn có chắc muốn xóa tiêu chí này không?', type: 'danger', confirmText: 'Xóa' });
+    const target = criteria.find(c => c.id === id);
+    const used = usageCount.get(id) ?? 0;
+    const label = isViolation ? 'lỗi vi phạm' : 'điểm thưởng';
+
+    const message = used
+      ? `Tiêu chí "${target?.content}" đang gắn với ${used} bản ghi ${label} đã nhập.\n\n` +
+        `Xoá tiêu chí KHÔNG xoá ${used} bản ghi đó, nhưng chúng sẽ mất tên tiêu chí — ` +
+        `danh sách và báo cáo sẽ hiển thị trống ở cột nội dung, điểm vẫn giữ nguyên.\n\n` +
+        `Nếu chỉ muốn ngưng dùng cho năm sau, nên giữ lại tiêu chí này.`
+      : `Tiêu chí "${target?.content}" chưa gắn với bản ghi nào, xoá đi là sạch sẽ.`;
+
+    const ok = await showConfirm({
+      title: used ? `Cảnh báo: ${used} bản ghi đang dùng` : 'Xoá tiêu chí',
+      message,
+      type: 'danger',
+      confirmText: used ? `Vẫn xoá (${used} bản ghi mất tên)` : 'Xoá',
+    });
     if (ok) {
       setCriteria(criteria.filter(c => c.id !== id));
       setUnsavedChanges(true);
@@ -171,6 +194,7 @@ const SettingsCriteriaTab: React.FC<Props> = ({ type }) => {
             <tr>
               <th className="px-4 py-3">Nội dung</th>
               <th className="px-4 py-3 w-24 text-right">{isViolation ? 'Điểm trừ' : 'Điểm cộng'}</th>
+              <th className="px-4 py-3 w-28 text-right">Đang dùng</th>
               <th className="px-4 py-3 w-16 text-right">Xóa</th>
             </tr>
           </thead>
@@ -180,6 +204,16 @@ const SettingsCriteriaTab: React.FC<Props> = ({ type }) => {
                 <td className="px-4 py-3 text-slate-700 font-medium">{c.content}</td>
                 <td className={`px-4 py-3 text-right font-bold ${isViolation ? 'text-red-600' : 'text-green-600'}`}>
                   {isViolation ? `-${c.points}` : `+${c.points}`}
+                </td>
+                <td className="px-4 py-3 text-right">
+                  {usageCount.get(c.id) ? (
+                    <span className="text-xs font-semibold bg-slate-100 text-slate-600 px-2 py-1 rounded"
+                      title={`${usageCount.get(c.id)} bản ghi đang gắn với tiêu chí này`}>
+                      {usageCount.get(c.id)} bản ghi
+                    </span>
+                  ) : (
+                    <span className="text-xs text-slate-300">chưa dùng</span>
+                  )}
                 </td>
                 <td className="px-4 py-3 text-right">
                   <button onClick={() => handleDeleteCriteria(c.id)} className="text-slate-400 hover:text-red-600"><Trash2 size={16} /></button>

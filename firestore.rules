@@ -14,17 +14,16 @@ service cloud.firestore {
       return signedIn() && request.auth.token.role == 'ADMIN';
     }
 
-    // Dữ liệu nghiệp vụ: đọc công khai, ghi khi đã đăng nhập
+    // Vi phạm: cờ đỏ, nền nếp, BCH đều ghi được sau khi đăng nhập
     match /violations/{id}   { allow read: if true; allow write: if signedIn(); }
-    match /achievements/{id} { allow read: if true; allow write: if signedIn(); }
+    // Điểm thưởng: chỉ quản trị viên được ghi
+    match /achievements/{id} { allow read: if true; allow write: if isAdmin(); }
     match /auditLogs/{id}    { allow read: if signedIn(); allow create: if signedIn(); }
 
     // Danh mục: đọc công khai, chỉ quản trị viên được sửa
     match /classes/{id}     { allow read: if true; allow write: if isAdmin(); }
     match /students/{id}    { allow read: if true; allow write: if isAdmin(); }
-    // Người nhập liệu được thêm tiêu chí mới khi ghi nhận hoạt động chưa có trong
-    // danh mục; sửa và xoá vẫn dành riêng cho quản trị viên
-    match /criteria/{id}    { allow read: if true; allow create: if signedIn(); allow update, delete: if isAdmin(); }
+    match /criteria/{id}    { allow read: if true; allow write: if isAdmin(); }
     match /timeConfigs/{id} { allow read: if true; allow write: if isAdmin(); }
     match /settings/{id}    { allow read: if true; allow write: if isAdmin(); }
 
