@@ -7,7 +7,7 @@ export function generateProductHtml(): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'NenNep_CNT_TaiLieuGioiThieu_2026.html';
+  a.download = 'NenNep_TaiLieuGioiThieu_2026.html';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -20,7 +20,7 @@ function buildFullHtml(): string {
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Hệ Thống Quản Lý Nền Nếp CNT – Tài Liệu Giới Thiệu Sản Phẩm 2026</title>
+<title>Hệ Thống Quản Lý Nền Nếp – Tài Liệu Giới Thiệu Sản Phẩm 2026</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,400;0,600;0,700;0,900;1,400&display=swap');
 *{margin:0;padding:0;box-sizing:border-box;}
@@ -108,7 +108,7 @@ tr:nth-child(even) td{background:#f8f5ef;}
 </head>
 <body>
 <div id="toolbar">
-  <span class="brand">🎯 Nền Nếp CNT – Tài liệu giới thiệu sản phẩm 2026</span>
+  <span class="brand">🎯 Hệ thống Quản lý Nền nếp – Tài liệu giới thiệu sản phẩm 2026</span>
   <div class="controls">
     <div id="progressBar"><div id="progressFill"></div></div>
     <span id="captureStatus">Nhấn nút để tải ảnh hàng loạt</span>
@@ -124,16 +124,16 @@ tr:nth-child(even) td{background:#f8f5ef;}
   <div class="cover-stripe"></div>
   <div class="cover-logos">
     <div class="logo-box">
-      <img src="https://upload.wikimedia.org/wikipedia/commons/7/70/THPT_Chuyen_Nguyen_Trai.png" alt="CNT"/>
-      <p>THPT Chuyên<br>Nguyễn Trãi</p>
+      <div style="height:68px;width:68px;border-radius:50%;background:linear-gradient(135deg,#CF2A2A,#7f1d1d);color:#FABD32;font-size:30px;font-weight:900;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(0,0,0,.3)">N</div>
+      <p>Nền Nếp<br>2Anh AI Education</p>
     </div>
     <div class="cover-center" style="text-align:center">
       <h1>HỆ THỐNG<br>QUẢN LÝ NỀN NẾP</h1>
-      <div class="sub">TRƯỜNG THPT CHUYÊN NGUYỄN TRÃI – HẢI DƯƠNG</div>
+      <div class="sub">GIẢI PHÁP DÀNH CHO CÁC TRƯỜNG THPT</div>
       <div class="cover-divider"></div>
       <div class="cover-tagline">"Số hoá toàn bộ quy trình theo dõi, đánh giá và xếp hạng<br>nền nếp học sinh — chính xác, minh bạch, tức thì."</div>
       <div class="cover-badges">
-        <div class="badge"><span class="bico">📅</span><div class="blbl">Phiên bản</div><div class="bval">3.1.3 · Tháng 3/2026</div></div>
+        <div class="badge"><span class="bico">📅</span><div class="blbl">Phiên bản</div><div class="bval">4.0 · Tháng 8/2026</div></div>
         <div class="badge"><span class="bico">🏫</span><div class="blbl">Đối tượng</div><div class="bval">Trường THPT</div></div>
         <div class="badge"><span class="bico">📱</span><div class="blbl">Truy cập</div><div class="bval">Web / Mobile</div></div>
       </div>
@@ -149,50 +149,50 @@ tr:nth-child(even) td{background:#f8f5ef;}
   </div>
   <div class="cover-footer">
     <p>Tài liệu bảo mật – Vui lòng không phát tán khi chưa được phép</p>
-    <div class="copy">© 2026 Lương Hải Anh · THPT Chuyên Nguyễn Trãi · Hải Phòng</div>
+    <div class="copy">© 2026 Lương Hải Anh · 2Anh AI Education</div>
   </div>
 </div>
 </div>
 
 <!-- TRANG 2: TỔNG QUAN -->
 <div class="page" id="page-2">
-<div class="page-header"><span class="ph-name">HỆ THỐNG QUẢN LÝ NỀN NẾP CNT – TÀI LIỆU GIỚI THIỆU SẢN PHẨM</span><span class="ph-right">Tổng quan sản phẩm</span></div>
+<div class="page-header"><span class="ph-name">HỆ THỐNG QUẢN LÝ NỀN NẾP – TÀI LIỆU GIỚI THIỆU SẢN PHẨM</span><span class="ph-right">Tổng quan sản phẩm</span></div>
 <div class="content">
   <div class="section-hdr"><span>🌟</span> I. TỔNG QUAN SẢN PHẨM</div>
-  <p class="body-txt">Hệ thống Quản lý Nền nếp CNT là nền tảng <strong>số hoá toàn bộ quy trình theo dõi, đánh giá và xếp hạng nền nếp học sinh</strong> dành cho các trường THPT. Được phát triển bởi <strong>Lương Hải Anh</strong> tại THPT Chuyên Nguyễn Trãi (Hải Phòng), hệ thống giải quyết triệt để bài toán ghi chép thủ công bằng sổ sách, giúp Ban Đoàn – Ban Nề Nếp vận hành hiệu quả, minh bạch và tiết kiệm thời gian.</p>
+  <p class="body-txt">Hệ thống Quản lý Nền nếp là nền tảng <strong>số hoá toàn bộ quy trình theo dõi, đánh giá và xếp hạng nền nếp học sinh</strong> dành cho các trường THPT. Sản phẩm do <strong>Lương Hải Anh – 2Anh AI Education</strong> phát triển, đã vận hành thực tế qua nhiều học kỳ tại THPT Chuyên Nguyễn Trãi với hơn 1.100 học sinh và 2.500 lượt ghi nhận. Mỗi trường nhận một bản triển khai riêng, mang thương hiệu của chính trường mình, dữ liệu tách biệt hoàn toàn.</p>
   <div class="sub-hdr">❓ Bài toán đặt ra</div>
   ${['Ghi chép vi phạm thủ công qua sổ giấy dễ thất lạc, sai sót, khó tổng hợp','Tính điểm thi đua cuối tuần/tháng/học kỳ tốn nhiều giờ tra cứu và tính toán bằng tay','Không có kênh thông tin minh bạch để học sinh, phụ huynh tra cứu tình hình nề nếp','Báo cáo DOCX/Excel cho cấp trên phải làm thủ công sau mỗi kỳ đánh giá','Không lưu trữ lịch sử dữ liệu qua các năm học để phân tích xu hướng'].map(t=>`<div class="bullet">${t}</div>`).join('')}
   <div class="sub-hdr">✅ Giải pháp cung cấp</div>
-  ${['Nhập liệu vi phạm/thành tích tức thì qua giao diện web trên điện thoại hoặc máy tính — không cần cài đặt','Hệ thống tự động tính điểm theo công thức chuẩn, cập nhật xếp hạng lớp theo tuần/tháng/học kỳ','Giao diện tra cứu cho tất cả học sinh và phụ huynh (không cần đăng nhập)','Xuất báo cáo DOCX/Excel chỉ một cái bấm, đúng định dạng yêu cầu của nhà trường','Lưu trữ dữ liệu tập trung trên Google Sheets — bền vững, có thể xuất và phân tích bất kỳ lúc nào'].map(t=>`<div class="bullet">${t}</div>`).join('')}
+  ${['Nhập liệu vi phạm/thành tích tức thì qua trình duyệt trên điện thoại hoặc máy tính — không cần cài đặt','Hệ thống tự động tính điểm theo công thức chuẩn, cập nhật xếp hạng lớp theo tuần/tháng/học kỳ','Dữ liệu tuần đang diễn ra đồng bộ trực tiếp: một người nhập, mọi máy đang mở thấy ngay','Giao diện tra cứu mở cho học sinh và phụ huynh, không cần đăng nhập','Xuất báo cáo DOCX/Excel chỉ một cái bấm, đúng định dạng nhà trường yêu cầu','Dữ liệu và ảnh minh chứng lưu trên hạ tầng Google Firebase — bền vững, sao lưu và xuất ra bất kỳ lúc nào'].map(t=>`<div class="bullet">${t}</div>`).join('')}
   <div class="highlight"><h3>🎯 Sứ mệnh</h3><p>Biến công việc quản lý nền nếp từ gánh nặng thủ công trở thành quy trình tự động,<br>chính xác và hoàn toàn minh bạch với toàn trường.</p></div>
 </div>
-<div class="page-footer"><span class="pf-l">© 2026 Lương Hải Anh – Hệ thống Quản lý Nền nếp CNT</span><span class="pf-r">Trang 2 / 9</span></div>
+<div class="page-footer"><span class="pf-l">© 2026 Lương Hải Anh – 2Anh AI Education</span><span class="pf-r">Trang 2 / 9</span></div>
 </div>
 
 <!-- TRANG 3: TÍNH NĂNG -->
 <div class="page" id="page-3">
-<div class="page-header"><span class="ph-name">HỆ THỐNG QUẢN LÝ NỀN NẾP CNT – TÀI LIỆU GIỚI THIỆU SẢN PHẨM</span><span class="ph-right">Tính năng nổi bật</span></div>
+<div class="page-header"><span class="ph-name">HỆ THỐNG QUẢN LÝ NỀN NẾP – TÀI LIỆU GIỚI THIỆU SẢN PHẨM</span><span class="ph-right">Tính năng nổi bật</span></div>
 <div class="content">
   <div class="section-hdr"><span>🚀</span> II. TÍNH NĂNG NỔI BẬT</div>
-  ${[['📝','Nhập liệu vi phạm & thành tích','Nhập nhanh qua form gợi ý; hỗ trợ vi phạm cá nhân và tập thể; đính kèm ảnh minh chứng; import hàng loạt qua CSV.'],['⚡','Import hàng loạt cực nhanh (v3.1.2 mới)','Import 100 dòng Excel chỉ tốn 1–2 giây nhờ gửi toàn bộ trong 1 API call thay vì lần lượt từng bản ghi. Tiết kiệm hơn 5x so với trước.'],['🔍','Tra cứu & Lọc nâng cao','Lọc theo lớp, tiêu chí, loại, khoảng thời gian. Nổi bật bản ghi trùng lặp để kiểm duyệt.'],['✨','Giao diện form thông minh (v3.1.2 mới)','Trường quan trọng (Lớp, Nội dung) có viền xanh đậm và dấu * để người nhập nhận biết ngay. Ghi chú được style nhạt hơn — visual hierarchy rõ ràng, nhập liệu nhanh hơn.'],['💀','Skeleton loading mượt mà (v3.1.2 mới)','Khi làm mới dữ liệu, thay vì danh sách biến mất trắng màn hình, hệ thống hiển thị 5 skeleton card mờ dần — UX mượt mà như app native.'],['📋','Empty state thông minh (v3.1.2 mới)','Trang tra cứu không còn hiện icon mờ nhạt khi trống. Thay vào đó: nếu đang tìm kiếm → gợi ý xóa từ khóa; không có data → nút "Xóa bộ lọc"; lọc trùng không thấy → badge xanh "Dữ liệu sạch".'],['🏆','Xếp hạng tự động theo kỳ','Bảng xếp hạng cập nhật theo tuần/tháng/học kỳ; phân theo khối; màu thể hiện thứ hạng.'],['📄','Xuất báo cáo DOCX','Tự động tạo file Word đúng mẫu báo cáo; đầy đủ vi phạm cá nhân và tập thể theo tiêu chí.'],['📊','Xuất bảng Excel','File Excel tự tính điểm tổng, sẵn sàng nộp cho Ban Giám Hiệu hoặc lưu trữ.'],['⚙️','Cấu hình linh hoạt','Admin cấu hình tiêu chí, điểm, thời gian, tài khoản và phân quyền trực tiếp trên hệ thống.'],['🔐','Bảo mật đăng nhập','Xác thực server-side; mật khẩu không bao giờ rời server. Phân cấp đồng bộ tài khoản độc lập — không thể mất mật khẩu khi lưu cấu hình khác.'],['✏️','Sửa hàng loạt (Bulk Edit)','Chọn nhiều vi phạm → đổi ngày/ghi chú/tiêu chí chỉ trong 1 thao tác. Hoàn tác trong 8 giây.'],['⚠️','Cảnh báo thông minh','Cảnh báo vi phạm ngoài kỳ, trùng tuần; badge nổi bật bản ghi lệch kỳ cấu hình. Thông báo cold-start khi server mất hơn 3s để kết nối — người dùng không bỡ ngỡ khi chờ.'],['📱','Tối ưu mobile','Giao diện responsive, hoạt động mượt mà trên iOS/Android — không cần cài app. Scroll tự động load thêm thay vì cần bấm nút.'],['🔑','Quên mật khẩu tự phục hồi (v3.1.3 mới)','Người dùng nhập email đã đăng ký → hệ thống xác minh tồn tại → tạo mật khẩu mới CNT@xxxx → tự động gửi về hòm thư. Không cần liên hệ admin để lấy lại mật khẩu.']].map(([ico,title,desc])=>`<div style="display:flex;gap:12px;margin-bottom:12px;align-items:flex-start"><div style="min-width:34px;height:34px;background:linear-gradient(135deg,#1E459F,#CF2A2A);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">${ico}</div><div><div style="color:#1E459F;font-weight:700;font-size:13px;margin-bottom:2px">${title}</div><div style="color:#444;font-size:12px;line-height:1.6">${desc}</div></div></div>`).join('')}
+  ${[['📝','Nhập vi phạm nhanh trên điện thoại','Form gợi ý theo lớp và tiêu chí; hỗ trợ cả cá nhân lẫn tập thể; đính kèm ảnh minh chứng chụp trực tiếp.'],['🏅','Nhập khen thưởng theo hoạt động (mới)','Khai báo một hoạt động rồi ghi giải thưởng cho nhiều lớp trong cùng một bảng, lưu một lần. Điểm tự lấy từ tiêu chí có sẵn, vẫn sửa được cho hoạt động có mức thưởng riêng.'],['⚡','Đồng bộ trực tiếp theo thời gian thực (mới)','Vi phạm và khen thưởng của tuần đang diễn ra tự hiện trên mọi máy đang mở trong khoảng một giây — không ai phải bấm làm mới.'],['🔍','Tra cứu & lọc nâng cao','Lọc theo lớp, tiêu chí, loại, khoảng thời gian; phát hiện bản ghi trùng lặp; cảnh báo bản ghi nằm ngoài mốc thời gian đã cấu hình.'],['🏆','Xếp hạng tự động theo kỳ','Bảng xếp hạng cập nhật theo tuần/tháng/học kỳ, phân theo khối, có quy tắc trọng số học kỳ II.'],['📄','Xuất báo cáo Word & Excel','Tạo file báo cáo tuần đúng mẫu nhà trường và bảng Excel tự tính điểm tổng, sẵn sàng nộp Ban Giám hiệu.'],['👥','Quản lý tài khoản chuẩn hoá (mới)','Tạo tài khoản lẻ hoặc hàng loạt từ Excel, hệ thống tự gửi thư để người dùng tự đặt mật khẩu. Khoá tài khoản thay vì xoá để giữ nguyên dấu vết người nhập liệu.'],['🔐','Bảo mật theo vai trò ở tầng dữ liệu (mới)','Phân quyền thực thi ngay trong cơ sở dữ liệu chứ không chỉ ẩn nút: cờ đỏ ghi được vi phạm, chỉ quản trị viên ghi được điểm thưởng và sửa danh mục.'],['🖼️','Ảnh minh chứng nén tự động (mới)','Ảnh chụp được nén còn khoảng một phần năm dung lượng mà vẫn đọc rõ chi tiết, hiển thị ngay trong ứng dụng thay vì phải mở tab khác.'],['🎨','Mang thương hiệu riêng của trường (mới)','Tên trường, tên rút gọn, khẩu hiệu và logo do nhà trường tự đặt trong phần Thiết lập, hiện trên mọi màn hình.'],['✏️','Sửa hàng loạt','Chọn nhiều bản ghi rồi đổi ngày, ghi chú hoặc tiêu chí trong một thao tác, có hoàn tác.'],['⚠️','Cảnh báo trước khi làm hỏng dữ liệu (mới)','Nhắc khi ghi nhận vào ngày ngoài năm học, và cho biết một tiêu chí đang gắn với bao nhiêu bản ghi trước khi cho xoá.'],['📱','Chạy tốt trên điện thoại','Giao diện responsive cho iOS và Android, không cần cài app; dữ liệu có bộ nhớ đệm nên mạng trường chập chờn vẫn xem được.'],['📋','Nhật ký thao tác','Ghi lại ai làm gì, lúc nào — phục vụ đối chiếu khi có khiếu nại về điểm thi đua.']].map(([ico,title,desc])=>`<div style="display:flex;gap:12px;margin-bottom:12px;align-items:flex-start"><div style="min-width:34px;height:34px;background:linear-gradient(135deg,#1E459F,#CF2A2A);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">${ico}</div><div><div style="color:#1E459F;font-weight:700;font-size:13px;margin-bottom:2px">${title}</div><div style="color:#444;font-size:12px;line-height:1.6">${desc}</div></div></div>`).join('')}
 </div>
-<div class="page-footer"><span class="pf-l">© 2026 Lương Hải Anh – Hệ thống Quản lý Nền nếp CNT</span><span class="pf-r">Trang 3 / 9</span></div>
+<div class="page-footer"><span class="pf-l">© 2026 Lương Hải Anh – 2Anh AI Education</span><span class="pf-r">Trang 3 / 9</span></div>
 </div>
 
 <!-- TRANG 4: QUY TRÌNH -->
 <div class="page" id="page-4">
-<div class="page-header"><span class="ph-name">HỆ THỐNG QUẢN LÝ NỀN NẾP CNT – TÀI LIỆU GIỚI THIỆU SẢN PHẨM</span><span class="ph-right">Quy trình hoạt động</span></div>
+<div class="page-header"><span class="ph-name">HỆ THỐNG QUẢN LÝ NỀN NẾP – TÀI LIỆU GIỚI THIỆU SẢN PHẨM</span><span class="ph-right">Quy trình hoạt động</span></div>
 <div class="content">
   <div class="section-hdr"><span>🔄</span> III. QUY TRÌNH HOẠT ĐỘNG</div>
   <p class="body-txt">Hệ thống vận hành theo vòng lặp liên tục — từ cấu hình ban đầu đến nhập liệu hàng ngày, tự động tính toán và báo cáo cuối kỳ.</p>
   ${[['1','⚙️ Admin cấu hình hệ thống','Thiết lập danh sách lớp, học sinh, tiêu chí vi phạm/thành tích, điểm quy đổi và phân kỳ thời gian. Thao tác trực tiếp trên giao diện Settings — không cần chỉnh dữ liệu thô.'],['2','📝 Giáo viên / Ban nề nếp nhập liệu','Mỗi ngày, cán bộ được phân quyền nhập vi phạm hoặc thành tích. Có thể nhập từng dòng hoặc import hàng loạt qua CSV. Ảnh minh chứng đính kèm trực tiếp.'],['3','🤖 Hệ thống tự động tính toán','Điểm thi đua mỗi lớp tính lại tự động: Điểm = 500 × (số tuần trong kỳ) − tổng điểm trừ + tổng điểm cộng. Không cần thao tác thủ công.'],['4','📊 Xem xếp hạng & tra cứu','Giáo viên, học sinh, phụ huynh tra cứu bảng xếp hạng và lịch sử vi phạm của từng lớp — không cần đăng nhập.'],['5','📋 Xuất báo cáo cuối kỳ','Admin một cái bấm để xuất DOCX (báo cáo chi tiết) hoặc Excel (bảng tổng hợp điểm). Đúng chuẩn, sẵn sàng nộp Ban Giám Hiệu.']].map(([n,title,desc],i,arr)=>`<div class="step"><div class="step-num">${n}</div><div class="step-body"><h4>${title}</h4><p>${desc}</p></div></div>${i<arr.length-1?'<div class="step-arrow">↓</div>':''}`).join('')}
 </div>
-<div class="page-footer"><span class="pf-l">© 2026 Lương Hải Anh – Hệ thống Quản lý Nền nếp CNT</span><span class="pf-r">Trang 4 / 9</span></div>
+<div class="page-footer"><span class="pf-l">© 2026 Lương Hải Anh – 2Anh AI Education</span><span class="pf-r">Trang 4 / 9</span></div>
 </div>
 
 <!-- TRANG 5: PHÂN QUYỀN -->
 <div class="page" id="page-5">
-<div class="page-header"><span class="ph-name">HỆ THỐNG QUẢN LÝ NỀN NẾP CNT – TÀI LIỆU GIỚI THIỆU SẢN PHẨM</span><span class="ph-right">Phân cấp & Phân quyền</span></div>
+<div class="page-header"><span class="ph-name">HỆ THỐNG QUẢN LÝ NỀN NẾP – TÀI LIỆU GIỚI THIỆU SẢN PHẨM</span><span class="ph-right">Phân cấp & Phân quyền</span></div>
 <div class="content">
   <div class="section-hdr"><span>🔐</span> IV. PHÂN CẤP & PHÂN QUYỀN</div>
   <table><thead><tr><th>Vai trò</th><th>Đối tượng</th><th>Quyền hạn chính</th></tr></thead><tbody>
@@ -203,50 +203,50 @@ tr:nth-child(even) td{background:#f8f5ef;}
   </tbody></table>
   <div class="sub-hdr">ℹ️ Lưu ý phân quyền</div>
   ${['Mỗi tài khoản được gán 1 vai trò cố định, quản trị viên có thể điều chỉnh bất kỳ lúc nào.','Tài khoản Khách không cần đăng nhập — thiết kế có chủ ý để minh bạch thông tin toàn trường.','Mật khẩu được kiểm tra hoàn toàn server-side — trình duyệt không tiếp xúc mật khẩu gốc.','Nhật ký xóa (Audit Log) ghi lại đầy đủ ai xóa gì, lúc nào — hỗ trợ kiểm tra nội bộ.'].map(t=>`<div class="bullet">${t}</div>`).join('')}
-  <div class="card" style="margin-top:20px"><div style="color:#CF2A2A;font-weight:700;font-size:13px;margin-bottom:6px">🔒 Bảo mật dữ liệu</div><p style="font-size:12px;color:#444;line-height:1.7">Toàn bộ mật khẩu người dùng được kiểm tra server-side qua Google Apps Script. Dữ liệu học sinh chỉ hiển thị theo mức phân quyền tương ứng. Lịch sử thao tác được ghi nhận trong Audit Log riêng biệt.</p></div>
+  <div class="card" style="margin-top:20px"><div style="color:#CF2A2A;font-weight:700;font-size:13px;margin-bottom:6px">🔒 Bảo mật dữ liệu</div><p style="font-size:12px;color:#444;line-height:1.7">Đăng nhập do Google Firebase Authentication đảm nhiệm — mật khẩu được băm một chiều, hệ thống không lưu và không nhìn thấy mật khẩu của bất kỳ ai. Quyền ghi dữ liệu thực thi ngay trong cơ sở dữ liệu theo vai trò, nên không thể lách bằng cách gọi thẳng API. Mọi thao tác quản trị đều ghi vào Nhật ký thao tác.</p></div>
 </div>
-<div class="page-footer"><span class="pf-l">© 2026 Lương Hải Anh – Hệ thống Quản lý Nền nếp CNT</span><span class="pf-r">Trang 5 / 9</span></div>
+<div class="page-footer"><span class="pf-l">© 2026 Lương Hải Anh – 2Anh AI Education</span><span class="pf-r">Trang 5 / 9</span></div>
 </div>
 
 <!-- TRANG 6: SO SÁNH -->
 <div class="page" id="page-6">
-<div class="page-header"><span class="ph-name">HỆ THỐNG QUẢN LÝ NỀN NẾP CNT – TÀI LIỆU GIỚI THIỆU SẢN PHẨM</span><span class="ph-right">Ưu việt so phương pháp cũ</span></div>
+<div class="page-header"><span class="ph-name">HỆ THỐNG QUẢN LÝ NỀN NẾP – TÀI LIỆU GIỚI THIỆU SẢN PHẨM</span><span class="ph-right">Ưu việt so phương pháp cũ</span></div>
 <div class="content">
   <div class="section-hdr"><span>📊</span> V. ƯU VIỆT SO VỚI PHƯƠNG PHÁP CŨ</div>
-  <table><thead><tr><th>Tiêu chí</th><th>📓 Sổ giấy / Ghi tay</th><th>📊 Excel thủ công</th><th>🖥️ Nền Nếp CNT</th></tr></thead><tbody>
+  <table><thead><tr><th>Tiêu chí</th><th>📓 Sổ giấy / Ghi tay</th><th>📊 Excel thủ công</th><th>🖥️ Hệ thống Nền Nếp</th></tr></thead><tbody>
     ${[['Tốc độ nhập liệu','Chậm, dễ nhầm','Trung bình','⚡ Nhanh, gợi ý tự động'],['Tính điểm xếp hạng','Thủ công, sai số cao','Phải tự viết công thức','✅ Tự động, chính xác 100%'],['Tra cứu theo thời gian','Không có','Khó, phải sort tay','✅ Lọc tuần/tháng/HK tức thì'],['Xuất báo cáo','Gõ tay (2–3 giờ)','Copy-paste (30–60 phút)','✅ 1 cái bấm, dưới 5 giây'],['Truy cập từ xa','Không có','Gửi file qua Zalo','✅ Bất kỳ thiết bị, lúc nào'],['Phân quyền truy cập','Không có','Không có','✅ 4 mức, cấu hình linh hoạt'],['Lưu trữ lịch sử','Thất lạc theo năm','Tùy người quản lý','✅ Tập trung, tìm kiếm được'],['Chi phí hạ tầng','0đ (tốn thời gian)','0đ (tốn thời gian)','✅ Miễn phí nền tảng'],['Nhân rộng trường khác','Không thể','Khó','✅ Triển khai trong 1 tuần']].map(([t,a,b,c])=>`<tr><td style="font-weight:700">${t}</td><td class="td-red">${a}</td><td class="td-red">${b}</td><td class="td-grn">${c}</td></tr>`).join('')}
   </tbody></table>
   <div class="highlight" style="margin-top:18px"><h3>⏱️ Tiết kiệm thực tế</h3><p>So với sổ giấy, hệ thống giúp tiết kiệm <strong style="color:#1E459F">trung bình 8–12 giờ mỗi tháng</strong> cho công tác<br>tổng hợp và báo cáo nề nếp của Ban Đoàn và giáo viên chủ nhiệm.</p></div>
 </div>
-<div class="page-footer"><span class="pf-l">© 2026 Lương Hải Anh – Hệ thống Quản lý Nền nếp CNT</span><span class="pf-r">Trang 6 / 9</span></div>
+<div class="page-footer"><span class="pf-l">© 2026 Lương Hải Anh – 2Anh AI Education</span><span class="pf-r">Trang 6 / 9</span></div>
 </div>
 
 <!-- TRANG 7: CHI PHÍ -->
 <div class="page" id="page-7">
-<div class="page-header"><span class="ph-name">HỆ THỐNG QUẢN LÝ NỀN NẾP CNT – TÀI LIỆU GIỚI THIỆU SẢN PHẨM</span><span class="ph-right">Chi phí đầu tư nền tảng</span></div>
+<div class="page-header"><span class="ph-name">HỆ THỐNG QUẢN LÝ NỀN NẾP – TÀI LIỆU GIỚI THIỆU SẢN PHẨM</span><span class="ph-right">Chi phí đầu tư nền tảng</span></div>
 <div class="content">
   <div class="section-hdr"><span>💰</span> VI. CHI PHÍ ĐẦU TƯ NỀN TẢNG</div>
   <div style="background:linear-gradient(135deg,#e8f5e9,#f1f8e9);border:2px solid #4caf50;border-radius:10px;padding:20px;text-align:center;margin:10px 0 18px">
-    <div style="font-size:22px;font-weight:900;color:#2e7d32">✅ CHI PHÍ NỀN TẢNG: HOÀN TOÀN MIỄN PHÍ</div>
-    <div style="font-size:12px;color:#555;margin-top:8px">Toàn bộ hạ tầng vận hành dựa trên Google Workspace for Education (cấp miễn phí cho trường học)</div>
+    <div style="font-size:22px;font-weight:900;color:#2e7d32">✅ CHI PHÍ HẠ TẦNG: GẦN NHƯ BẰNG KHÔNG</div>
+    <div style="font-size:12px;color:#555;margin-top:8px">Với quy mô một trường THPT, toàn bộ hạ tầng nằm trong hạn mức miễn phí hằng ngày của Google Firebase — thực tế khoảng 0 đến 50.000đ/tháng</div>
   </div>
   <table><thead><tr><th>Thành phần</th><th>Mô tả</th><th style="width:120px;text-align:center">Chi phí</th></tr></thead><tbody>
-    ${[['Google Sheets','Cơ sở dữ liệu lưu trữ toàn bộ dữ liệu nền nếp'],['Google Apps Script','Backend xử lý logic nghiệp vụ, phân quyền, API'],['Netlify (Web Hosting)','Lưu trữ và phân phối giao diện web toàn cầu'],['Google Drive','Lưu trữ ảnh minh chứng vi phạm']].map(([n,d])=>`<tr><td style="font-weight:700">${n}</td><td>${d}</td><td class="td-grn" style="text-align:center">Miễn phí</td></tr>`).join('')}
+    ${[['Cloud Firestore','Cơ sở dữ liệu thời gian thực, mỗi trường một kho riêng biệt'],['Firebase Authentication','Đăng nhập, đặt lại mật khẩu, phân quyền theo vai trò'],['Cloud Functions','Xử lý nghiệp vụ nhạy cảm: cấp và khoá tài khoản'],['Firebase Storage','Lưu ảnh minh chứng, tự nén trước khi tải lên'],['Firebase Hosting','Phân phối giao diện qua mạng máy chủ toàn cầu, có SSL']].map(([n,d])=>`<tr><td style="font-weight:700">${n}</td><td>${d}</td><td class="td-grn" style="text-align:center">Trong hạn mức miễn phí</td></tr>`).join('')}
   </tbody></table>
   <div class="section-hdr" style="margin-top:20px"><span>📦</span> CÁC GÓI DỊCH VỤ TRIỂN KHAI</div>
   <table><thead><tr><th>Gói</th><th>Bao gồm</th><th>Thời gian</th><th>Phù hợp</th></tr></thead><tbody>
-    <tr><td style="font-weight:700;color:#1E459F">🚀 Cơ bản</td><td>Cài đặt + đào tạo 1 buổi + hỗ trợ 30 ngày</td><td style="color:#CF2A2A;font-weight:700">3–5 ngày</td><td>Trường đã có Google Workspace</td></tr>
+    <tr><td style="font-weight:700;color:#1E459F">🚀 Cơ bản</td><td>Cài đặt + đào tạo 1 buổi + hỗ trợ 30 ngày</td><td style="color:#CF2A2A;font-weight:700">3–5 ngày</td><td>Trường triển khai lần đầu</td></tr>
     <tr><td style="font-weight:700;color:#CF2A2A">⭐ Nâng cao</td><td>Cơ bản + tùy chỉnh tiêu chí, mẫu báo cáo + hỗ trợ 3 tháng</td><td style="color:#CF2A2A;font-weight:700">1 tuần</td><td>Trường cần tùy biến báo cáo</td></tr>
     <tr><td style="font-weight:700;color:#1E459F">🏆 Bảo trì dài hạn</td><td>Nâng cao + bảo trì định kỳ, thêm tính năng theo yêu cầu</td><td style="color:#CF2A2A;font-weight:700">Theo HĐ</td><td>Đồng hành dài hạn</td></tr>
   </tbody></table>
   <div class="card"><div style="color:#1E459F;font-weight:700;font-size:13px;margin-bottom:6px">💡 Lưu ý về đầu tư</div><p style="font-size:12px;color:#444;line-height:1.7">Chi phí duy nhất là thời gian cài đặt và đào tạo ban đầu. Không có phí thuê server, phí bản quyền hay phí duy trì hàng tháng. Trường chỉ cần có tài khoản Google.</p></div>
 </div>
-<div class="page-footer"><span class="pf-l">© 2026 Lương Hải Anh – Hệ thống Quản lý Nền nếp CNT</span><span class="pf-r">Trang 7 / 9</span></div>
+<div class="page-footer"><span class="pf-l">© 2026 Lương Hải Anh – 2Anh AI Education</span><span class="pf-r">Trang 7 / 9</span></div>
 </div>
 
 <!-- TRANG 8: NHÂN RỘNG -->
 <div class="page" id="page-8">
-<div class="page-header"><span class="ph-name">HỆ THỐNG QUẢN LÝ NỀN NẾP CNT – TÀI LIỆU GIỚI THIỆU SẢN PHẨM</span><span class="ph-right">Mô hình nhân rộng</span></div>
+<div class="page-header"><span class="ph-name">HỆ THỐNG QUẢN LÝ NỀN NẾP – TÀI LIỆU GIỚI THIỆU SẢN PHẨM</span><span class="ph-right">Mô hình nhân rộng</span></div>
 <div class="content">
   <div class="section-hdr"><span>🌐</span> VII. MÔ HÌNH NHÂN RỘNG</div>
   <p class="body-txt">Hệ thống được thiết kế từ đầu với khả năng <strong>nhân rộng ra nhiều trường học</strong>. Mỗi trường sẽ có phiên bản độc lập với dữ liệu riêng biệt. Triển khai đơn giản, không yêu cầu phần cứng đặc biệt.</p>
@@ -256,9 +256,9 @@ tr:nth-child(even) td{background:#f8f5ef;}
   </tbody></table>
   <div class="sub-hdr">⚙️ Yêu cầu tối thiểu</div>
   ${['Tài khoản Google (Gmail hoặc Google Workspace for Education của trường)','Kết nối Internet ổn định (để đồng bộ dữ liệu khi nhập liệu)','Thiết bị nhập liệu: smartphone hoặc máy tính (không cần cài đặt gì)','Ít nhất 1 người phụ trách kỹ thuật tại trường để phối hợp cài đặt'].map(t=>`<div class="bullet">${t}</div>`).join('')}
-  <div class="highlight"><h3>🏫 Mục tiêu nhân rộng</h3><p>Từ mô hình thành công tại THPT Chuyên Nguyễn Trãi, hướng tới triển khai tại<br><strong style="color:#CF2A2A">tất cả các trường THPT</strong> trên địa bàn TP. Hải Phòng và các tỉnh lân cận.</p></div>
+  <div class="highlight"><h3>🏫 Mục tiêu nhân rộng</h3><p>Từ mô hình đã chạy thật tại THPT Chuyên Nguyễn Trãi, sản phẩm sẵn sàng bàn giao cho<br><strong style="color:#CF2A2A">mọi trường THPT</strong> — mỗi trường một bản riêng, mang thương hiệu riêng, dữ liệu tách biệt.</p></div>
 </div>
-<div class="page-footer"><span class="pf-l">© 2026 Lương Hải Anh – Hệ thống Quản lý Nền nếp CNT</span><span class="pf-r">Trang 8 / 9</span></div>
+<div class="page-footer"><span class="pf-l">© 2026 Lương Hải Anh – 2Anh AI Education</span><span class="pf-r">Trang 8 / 9</span></div>
 </div>
 
 <!-- TRANG 9: LIÊN HỆ -->
@@ -270,20 +270,20 @@ tr:nth-child(even) td{background:#f8f5ef;}
     <p style="color:rgba(255,255,255,.7);font-size:13px">Để được tư vấn, báo giá hoặc triển khai thử nghiệm</p>
   </div>
   <div class="contact-box">
-    ${[['👤 Tác giả','Lương Hải Anh'],['🏫 Đơn vị','THPT Chuyên Nguyễn Trãi – TP. Hải Phòng'],['📧 Email','luonghaianh1208@gmail.com'],['📞 SĐT / Zalo','0328 186 264'],['🌐 Demo live','https://nennepcnt.netlify.app']].map(([l,v])=>`<div class="contact-row"><span class="c-lbl">${l}</span><span class="c-val">${v}</span></div>`).join('')}
+    ${[['👤 Tác giả','Lương Hải Anh'],['🏫 Đơn vị','2Anh AI Education'],['📧 Email','luonghaianh1208@gmail.com'],['📞 SĐT / Zalo','0328 186 264'],['🌐 Bản demo','https://nennep-demo.web.app']].map(([l,v])=>`<div class="contact-row"><span class="c-lbl">${l}</span><span class="c-val">${v}</span></div>`).join('')}
   </div>
   <div style="margin:12px 0 8px"><div style="color:#FABD32;font-weight:700;font-size:14px;text-align:center;margin-bottom:10px;text-transform:uppercase;letter-spacing:2px">Cam kết của tác giả</div>
   <div class="commit-box">
     <div class="commit-item">Sản phẩm đã vận hành thực tế tại THPT Chuyên Nguyễn Trãi từ đầu năm 2026</div>
-    <div class="commit-item">Phiên bản 3.1.3 (tháng 3/2026): tính năng quên mật khẩu tự động qua email — xác minh email, tạo CNT@xxxx mới, gửi thư HTML đẹp, không cần liên hệ admin</div>
-    <div class="commit-item">Phiên bản 3.1.2: import Excel hàng loạt tốc độ cao, skeleton loading, empty state thông minh, visual hierarchy form, cảnh báo cold-start</div>
+    <div class="commit-item">Phiên bản 4.0 (tháng 8/2026): chuyển sang nền tảng Firebase — đồng bộ trực tiếp theo thời gian thực, đăng nhập bảo mật chuẩn, ảnh minh chứng tự nén, mở ứng dụng nhanh gấp nhiều lần</div>
+    <div class="commit-item">Phiên bản 4.0: nhập khen thưởng theo hoạt động cho nhiều lớp một lượt, cấp tài khoản hàng loạt tự gửi thư đặt mật khẩu, giao diện mang thương hiệu riêng của trường</div>
     <div class="commit-item">Hỗ trợ kỹ thuật nhanh chóng, nhiệt tình trong suốt quá trình sử dụng</div>
     <div class="commit-item">Liên tục cập nhật, cải tiến theo phản hồi thực tế của đơn vị sử dụng</div>
     <div class="commit-item">Bảo mật thông tin học sinh theo quy định của Bộ Giáo dục và Đào tạo</div>
   </div></div>
   <div style="margin-top:auto;border-top:1px solid rgba(250,189,50,.3);padding-top:16px;text-align:center">
     <div style="font-size:14px;font-weight:900;color:#FABD32;margin-bottom:8px">© 2026 Lương Hải Anh. Bảo lưu mọi quyền.</div>
-    <div style="font-size:11px;color:rgba(255,255,255,.45);line-height:1.8">Tài liệu bảo mật. Nghiêm cấm sao chép, phát tán khi chưa có sự đồng ý bằng văn bản của tác giả.<br>Thương hiệu "Nền Nếp CNT" và toàn bộ giải pháp thuộc quyền sở hữu của tác giả.</div>
+    <div style="font-size:11px;color:rgba(255,255,255,.45);line-height:1.8">Tài liệu bảo mật. Nghiêm cấm sao chép, phát tán khi chưa có sự đồng ý bằng văn bản của tác giả.<br>Thương hiệu "Nền Nếp" và toàn bộ giải pháp thuộc quyền sở hữu của tác giả — 2Anh AI Education.</div>
   </div>
 </div>
 </div>

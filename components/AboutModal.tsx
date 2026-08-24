@@ -1,6 +1,6 @@
 // components/AboutModal.tsx
 import React from 'react';
-import { X, Download, ExternalLink, Shield, Users, BarChart3, FileText } from 'lucide-react';
+import { X, Download, ExternalLink, Shield, Users, BarChart3, FileText, Zap, Palette } from 'lucide-react';
 import { generateProductHtml } from '../utils/generateHtml';
 import { useAppStore } from '../contexts/AppContext';
 
@@ -21,10 +21,12 @@ const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   const features = [
-    { icon: <FileText size={16} />, label: 'Nhập liệu & Tra cứu vi phạm' },
-    { icon: <BarChart3 size={16} />, label: 'Xếp hạng & Báo cáo tự động' },
-    { icon: <Users size={16} />, label: 'Phân quyền đa cấp' },
-    { icon: <Shield size={16} />, label: 'Bảo mật server-side' },
+    { icon: <FileText size={16} />, label: 'Nhập vi phạm & khen thưởng nhiều lớp một lượt' },
+    { icon: <Zap size={16} />, label: 'Đồng bộ trực tiếp tuần đang diễn ra' },
+    { icon: <BarChart3 size={16} />, label: 'Xếp hạng & báo cáo Word/Excel tự động' },
+    { icon: <Users size={16} />, label: 'Cấp tài khoản hàng loạt, tự gửi thư đặt mật khẩu' },
+    { icon: <Shield size={16} />, label: 'Phân quyền thực thi ngay trong cơ sở dữ liệu' },
+    { icon: <Palette size={16} />, label: 'Mang thương hiệu riêng của từng trường' },
   ];
 
   return (
