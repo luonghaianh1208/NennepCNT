@@ -38,8 +38,6 @@ All core TypeScript interfaces live in [types.ts](types.ts). When adding new dat
 
 ## Critical Rules (from PROJECT_RULES.md)
 
-**No Supabase** — completely removed. Never add it back.
-
 **Batching** — GAS has cold-start latency. Any bulk operation (delete many, import Excel) MUST use batch endpoints. Never loop API calls on the client.
 
 **Password security** — `verifyLogin` is server-side only. `getAllData` returns `safeUser` objects with no password field. Reset password generates `CNT@xxxx` format and sends via GAS `MailApp` — do not change this format.

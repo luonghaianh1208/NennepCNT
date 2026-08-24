@@ -22,3 +22,14 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+# Worktrees
+.worktrees
+worktrees
+
+# Firebase
+firebase-admin-key.json
+*-firebase-adminsdk-*.json
+.firebase
+
+# Dữ liệu demo sinh ra từ script (ảnh + bản ghi thật, không đưa lên git)
+scripts/demo/out

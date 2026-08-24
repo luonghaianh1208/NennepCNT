@@ -5,7 +5,6 @@
 ## 1. Stack Công Nghệ & UI/UX
 - **Frontend Core:** Bắt buộc sử dụng `React.js` + `TypeScript` + `Vite` làm cốt lõi. Giao diện (Styling) hoàn toàn sử dụng `Tailwind CSS`.
 - **Theme chủ đạo:** Theo quy chuẩn "Đoàn" (Màu Đỏ, Vàng, sử dụng background gradient `from-red-700 to-red-900`, chữ màu `yellow-300`). Cần giữ nguyên các hiệu ứng animation (vd: sao rơi `star-fall`) đã có để duy trì bản sắc.
-- **Không dùng Supabase:** Dự án đã loại bỏ hoàn toàn Supabase. Tuyệt đối không thêm lại các library liên quan đến Supabase vào ứng dụng, mọi logic đều xử lý qua REST API của Google Apps Script.
 - **UI Components:** Ưu tiên tái sử dụng các components (như `LoginModal`, `LoadingSpinner`) hoặc hàm hiển thị (như modal hooks trong `ModalContext`) thay vì code lại từ đầu. Thêm `aria-label` và `title` trên các nút bấm để hỗ trợ Accessibily.
 
 ## 2. Quy Tắc Gọi API & Tối Ưu Tốc Độ Apps Script (GAS)
