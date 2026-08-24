@@ -22,7 +22,9 @@ service cloud.firestore {
     // Danh mục: đọc công khai, chỉ quản trị viên được sửa
     match /classes/{id}     { allow read: if true; allow write: if isAdmin(); }
     match /students/{id}    { allow read: if true; allow write: if isAdmin(); }
-    match /criteria/{id}    { allow read: if true; allow write: if isAdmin(); }
+    // Người nhập liệu được thêm tiêu chí mới khi ghi nhận hoạt động chưa có trong
+    // danh mục; sửa và xoá vẫn dành riêng cho quản trị viên
+    match /criteria/{id}    { allow read: if true; allow create: if signedIn(); allow update, delete: if isAdmin(); }
     match /timeConfigs/{id} { allow read: if true; allow write: if isAdmin(); }
     match /settings/{id}    { allow read: if true; allow write: if isAdmin(); }
 

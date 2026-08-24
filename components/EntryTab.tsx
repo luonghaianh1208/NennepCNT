@@ -6,6 +6,7 @@ import { api } from '../services/firebase';
 import { isDateInRange, removeVietnameseTones, exportToExcel, getLocalDateString, matchVietnamese, fuzzyMatchScore } from '../utils';
 import { useAppStore } from '../contexts/AppContext';
 import { useModal } from '../contexts/ModalContext';
+import AchievementBulkEntry from './AchievementBulkEntry';
 // xlsx + exceljs chỉ dùng khi import/tải file mẫu → nạp động, xem chú thích ở utils.ts
 import { saveAs } from 'file-saver';
 
@@ -684,6 +685,9 @@ const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
             </div>
           )}
 
+          {/* Thành tích nhập theo hoạt động: một hoạt động, nhiều lớp, lưu một lần */}
+          {entryMode === 'ACHIEVEMENT' ? <AchievementBulkEntry /> : (
+          <>
           <div>
             <label className="block text-xs font-medium text-slate-500 mb-1">Ngày ghi nhận</label>
             <input type="date" className="w-full p-3 rounded-lg border border-slate-200 bg-slate-50 text-slate-700" value={entryDate} onChange={(e) => setEntryDate(e.target.value)} />
@@ -783,8 +787,10 @@ const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
             className={`w-full text-white font-bold py-3.5 rounded-xl shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${entryMode === 'VIOLATION' ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'}`}
           >
             {isSubmitting ? <Loader2 className="animate-spin" /> : <CheckCircle2 />}
-            {isSubmitting ? 'Đang lưu...' : (entryMode === 'VIOLATION' ? 'Lưu Vi Phạm' : 'Lưu Thành Tích')}
+            {isSubmitting ? 'Đang lưu...' : 'Lưu Vi Phạm'}
           </button>
+          </>
+          )}
         </div>
       </div>
     </div>

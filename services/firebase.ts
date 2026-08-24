@@ -178,6 +178,12 @@ export const api = {
     return { status: 'success', created: records.length };
   },
 
+  // 4d. Thêm một tiêu chí mới (dùng khi nhập thành tích cho hoạt động chưa có sẵn)
+  createCriteria: async (criteria: { id: string; content: string; points: number; type: string }) => {
+    await setDoc(doc(db, 'criteria', criteria.id), criteria);
+    return { status: 'success' };
+  },
+
   // 5. Đồng bộ cấu hình (lớp, học sinh, tiêu chí, mốc thời gian)
   syncSettings: async (payload: {
     Classes: any[];

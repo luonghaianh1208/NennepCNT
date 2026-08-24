@@ -54,6 +54,11 @@ export interface Violation {
   reportedBy: string;
   isSecurityReport: boolean;
   timestamp: number;
+  // Dành cho thành tích nhập theo hoạt động (một hoạt động — nhiều lớp)
+  activityName?: string;
+  activityGroup?: string;
+  activityLevel?: string;
+  participants?: number;
 }
 
 export interface TimeConfig {
