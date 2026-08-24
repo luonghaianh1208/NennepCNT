@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { Plus, Trash2, CheckCircle2, Loader2, Camera, X, Star, Info } from 'lucide-react';
 import { Violation } from '../types';
-import { getLocalDateString, removeVietnameseTones } from '../utils';
+import { getLocalDateString, removeVietnameseTones, isDateOutsideAllConfigs } from '../utils';
 import { useAppStore } from '../contexts/AppContext';
 import { useModal } from '../contexts/ModalContext';
 import { api } from '../services/firebase';
@@ -23,8 +23,8 @@ const EMPTY_ROW = { classId: '', participants: '', prize: 'Nhất', points: '' }
 type Row = typeof EMPTY_ROW;
 
 const AchievementBulkEntry: React.FC = () => {
-  const { classes, criteria, setCriteria, violations, setViolations, currentUser } = useAppStore();
-  const { showToast, showAlert } = useModal();
+  const { classes, criteria, setCriteria, violations, setViolations, currentUser, timeConfigs } = useAppStore();
+  const { showToast, showAlert, showConfirm } = useModal();
 
   const [date, setDate] = useState(getLocalDateString());
   const [activityName, setActivityName] = useState('');
@@ -36,6 +36,12 @@ const AchievementBulkEntry: React.FC = () => {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const achievementCriteria = useMemo(() => criteria.filter(c => c.type === 'PLUS'), [criteria]);
+
+  // Ngày ngoài mọi mốc thời gian → bản ghi lưu được nhưng không vào xếp hạng
+  const dateOutOfRange = useMemo(
+    () => isDateOutsideAllConfigs(date, timeConfigs),
+    [date, timeConfigs],
+  );
 
   /** Gợi ý tên hoạt động: bóc phần giải thưởng khỏi tên tiêu chí đã có */
   const activitySuggestions = useMemo(() => {
@@ -102,6 +108,22 @@ const AchievementBulkEntry: React.FC = () => {
 
     const duplicated = filled.map(r => r.classId).filter((id, i, arr) => arr.indexOf(id) !== i);
     if (duplicated.length) return showToast('Một lớp xuất hiện ở hai dòng, kiểm tra lại', 'error');
+
+    // Ngày ngoài mốc thời gian: hỏi lại cho chắc, tránh ghi xong mà điểm không được tính
+    if (dateOutOfRange) {
+      const ok = await showConfirm({
+        title: 'Ngày nằm ngoài năm học',
+        message:
+          `Ngày ${date} không thuộc tuần, tháng hay học kỳ nào đã cấu hình.\n\n` +
+          `Bản ghi sẽ được lưu nhưng KHÔNG xuất hiện trong bảng xếp hạng, trang tổng quan ` +
+          `hay báo cáo tuần — chỉ tra cứu được khi lọc "Tất cả thời gian".\n\n` +
+          `Bạn muốn tiếp tục, hay quay lại đổi ngày?`,
+        type: 'danger',
+        confirmText: 'Vẫn lưu',
+        cancelText: 'Để tôi đổi ngày',
+      });
+      if (!ok) return;
+    }
 
     setIsSaving(true);
     try {
@@ -230,7 +252,19 @@ const AchievementBulkEntry: React.FC = () => {
 
           <div>
             <label className="block text-xs font-bold text-slate-600 mb-1">Ngày ghi nhận</label>
-            <input type="date" className="w-full p-3 rounded-lg border border-slate-300 bg-white" value={date} onChange={e => setDate(e.target.value)} />
+            <input
+              type="date"
+              className={`w-full p-3 rounded-lg border bg-white ${dateOutOfRange ? 'border-amber-400 ring-1 ring-amber-300' : 'border-slate-300'}`}
+              value={date}
+              onChange={e => setDate(e.target.value)}
+            />
+            {dateOutOfRange && (
+              <p className="text-xs text-amber-700 mt-1 leading-snug">
+                Ngày này nằm ngoài mọi tuần/tháng/học kỳ đã cấu hình. Bản ghi vẫn lưu được nhưng
+                <b> không được tính vào xếp hạng và báo cáo</b> — chọn ngày trong năm học, hoặc bổ
+                sung mốc thời gian ở phần Cấu hình.
+              </p>
+            )}
           </div>
 
           <div>

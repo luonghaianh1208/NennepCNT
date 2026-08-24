@@ -205,6 +205,15 @@ export interface RankingContext {
   isHK2?: boolean; // true khi đang chọn học kỳ 2 đơn lẻ → hiển thị điểm ×2
 }
 
+/**
+ * Ngày nằm ngoài mọi mốc thời gian đã cấu hình thì bản ghi vẫn lưu được nhưng
+ * không lọt vào xếp hạng, tổng quan hay báo cáo — cần cảnh báo người nhập.
+ */
+export const isDateOutsideAllConfigs = (dateStr: string, configs: TimeConfig[]): boolean => {
+  if (!dateStr || configs.length === 0) return false;
+  return !configs.some(c => isDateInRange(dateStr, c.startDate, c.endDate));
+};
+
 export const computeRankingContext = (
   violations: Violation[],
   timeConfigs: TimeConfig[],
