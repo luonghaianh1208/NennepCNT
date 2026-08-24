@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, Rea
 import { User, Violation, ClassEntity, Student, Criteria, TimeConfig, RoleConfig, AppTheme, AuditLog, AuditAction } from '../types';
 import { INITIAL_ROLE_DEFINITIONS, GUEST_USER, INITIAL_TIME_CONFIGS, getLocalDateString } from '../utils';
 import { api, subscribeToRange } from '../services/firebase';
+import { FALLBACK_BRANDING, getConfigBranding, type TenantBranding } from '../services/tenantConfig';
 
 // ─── MAX audit entries to keep in localStorage ───────────────────────────────
 const MAX_AUDIT_ENTRIES = 500;
@@ -24,6 +25,10 @@ interface AppContextType {
   setTimeConfigs: React.Dispatch<React.SetStateAction<TimeConfig[]>>;
   roleConfigs: Record<string, RoleConfig>;
   setRoleConfigs: React.Dispatch<React.SetStateAction<Record<string, RoleConfig>>>;
+
+  // Thương hiệu của trường (tên, logo, khẩu hiệu) — mỗi bản triển khai một khác
+  branding: TenantBranding;
+  saveBranding: (next: TenantBranding) => Promise<boolean>;
 
   // Audit
   auditLogs: AuditLog[];
@@ -98,6 +103,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // Audit logs — loaded from DB (và fallback localStorage)
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [branding, setBranding] = useState<TenantBranding>({
+    ...FALLBACK_BRANDING,
+    ...getConfigBranding(),
+  });
 
   // ── Audit log helper ──────────────────────────────────────────────────────
   const logAction = useCallback((
@@ -311,6 +320,27 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  // ── Thương hiệu của trường ────────────────────────────────────────────────
+  useEffect(() => {
+    api.getBranding().then(saved => {
+      if (saved) setBranding(prev => ({ ...prev, ...saved }));
+      if (saved?.shortName) document.title = saved.shortName;
+    });
+  }, []);
+
+  const saveBranding = async (next: TenantBranding): Promise<boolean> => {
+    try {
+      await api.saveBranding(next);
+      setBranding(next);
+      if (next.shortName) document.title = next.shortName;
+      logAction(currentUser, 'SYNC_SETTINGS', `Cập nhật thương hiệu: ${next.schoolName}`);
+      return true;
+    } catch (e) {
+      console.error('saveBranding error:', e);
+      return false;
+    }
+  };
+
   // ── Init ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     fetchData(true);
@@ -354,6 +384,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       currentUser, setCurrentUser,
       appTheme, setAppTheme,
       isLoading, isRefreshing, liveWeek,
+      branding, saveBranding,
       unsavedChanges, setUnsavedChanges,
       academicYear, setAcademicYear,
       fetchData, refreshData, syncSettings, syncUsers,

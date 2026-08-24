@@ -49,7 +49,7 @@ export default function App() {
   const {
     currentUser, setCurrentUser,
     users, roleConfigs,
-    isLoading, isRefreshing, refreshData, liveWeek,
+    isLoading, isRefreshing, refreshData, liveWeek, branding,
     violations,
     deleteViolation, deleteViolations, updateViolation,
     setViolations,
@@ -224,9 +224,22 @@ export default function App() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center text-slate-500 gap-3">
-        <Loader2 className="animate-spin text-red-600" size={40} />
-        <p className="font-medium">Đang tải dữ liệu từ hệ thống...</p>
+      // Màn hình chờ vẫn mang thương hiệu nhà trường — đây là thứ người dùng
+      // nhìn thấy đầu tiên, để trắng trơn thì phí
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center text-slate-500 gap-3 px-6">
+        {branding.logoUrl ? (
+          <img src={branding.logoUrl} alt={branding.schoolName} className="w-16 h-16 object-contain mb-1" />
+        ) : (
+          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-red-700 to-red-900 text-yellow-300 font-black text-2xl flex items-center justify-center mb-1 shadow-lg">
+            {branding.shortName.trim().charAt(0) || 'N'}
+          </div>
+        )}
+        <div className="text-center">
+          <div className="font-black text-red-800 text-lg leading-tight">{branding.shortName}</div>
+          <div className="text-xs text-slate-500 uppercase tracking-widest mt-0.5">{branding.schoolName}</div>
+        </div>
+        <Loader2 className="animate-spin text-red-600 mt-2" size={28} />
+        <p className="text-sm">Đang tải dữ liệu từ hệ thống...</p>
       </div>
     );
   }
@@ -263,13 +276,20 @@ export default function App() {
           {/* Left: Logo + Title */}
           <div className="flex items-center gap-3">
             <div className="flex -space-x-2">
-              <img src="https://upload.wikimedia.org/wikipedia/commons/7/70/THPT_Chuyen_Nguyen_Trai.png" alt="CNT" className="w-9 h-9 object-contain bg-white rounded-full p-0.5 shadow-md z-10" />
-              <img src="https://upload.wikimedia.org/wikipedia/vi/0/09/Huy_Hi%E1%BB%87u_%C4%90o%C3%A0n.png" alt="Doan" className="w-9 h-9 object-contain drop-shadow-md z-0" />
+              {/* Logo của trường — đặt trong Thiết lập → Thương hiệu */}
+              {branding.logoUrl ? (
+                <img src={branding.logoUrl} alt={branding.schoolName} className="w-9 h-9 object-contain bg-white rounded-full p-0.5 shadow-md z-10" />
+              ) : (
+                <div className="w-9 h-9 rounded-full bg-white/90 text-red-800 font-black flex items-center justify-center shadow-md z-10 text-sm">
+                  {branding.shortName.trim().charAt(0) || 'N'}
+                </div>
+              )}
+              <img src="https://upload.wikimedia.org/wikipedia/vi/0/09/Huy_Hi%E1%BB%87u_%C4%90o%C3%A0n.png" alt="Đoàn TNCS Hồ Chí Minh" className="w-9 h-9 object-contain drop-shadow-md z-0" />
             </div>
             <div>
-              <h1 className="text-xl font-black tracking-tight leading-none text-yellow-300">NỀN NẾP CNT</h1>
+              <h1 className="text-xl font-black tracking-tight leading-none text-yellow-300">{branding.shortName}</h1>
               <div className="text-[10px] text-yellow-300 font-bold uppercase tracking-widest mt-0.5 flex items-center gap-1">
-                <span>★ 95 năm Đoàn TNCS Hồ Chí Minh</span>
+                <span className="truncate max-w-[220px]">{branding.schoolName}</span>
               </div>
             </div>
           </div>
@@ -383,6 +403,16 @@ export default function App() {
           <div className="text-center py-20 text-slate-400">Bạn không có quyền truy cập.</div>
         )}
         </React.Suspense>
+
+        {/* Bản quyền — cố định, không cấu hình theo từng trường */}
+        <div className="pt-6 pb-2 text-center">
+          <button
+            onClick={() => setShowAbout(true)}
+            className="text-[11px] text-slate-400 hover:text-slate-600 transition-colors"
+          >
+            Phát triển bởi <span className="font-semibold">2Anh AI Education</span> · Lương Hải Anh
+          </button>
+        </div>
       </main>
 
       {/* ── BOTTOM NAV ─────────────────────────────────────────────────────── */}

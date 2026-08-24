@@ -7,8 +7,14 @@
 // điểm âm → collection `achievements` (thành tích).
 
 import { initializeApp } from 'firebase/app';
+import type { Firestore } from 'firebase/firestore';
+import type { Auth } from 'firebase/auth';
+import type { FirebaseStorage } from 'firebase/storage';
+import type { Functions } from 'firebase/functions';
+import type { TenantConfig, TenantBranding } from './tenantConfig';
 import {
   initializeFirestore,
+  getDoc,
   persistentLocalCache,
   persistentMultipleTabManager,
   collection,
@@ -38,28 +44,28 @@ import {
 import { getStorage, ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 
-const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+// Firebase khởi tạo bằng cấu hình của từng trường, nạp lúc chạy (xem tenantConfig.ts).
+// initFirebase() phải chạy xong trước khi render app — index.tsx lo việc đó.
+export let db: Firestore;
+export let auth: Auth;
+export let storage: FirebaseStorage;
+let functions: Functions;
+
+export const initFirebase = (config: TenantConfig['firebase']) => {
+  const app = initializeApp(config);
+
+  // Cache trên máy: lần mở sau dữ liệu hiện gần như tức thì rồi mới đồng bộ nền,
+  // và vẫn xem được khi mạng trường chập chờn
+  db = initializeFirestore(app, {
+    localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+  });
+  auth = getAuth(app);
+  storage = getStorage(app);
+  functions = getFunctions(app, 'asia-southeast1');
+
+  // Email đặt lại mật khẩu do Firebase gửi — đặt tiếng Việt để giáo viên đọc hiểu ngay
+  auth.languageCode = 'vi';
 };
-
-const app = initializeApp(firebaseConfig);
-
-// Cache trên máy: lần mở sau dữ liệu hiện gần như tức thì rồi mới đồng bộ nền,
-// và vẫn xem được khi mạng trường chập chờn
-export const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
-});
-export const auth = getAuth(app);
-export const storage = getStorage(app);
-const functions = getFunctions(app, 'asia-southeast1');
-
-// Email đặt lại mật khẩu do Firebase gửi — đặt tiếng Việt để giáo viên đọc hiểu ngay
-auth.languageCode = 'vi';
 
 const MAX_BATCH = 400; // dưới hạn 500 thao tác/batch của Firestore
 
@@ -176,6 +182,34 @@ export const api = {
       batch.set(doc(db, collectionFor(r.points), String(r.id)), r);
     });
     return { status: 'success', created: records.length };
+  },
+
+  // 4e. Thương hiệu của trường — tên, logo, khẩu hiệu, năm học
+  getBranding: async (): Promise<Partial<TenantBranding> | null> => {
+    try {
+      const snap = await getDoc(doc(db, 'settings', 'branding'));
+      return snap.exists() ? (snap.data() as Partial<TenantBranding>) : null;
+    } catch (e) {
+      console.warn('Không đọc được thương hiệu:', e);
+      return null;
+    }
+  },
+
+  saveBranding: async (branding: Partial<TenantBranding>) => {
+    await setDoc(doc(db, 'settings', 'branding'), branding, { merge: true });
+    return { status: 'success' };
+  },
+
+  /** Tải logo trường lên Storage, trả về đường dẫn dùng được ngay trong thẻ img */
+  uploadLogo: async (base64: string) => {
+    try {
+      const fileRef = ref(storage, `branding/logo_${Date.now()}`);
+      await uploadString(fileRef, base64, 'data_url');
+      return { status: 'success', url: await getDownloadURL(fileRef) };
+    } catch (e: any) {
+      console.error('uploadLogo error:', e);
+      return { status: 'error', message: e?.message ?? String(e) };
+    }
   },
 
   // 4d. Thêm một tiêu chí mới (dùng khi nhập thành tích cho hoạt động chưa có sẵn)

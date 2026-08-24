@@ -2,6 +2,10 @@
 import React from 'react';
 import { X, Download, ExternalLink, Shield, Users, BarChart3, FileText } from 'lucide-react';
 import { generateProductHtml } from '../utils/generateHtml';
+import { useAppStore } from '../contexts/AppContext';
+
+/** Phiên bản và bản quyền — cố định, trường sử dụng không sửa được từ giao diện */
+export const APP_VERSION = '4.0 — Nền tảng Firebase';
 
 interface AboutModalProps {
   isOpen: boolean;
@@ -9,6 +13,7 @@ interface AboutModalProps {
 }
 
 const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
+  const { branding } = useAppStore();
   const handleDownload = () => {
     generateProductHtml();
   };
@@ -48,14 +53,20 @@ const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
             <div className="flex items-start justify-between relative z-10">
               <div className="flex items-center gap-3">
                 <div className="flex -space-x-2">
-                  <img src="https://upload.wikimedia.org/wikipedia/commons/7/70/THPT_Chuyen_Nguyen_Trai.png"
-                    alt="CNT" className="w-10 h-10 object-contain bg-white rounded-full p-0.5 shadow-md z-10" />
+                  {branding.logoUrl ? (
+                    <img src={branding.logoUrl} alt={branding.schoolName}
+                      className="w-10 h-10 object-contain bg-white rounded-full p-0.5 shadow-md z-10" />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-white text-red-800 font-black flex items-center justify-center shadow-md z-10">
+                      {branding.shortName.trim().charAt(0) || 'N'}
+                    </div>
+                  )}
                   <img src="https://upload.wikimedia.org/wikipedia/vi/0/09/Huy_Hi%E1%BB%87u_%C4%90o%C3%A0n.png"
                     alt="Đoàn" className="w-10 h-10 object-contain z-0" />
                 </div>
                 <div>
-                  <h2 className="text-white font-black text-lg leading-tight">NỀN NẾP CNT</h2>
-                  <p className="text-yellow-300 text-xs font-semibold">Hệ Thống Quản Lý Nền Nếp</p>
+                  <h2 className="text-white font-black text-lg leading-tight">{branding.shortName}</h2>
+                  <p className="text-yellow-300 text-xs font-semibold">{branding.slogan || 'Hệ Thống Quản Lý Nền Nếp'}</p>
                 </div>
               </div>
               <button onClick={onClose} className="text-white/70 hover:text-white transition-colors mt-1">
@@ -82,9 +93,10 @@ const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
           {/* Info rows */}
           <div className="px-4 mt-4 space-y-2">
             {[
-              ['Phiên bản', '3.1.3 — Tháng 3/2026'],
-              ['Tác giả', 'Lương Hải Anh'],
-              ['Đơn vị', 'THPT Chuyên Nguyễn Trãi – Hải Phòng'],
+              ['Đơn vị sử dụng', branding.schoolName],
+              ['Năm học', branding.academicYear || '—'],
+              ['Phiên bản', APP_VERSION],
+              ['Tác giả', 'Lương Hải Anh — 2Anh AI Education'],
               ['Nền tảng', 'Web App (iOS · Android · Desktop)'],
             ].map(([label, val]) => (
               <div key={label} className="flex items-center justify-between py-1.5 border-b border-slate-100 last:border-0">
@@ -97,7 +109,7 @@ const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
           {/* Live link */}
           <div className="px-4 mt-3">
             <a
-              href="https://nennepcnt.netlify.app"
+              href="https://nennep-demo.web.app"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center gap-2 w-full py-2.5 bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 rounded-xl text-sm font-semibold text-blue-700 transition-all"
@@ -124,7 +136,7 @@ const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
           {/* Copyright */}
           <div className="border-t border-slate-100 px-4 py-3 text-center bg-slate-50 rounded-none">
             <p className="text-[10px] text-slate-400">
-              © 2026 Lương Hải Anh · THPT Chuyên Nguyễn Trãi · Hải Phòng
+              © 2026 Lương Hải Anh · 2Anh AI Education
             </p>
             <p className="text-[10px] text-slate-400 mt-0.5">
               Bảo lưu mọi quyền — Không sao chép khi chưa được phép

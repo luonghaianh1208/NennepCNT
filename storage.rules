@@ -4,6 +4,15 @@ rules_version = '2';
 // chỉ người đã đăng nhập mới tải ảnh mới lên, giới hạn 10MB và đúng định dạng ảnh.
 service firebase.storage {
   match /b/{bucket}/o {
+    // Logo trường: ai cũng xem được, chỉ quản trị viên được thay
+    match /branding/{file} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && request.auth.token.role == 'ADMIN'
+                   && request.resource.size < 2 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+
     match /violations/{file} {
       allow read: if true;
       allow write: if request.auth != null
