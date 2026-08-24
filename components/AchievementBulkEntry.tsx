@@ -296,10 +296,10 @@ const AchievementBulkEntry: React.FC = () => {
         <div className="overflow-x-auto">
         <table className="w-full text-sm table-fixed min-w-[440px]">
           <colgroup>
-            <col className="w-[38%]" />
-            <col className="w-[16%]" />
-            <col className="w-[26%]" />
-            <col className="w-[13%]" />
+            <col className="w-[31%]" />
+            <col className="w-[15%]" />
+            <col className="w-[25%]" />
+            <col className="w-[22%]" />
             <col className="w-[7%]" />
           </colgroup>
           <thead className="bg-slate-50 text-xs uppercase text-slate-500 font-bold">
@@ -332,7 +332,7 @@ const AchievementBulkEntry: React.FC = () => {
                   <td className="px-2 py-2">
                     <input
                       type="number" min={0}
-                      className="w-full p-2 rounded border border-slate-200 bg-white text-center"
+                      className="w-full p-2 rounded border border-slate-200 bg-white text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       placeholder="0"
                       value={row.participants}
                       onChange={e => updateRow(i, { participants: e.target.value })}
@@ -350,7 +350,7 @@ const AchievementBulkEntry: React.FC = () => {
                   <td className="px-2 py-2">
                     <input
                       type="number" min={0}
-                      className={`w-full p-2 rounded border bg-white font-bold text-center ${suggested ? 'border-green-300 text-green-700' : 'border-slate-200 text-slate-700'}`}
+                      className={`w-full p-2 rounded border bg-white font-bold text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${suggested ? 'border-green-300 text-green-700' : 'border-slate-200 text-slate-700'}`}
                       placeholder="0"
                       title={suggested ? `Gợi ý từ tiêu chí "${suggested.content}"` : 'Hoạt động chưa có trong danh mục — tự nhập điểm'}
                       value={row.points}
