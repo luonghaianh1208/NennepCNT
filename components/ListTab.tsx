@@ -34,7 +34,8 @@ const ListTab: React.FC<ListTabProps> = ({
   filterClassId, setFilterClassId,
   filterCriteriaType, setFilterCriteriaType,
 }) => {
-  const { currentUser, violations, classes, students, criteria, users, roleConfigs, timeConfigs, isRefreshing } = useAppStore();
+  const { currentUser, violations, classes, students, criteria, users, roleConfigs, timeConfigs, isRefreshing,
+    isBackgroundLoading, ensureRangeLoaded, ensureAllLoaded } = useAppStore();
   const { showToast } = useModal();
 
   // Local-only state (không cần persist)
@@ -61,6 +62,16 @@ const ListTab: React.FC<ListTabProps> = ({
          }
      }
   }, [filterMode, timeConfigs, filterConfigId]);
+
+  // Dữ liệu chỉ tải sẵn cho khoảng đang diễn ra — chọn mốc khác thì lấy thêm
+  useEffect(() => {
+    if (filterMode === 'ALL') {
+      ensureAllLoaded();
+      return;
+    }
+    const config = timeConfigs.find(c => c.id === filterConfigId);
+    if (config) ensureRangeLoaded(config.startDate, config.endDate);
+  }, [filterMode, filterConfigId, timeConfigs, ensureRangeLoaded, ensureAllLoaded]);
 
   // Reset pagination when filters change
   useEffect(() => {
@@ -335,6 +346,9 @@ const ListTab: React.FC<ListTabProps> = ({
             <div className="flex items-center gap-2 italic">
                 <ListChecks size={16} className="text-blue-500" />
                 <span>Hiển thị <strong>{visibleViolations.length}</strong> / {filteredViolations.length} kết quả phù hợp.</span>
+                {isBackgroundLoading && (
+                  <span className="ml-2 text-blue-600 font-semibold animate-pulse">đang lấy thêm dữ liệu…</span>
+                )}
             </div>
             {showDuplicatesOnly && (
                 <span className="text-orange-600 font-bold text-xs bg-orange-50 px-2 py-1 rounded border border-orange-100 animate-pulse">

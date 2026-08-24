@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { User, Violation, ClassEntity, Student, Criteria, TimeConfig, RoleConfig, AppTheme, AuditLog, AuditAction } from '../types';
 import { INITIAL_ROLE_DEFINITIONS, GUEST_USER, INITIAL_TIME_CONFIGS, getLocalDateString } from '../utils';
 import { api, subscribeToRange } from '../services/firebase';
@@ -41,8 +41,14 @@ interface AppContextType {
   setAppTheme: (theme: AppTheme) => void;
   isLoading: boolean;
   isRefreshing: boolean;
+  /** Đang lấy thêm dữ liệu ở chế độ nền — giao diện vẫn dùng được bình thường */
+  isBackgroundLoading: boolean;
   /** Tuần đang được theo dõi trực tiếp (null nếu chưa xác định được tuần nào) */
   liveWeek: TimeConfig | null;
+  /** Bảo đảm đã có dữ liệu cho một khoảng ngày trước khi hiển thị số liệu */
+  ensureRangeLoaded: (start: string, end: string) => Promise<void>;
+  /** Bảo đảm đã có toàn bộ dữ liệu (dùng khi chọn "tất cả thời gian") */
+  ensureAllLoaded: () => Promise<void>;
   unsavedChanges: boolean;
   setUnsavedChanges: React.Dispatch<React.SetStateAction<boolean>>;
   academicYear: string;
@@ -157,47 +163,136 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     localStorage.setItem('nnp_app_theme', theme);
   };
 
-  // ── Fetch data ────────────────────────────────────────────────────────────
+  // ── Tải dữ liệu theo lớp ưu tiên ──────────────────────────────────────────
+  //
+  // Đợt 1 (chặn giao diện): danh mục nhỏ + vi phạm của tuần này và tuần trước
+  //   → chỉ khoảng trăm bản ghi, app dùng được ngay.
+  // Đợt 2 (chạy nền): danh bạ học sinh/tài khoản, rồi phần còn lại của học kỳ.
+  // Khoảng nào chưa tải mà người dùng chọn xem thì lấy thêm đúng khoảng đó.
+
+  const [isBackgroundLoading, setIsBackgroundLoading] = useState(false);
+  /** Những khoảng ngày đã có đủ dữ liệu trong bộ nhớ */
+  const loadedRanges = useRef<{ start: string; end: string }[]>([]);
+  const loadedAll = useRef(false);
+
+  const mergeRecords = useCallback((incoming: Violation[]) => {
+    setViolations(prev => {
+      const map = new Map(prev.map(v => [v.id, v]));
+      incoming.forEach(v => map.set(v.id, v));
+      return [...map.values()].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    });
+  }, []);
+
+  const normalizeDate = (s: string) => (s && s.includes('T') ? s.split('T')[0] : s || '');
+
+  const isRangeLoaded = (start: string, end: string) =>
+    loadedAll.current || loadedRanges.current.some(r => r.start <= start && r.end >= end);
+
+  /** Lấy thêm dữ liệu cho một khoảng thời gian nếu chưa có */
+  const ensureRangeLoaded = useCallback(async (start: string, end: string) => {
+    if (!start || !end || isRangeLoaded(start, end)) return;
+    setIsBackgroundLoading(true);
+    try {
+      const records = await api.getRecordsInRange(start, end);
+      loadedRanges.current = [...loadedRanges.current, { start, end }];
+      mergeRecords(records as Violation[]);
+    } catch (e) {
+      console.error('ensureRangeLoaded error:', e);
+    } finally {
+      setIsBackgroundLoading(false);
+    }
+  }, [mergeRecords]);
+
+  /** Người dùng chọn xem "tất cả thời gian" thì mới thực sự kéo hết */
+  const ensureAllLoaded = useCallback(async () => {
+    if (loadedAll.current) return;
+    setIsBackgroundLoading(true);
+    try {
+      const records = await api.getAllRecords();
+      loadedAll.current = true;
+      mergeRecords(records as Violation[]);
+    } catch (e) {
+      console.error('ensureAllLoaded error:', e);
+    } finally {
+      setIsBackgroundLoading(false);
+    }
+  }, [mergeRecords]);
+
   const fetchData = useCallback(async (showLoading = true) => {
     if (showLoading) setIsLoading(true);
     else setIsRefreshing(true);
 
     try {
-      const data = await api.getAllData();
-      if (data) {
-        if (data.Users) setUsers(data.Users);
-        if (data.Classes) setClasses(data.Classes);
-        if (data.Students) setStudents(data.Students);
-        if (data.Criteria) setCriteria(data.Criteria);
-        if (data.Violations) setViolations(data.Violations);
+      // ── Đợt 1: danh mục + khoảng thời gian đang diễn ra ──────────────────
+      const core = await api.getCoreData();
+      setClasses(core.classes);
+      setCriteria(core.criteria);
 
-        if (data.TimeConfigs && data.TimeConfigs.length > 0) {
-          const normalizeDate = (s: string) => (s && s.includes('T') ? s.split('T')[0] : s || '');
-          const normalizedTimeConfigs = data.TimeConfigs.map((tc: TimeConfig) => ({
-            ...tc,
-            startDate: normalizeDate(tc.startDate),
-            endDate: normalizeDate(tc.endDate),
-          }));
-          setTimeConfigs(normalizedTimeConfigs);
-        }
+      const configs = core.timeConfigs.map((tc: TimeConfig) => ({
+        ...tc,
+        startDate: normalizeDate(tc.startDate),
+        endDate: normalizeDate(tc.endDate),
+      }));
+      if (configs.length) setTimeConfigs(configs);
 
-        // Load audit logs từ DB (cấp thấp hơn, không đợi)
-        api.getAuditLogs().then(logs => {
-          if (Array.isArray(logs) && logs.length > 0) {
-            setAuditLogs(logs.slice(-MAX_AUDIT_ENTRIES));
-          }
-        }).catch(() => {
-          // Fallback: dùng localStorage
-          setAuditLogs(loadAuditLogs());
-        });
+      const weeks = configs
+        .filter((t: TimeConfig) => t.type === 'WEEK' && t.startDate && t.endDate)
+        .sort((a: TimeConfig, b: TimeConfig) => a.startDate.localeCompare(b.startDate));
+
+      const today = getLocalDateString();
+      const currentIdx = weeks.findIndex((w: TimeConfig) => today >= w.startDate && today <= w.endDate);
+      // Ngoài năm học thì bám hai tuần cuối cùng để màn hình vẫn có số liệu
+      const lastIdx = weeks.length - 1;
+      const idx = currentIdx > -1 ? currentIdx : lastIdx;
+      const window = weeks.length
+        ? { start: weeks[Math.max(0, idx - 1)].startDate, end: weeks[idx].endDate }
+        : null;
+
+      if (window) {
+        const records = await api.getRecordsInRange(window.start, window.end);
+        loadedRanges.current = [window];
+        loadedAll.current = false;
+        setViolations(records as Violation[]);
+      } else {
+        // Chưa cấu hình tuần nào thì đành lấy hết
+        const records = await api.getAllRecords();
+        loadedAll.current = true;
+        setViolations(records as Violation[]);
       }
+
+      if (showLoading) setIsLoading(false);
+      else setIsRefreshing(false);
+
+      // ── Đợt 2: chạy nền, không chặn giao diện ────────────────────────────
+      setIsBackgroundLoading(true);
+      api.getDirectory()
+        .then(({ students: st, users: us }) => {
+          setStudents(st);
+          setUsers(us);
+        })
+        .then(async () => {
+          // Nạp nốt học kỳ đang diễn ra để xếp hạng và báo cáo có đủ số liệu
+          const semesters = configs.filter((t: TimeConfig) => t.type === 'SEMESTER');
+          const currentSemester =
+            semesters.find((s: TimeConfig) => today >= s.startDate && today <= s.endDate) ??
+            semesters[semesters.length - 1];
+          if (currentSemester) {
+            await ensureRangeLoaded(currentSemester.startDate, currentSemester.endDate);
+          }
+        })
+        .catch(e => console.error('Tải nền lỗi:', e))
+        .finally(() => setIsBackgroundLoading(false));
+
+      // Nhật ký thao tác: chỉ người đã đăng nhập mới đọc được
+      api.getAuditLogs().then(logs => {
+        if (Array.isArray(logs) && logs.length > 0) setAuditLogs(logs.slice(-MAX_AUDIT_ENTRIES));
+      }).catch(() => setAuditLogs(loadAuditLogs()));
     } catch (e) {
       console.error('fetchData error:', e);
-    } finally {
       if (showLoading) setIsLoading(false);
       else setIsRefreshing(false);
     }
-  }, []);
+  }, [ensureRangeLoaded]);
 
   const refreshData = () => fetchData(false);
 
@@ -383,7 +478,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       auditLogs, clearAuditLogs,
       currentUser, setCurrentUser,
       appTheme, setAppTheme,
-      isLoading, isRefreshing, liveWeek,
+      isLoading, isRefreshing, isBackgroundLoading, liveWeek,
+      ensureRangeLoaded, ensureAllLoaded,
       branding, saveBranding,
       unsavedChanges, setUnsavedChanges,
       academicYear, setAcademicYear,

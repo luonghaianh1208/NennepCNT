@@ -26,7 +26,18 @@ const RankingTab: React.FC<RankingTabProps> = ({
   setGradeTab: setRankingGradeTab,
   onNavigateToList,
 }) => {
-  const { classes, violations, criteria, students, timeConfigs, roleConfigs, currentUser } = useAppStore();
+  const { classes, violations, criteria, students, timeConfigs, roleConfigs, currentUser,
+    isBackgroundLoading, ensureRangeLoaded, ensureAllLoaded } = useAppStore();
+
+  // Chọn kỳ nào thì bảo đảm đã có dữ liệu của kỳ đó rồi mới tính điểm
+  useEffect(() => {
+    if (rankingFilterMode === 'ALL') {
+      ensureAllLoaded();
+      return;
+    }
+    const config = timeConfigs.find(c => c.id === rankingFilterConfigId);
+    if (config) ensureRangeLoaded(config.startDate, config.endDate);
+  }, [rankingFilterMode, rankingFilterConfigId, timeConfigs, ensureRangeLoaded, ensureAllLoaded]);
   const { showToast } = useModal();
 
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
@@ -269,6 +280,11 @@ const RankingTab: React.FC<RankingTabProps> = ({
             <Trophy className="text-yellow-400" /> Bảng Vàng Thi Đua
             </h2>
             <p className="text-blue-100 text-sm opacity-90">{timeLabel}</p>
+            {isBackgroundLoading && (
+              <p className="text-yellow-300 text-xs mt-1 animate-pulse">
+                Đang lấy dữ liệu của kỳ này, số liệu sẽ đầy đủ sau giây lát…
+              </p>
+            )}
         </div>
       </div>
 

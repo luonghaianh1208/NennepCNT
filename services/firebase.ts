@@ -104,7 +104,51 @@ const replaceCollection = async (name: string, items: any[]) => {
 };
 
 export const api = {
-  // 1. Lấy toàn bộ dữ liệu — trả về đúng hình dạng mà AppContext đang chờ
+  // 1a. Danh mục nhỏ, cần ngay để vẽ được màn hình đầu tiên
+  getCoreData: async () => {
+    const [classes, criteria, timeConfigs] = await Promise.all([
+      readAll('classes'),
+      readAll('criteria'),
+      readAll('timeConfigs'),
+    ]);
+    return { classes, criteria, timeConfigs };
+  },
+
+  // 1b. Danh bạ — chỉ cần để hiện tên, tải nền sau khi giao diện đã lên
+  getDirectory: async () => {
+    const [students, users] = await Promise.all([readAll('students'), readAll('users')]);
+    return { students, users };
+  },
+
+  /**
+   * 1c. Vi phạm và thành tích trong một khoảng ngày.
+   * Đây là chỗ tiết kiệm chính: thay vì kéo cả năm học mỗi lần mở app, chỉ lấy
+   * đúng khoảng đang xem.
+   */
+  getRecordsInRange: async (startDate: string, endDate: string) => {
+    const fetchRange = async (name: string) => {
+      const snap = await getDocs(
+        query(collection(db, name), where('date', '>=', startDate), where('date', '<=', endDate)),
+      );
+      return snap.docs.map((d) => ({ ...d.data(), id: d.id })) as any[];
+    };
+    const [violations, achievements] = await Promise.all([
+      fetchRange('violations'),
+      fetchRange('achievements'),
+    ]);
+    return [...violations, ...achievements];
+  },
+
+  /** 1d. Toàn bộ bản ghi — chỉ dùng khi người dùng thật sự chọn xem tất cả */
+  getAllRecords: async () => {
+    const [violations, achievements] = await Promise.all([
+      readAll('violations'),
+      readAll('achievements'),
+    ]);
+    return [...violations, ...achievements];
+  },
+
+  // 1. Lấy toàn bộ dữ liệu — giữ lại cho các luồng cũ cần một lần đủ hết
   getAllData: async () => {
     try {
       const [users, classes, students, criteria, violations, achievements, timeConfigs] =
