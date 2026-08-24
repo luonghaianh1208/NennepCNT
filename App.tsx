@@ -26,6 +26,7 @@ import { api, onAuthChange, signOut } from './services/firebase';
 import DashboardTab from './components/DashboardTab';
 import AboutModal from './components/AboutModal';
 import LoginModal from './components/LoginModal';
+import ContentSkeleton from './components/ContentSkeleton';
 
 // Các tab còn lại nạp khi người dùng bấm vào, không kéo hết vào lần mở app đầu.
 // Riêng ClassDetailTab kéo theo recharts nên tách ra là đáng nhất.
@@ -222,28 +223,6 @@ export default function App() {
     opacity: Math.random() * 0.5 + 0.5,
   })), []);
 
-  if (isLoading) {
-    return (
-      // Màn hình chờ vẫn mang thương hiệu nhà trường — đây là thứ người dùng
-      // nhìn thấy đầu tiên, để trắng trơn thì phí
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center text-slate-500 gap-3 px-6">
-        {branding.logoUrl ? (
-          <img src={branding.logoUrl} alt={branding.schoolName} className="w-16 h-16 object-contain mb-1" />
-        ) : (
-          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-red-700 to-red-900 text-yellow-300 font-black text-2xl flex items-center justify-center mb-1 shadow-lg">
-            {branding.shortName.trim().charAt(0) || 'N'}
-          </div>
-        )}
-        <div className="text-center">
-          <div className="font-black text-red-800 text-lg leading-tight">{branding.shortName}</div>
-          <div className="text-xs text-slate-500 uppercase tracking-widest mt-0.5">{branding.schoolName}</div>
-        </div>
-        <Loader2 className="animate-spin text-red-600 mt-2" size={28} />
-        <p className="text-sm">Đang tải dữ liệu từ hệ thống...</p>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-slate-50 font-sans mx-auto max-w-md md:max-w-2xl lg:max-w-4xl shadow-2xl overflow-hidden flex flex-col relative">
       <style>{`
@@ -352,6 +331,9 @@ export default function App() {
 
       {/* ── MAIN CONTENT ───────────────────────────────────────────────────── */}
       <main className="flex-1 p-4 overflow-y-auto scroll-smooth">
+        {/* Giao diện hiện ngay, chỉ vùng nội dung chờ dữ liệu */}
+        {isLoading && <ContentSkeleton />}
+        {!isLoading && (
         <React.Suspense fallback={<TabFallback />}>
         {activeTab === 'dashboard' && <DashboardTab />}
         {activeTab === 'entry' && currentUser.role !== 'GUEST' && canCurrentUserEntry() && (
@@ -403,6 +385,7 @@ export default function App() {
           <div className="text-center py-20 text-slate-400">Bạn không có quyền truy cập.</div>
         )}
         </React.Suspense>
+        )}
 
         {/* Bản quyền — cố định, không cấu hình theo từng trường */}
         <div className="pt-6 pb-2 text-center">
