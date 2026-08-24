@@ -49,7 +49,7 @@ export default function App() {
   const {
     currentUser, setCurrentUser,
     users, roleConfigs,
-    isLoading, isRefreshing, refreshData,
+    isLoading, isRefreshing, refreshData, liveWeek,
     violations,
     deleteViolation, deleteViolations, updateViolation,
     setViolations,
@@ -285,12 +285,23 @@ export default function App() {
               <Info size={18} />
             </button>
 
+            {/* Đang theo dõi trực tiếp tuần hiện tại */}
+            {liveWeek && (
+              <span
+                className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-800/60 border border-red-700 text-[11px] font-semibold text-yellow-200"
+                title={`Vi phạm trong ${liveWeek.name} (${liveWeek.startDate} → ${liveWeek.endDate}) tự cập nhật, không cần bấm làm mới`}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+                Trực tiếp · {liveWeek.name}
+              </span>
+            )}
+
             {/* Refresh */}
             <button
               onClick={refreshData}
               disabled={isRefreshing}
               className="p-2 rounded-full bg-red-800 text-yellow-400 hover:bg-red-700 hover:text-white transition-colors disabled:opacity-50"
-              title="Làm mới dữ liệu"
+              title="Làm mới dữ liệu cũ và danh mục (tuần hiện tại đã tự cập nhật)"
             >
               <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} />
             </button>

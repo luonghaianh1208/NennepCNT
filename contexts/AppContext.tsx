@@ -1,8 +1,8 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { User, Violation, ClassEntity, Student, Criteria, TimeConfig, RoleConfig, AppTheme, AuditLog, AuditAction } from '../types';
-import { INITIAL_ROLE_DEFINITIONS, GUEST_USER, INITIAL_TIME_CONFIGS } from '../utils';
-import { api } from '../services/firebase';
+import { INITIAL_ROLE_DEFINITIONS, GUEST_USER, INITIAL_TIME_CONFIGS, getLocalDateString } from '../utils';
+import { api, subscribeToRange } from '../services/firebase';
 
 // ─── MAX audit entries to keep in localStorage ───────────────────────────────
 const MAX_AUDIT_ENTRIES = 500;
@@ -36,6 +36,8 @@ interface AppContextType {
   setAppTheme: (theme: AppTheme) => void;
   isLoading: boolean;
   isRefreshing: boolean;
+  /** Tuần đang được theo dõi trực tiếp (null nếu chưa xác định được tuần nào) */
+  liveWeek: TimeConfig | null;
   unsavedChanges: boolean;
   setUnsavedChanges: React.Dispatch<React.SetStateAction<boolean>>;
   academicYear: string;
@@ -314,6 +316,31 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     fetchData(true);
   }, [fetchData]);
 
+  // ── Theo dõi trực tiếp tuần hiện tại ──────────────────────────────────────
+  // Chỉ tuần đang diễn ra mới cần thấy nhau tức thì; dữ liệu cũ hiếm khi đổi
+  // nên vẫn dùng nút làm mới như trước.
+  const [liveWeek, setLiveWeek] = useState<TimeConfig | null>(null);
+
+  useEffect(() => {
+    const weeks = timeConfigs.filter(t => t.type === 'WEEK' && t.startDate && t.endDate);
+    if (!weeks.length) return;
+
+    const today = getLocalDateString();
+    // Ngoài năm học (nghỉ hè) thì bám vào tuần gần nhất để màn hình vẫn sống
+    const week =
+      weeks.find(w => today >= w.startDate && today <= w.endDate) ??
+      [...weeks].sort((a, b) => a.startDate.localeCompare(b.startDate)).pop()!;
+
+    setLiveWeek(week);
+
+    return subscribeToRange(week.startDate, week.endDate, records => {
+      setViolations(prev => {
+        const outsideWeek = prev.filter(v => !(v.date >= week.startDate && v.date <= week.endDate));
+        return [...records, ...outsideWeek].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+      });
+    });
+  }, [timeConfigs]);
+
   return (
     <AppContext.Provider value={{
       users, setUsers,
@@ -326,7 +353,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       auditLogs, clearAuditLogs,
       currentUser, setCurrentUser,
       appTheme, setAppTheme,
-      isLoading, isRefreshing,
+      isLoading, isRefreshing, liveWeek,
       unsavedChanges, setUnsavedChanges,
       academicYear, setAcademicYear,
       fetchData, refreshData, syncSettings, syncUsers,

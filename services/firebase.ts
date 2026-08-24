@@ -22,6 +22,7 @@ import {
   limit,
   where,
   addDoc,
+  onSnapshot,
 } from 'firebase/firestore';
 import {
   getAuth,
@@ -289,6 +290,33 @@ export const api = {
       };
     }
   },
+};
+
+// ── Theo dõi trực tiếp một khoảng thời gian ─────────────────────────────────
+//
+// Chỉ mở listener cho tuần đang xem — vừa đủ để nhiều người chấm cùng lúc thấy
+// nhau ngay, vừa không phải trả tiền đọc lại cả năm học mỗi khi có thay đổi.
+// Dữ liệu ngoài khoảng này vẫn tải một lần và làm mới bằng tay.
+
+export const subscribeToRange = (
+  startDate: string,
+  endDate: string,
+  onChange: (records: any[]) => void,
+): (() => void) => {
+  const buckets: Record<string, any[]> = { violations: [], achievements: [] };
+
+  const unsubs = Object.keys(buckets).map((name) =>
+    onSnapshot(
+      query(collection(db, name), where('date', '>=', startDate), where('date', '<=', endDate)),
+      (snap) => {
+        buckets[name] = snap.docs.map((d) => ({ ...d.data(), id: d.id }));
+        onChange([...buckets.violations, ...buckets.achievements]);
+      },
+      (err) => console.warn(`Mất kết nối trực tiếp với ${name}:`, err.message),
+    ),
+  );
+
+  return () => unsubs.forEach((stop) => stop());
 };
 
 // ── Quản lý tài khoản (chạy trên Cloud Functions, chỉ ADMIN gọi được) ───────
