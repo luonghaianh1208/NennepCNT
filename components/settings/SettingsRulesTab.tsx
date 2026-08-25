@@ -24,7 +24,11 @@ const SettingsRulesTab: React.FC = () => {
     if (!form.prizes.length) return showToast('Phải có ít nhất một loại giải thưởng', 'error');
 
     setIsSaving(true);
-    const ok = await saveSchoolSettings(form);
+    // Chốt chặn cuối: kể cả có cách nào lọt qua ô nhập thì hệ số vẫn không dưới 1
+    const ok = await saveSchoolSettings({
+      ...form,
+      semester2Multiplier: Math.max(1, Number(form.semester2Multiplier) || 1),
+    });
     setIsSaving(false);
     showToast(ok ? 'Đã lưu quy định của trường' : 'Lưu thất bại, thử lại giúp em', ok ? 'success' : 'error');
   };
@@ -94,10 +98,13 @@ const SettingsRulesTab: React.FC = () => {
 
           <div>
             <label className="block text-xs font-bold text-slate-600 mb-1">Hệ số học kỳ II</label>
+            {/* Hệ số dưới 1 nghĩa là học kỳ II bị tính nhẹ hơn kỳ I — gần như
+                luôn là gõ nhầm. Rời ô là tự nhảy về 1, khỏi cần cảnh báo. */}
             <input type="number" min={1} step={0.5}
               className="w-full p-2.5 border border-slate-300 rounded-lg"
               value={form.semester2Multiplier}
-              onChange={e => set({ semester2Multiplier: Number(e.target.value) || 1 })} />
+              onChange={e => set({ semester2Multiplier: Number(e.target.value) })}
+              onBlur={e => { if (!(Number(e.target.value) >= 1)) set({ semester2Multiplier: 1 }); }} />
             <p className="text-xs text-slate-400 mt-1">Điền 1 nếu trường tính hai học kỳ ngang nhau.</p>
           </div>
         </div>
