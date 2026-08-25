@@ -36,6 +36,29 @@ export interface RolePermissions {
 
 export type PermissionKey = keyof RolePermissions;
 
+/**
+ * Quy định riêng của từng trường — những thứ trước đây gán cứng trong mã nguồn.
+ * Lưu ở settings/school, quản trị viên sửa trong Cấu hình → Quy định.
+ */
+export interface SchoolSettings {
+  /** Điểm khởi đầu mỗi tuần của một lớp (mặc định 500) */
+  baseScore: number;
+  /** Hệ số nhân cho học kỳ II khi tính cả năm (1 = không nhân) */
+  semester2Multiplier: number;
+  /** Bắt buộc có ảnh minh chứng mới lưu được vi phạm */
+  requirePhotoForViolation: boolean;
+  /** Các khối lớp của trường, ví dụ ['10','11','12'] hoặc ['6','7','8','9'] */
+  grades: string[];
+  /** Danh sách giải thưởng dùng khi nhập khen thưởng */
+  prizes: string[];
+  /** Nhóm hoạt động */
+  activityGroups: string[];
+  /** Cấp độ hoạt động */
+  activityLevels: string[];
+  /** Tông màu nhận diện của trường */
+  themePreset: string;
+}
+
 export interface RoleConfig extends RolePermissions {
   label: string;
   color: string;

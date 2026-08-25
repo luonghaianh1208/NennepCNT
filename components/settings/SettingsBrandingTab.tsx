@@ -65,7 +65,7 @@ const SettingsBrandingTab: React.FC = () => {
       </div>
 
       {/* Xem trước đúng như trên thanh tiêu đề */}
-      <div className="bg-gradient-to-br from-red-700 to-red-900 rounded-xl p-4 flex items-center gap-3">
+      <div className="rounded-xl p-4 flex items-center gap-3" style={{ background: `linear-gradient(160deg, var(--brand-from, #b91c1c), var(--brand-to, #7f1d1d))` }}>
         {form.logoUrl ? (
           <img src={form.logoUrl} alt="Logo" className="w-11 h-11 object-contain bg-white rounded-full p-0.5 shadow-md" />
         ) : (
@@ -151,8 +151,8 @@ const SettingsBrandingTab: React.FC = () => {
 
       <p className="text-xs text-slate-500 flex items-start gap-1.5 bg-slate-50 border border-slate-200 rounded-lg p-3">
         <Info size={14} className="mt-0.5 shrink-0" />
-        Tông màu đỏ – vàng theo quy chuẩn Đoàn được giữ cố định cho toàn hệ thống. Phần bản quyền
-        tác giả ở trang Giới thiệu cũng không thay đổi được.
+        Tông màu nhận diện đổi ở tab <strong>Quy định</strong>. Phần bản quyền tác giả trong trang
+        Giới thiệu là cố định, không thay đổi được.
       </p>
 
       <button

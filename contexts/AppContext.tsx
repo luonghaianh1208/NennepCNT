@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
-import { User, Violation, ClassEntity, Student, Criteria, TimeConfig, RoleConfig, AppTheme, AuditLog, AuditAction } from '../types';
-import { INITIAL_ROLE_DEFINITIONS, GUEST_USER, INITIAL_TIME_CONFIGS, getLocalDateString, diffConfigChanges } from '../utils';
+import { User, Violation, ClassEntity, Student, Criteria, TimeConfig, RoleConfig, SchoolSettings, AppTheme, AuditLog, AuditAction } from '../types';
+import { INITIAL_ROLE_DEFINITIONS, GUEST_USER, INITIAL_TIME_CONFIGS, getLocalDateString, diffConfigChanges, DEFAULT_SCHOOL_SETTINGS, applyTheme } from '../utils';
 import { api, subscribeToRange } from '../services/firebase';
 import { FALLBACK_BRANDING, getConfigBranding, type TenantBranding } from '../services/tenantConfig';
 
@@ -32,6 +32,10 @@ interface AppContextType {
 
   /** Lưu bảng vai trò và quyền xuống cơ sở dữ liệu */
   saveRoleConfigs: (next: Record<string, RoleConfig>) => Promise<boolean>;
+
+  /** Quy định riêng của trường: công thức điểm, khối lớp, giải thưởng, tông màu */
+  schoolSettings: SchoolSettings;
+  saveSchoolSettings: (next: SchoolSettings) => Promise<boolean>;
 
   // Audit
   auditLogs: AuditLog[];
@@ -456,6 +460,29 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
   }, []);
 
+  // ── Quy định riêng của trường ─────────────────────────────────────────────
+  const [schoolSettings, setSchoolSettings] = useState<SchoolSettings>(DEFAULT_SCHOOL_SETTINGS);
+
+  useEffect(() => {
+    api.getSchoolSettings().then(saved => {
+      const merged = { ...DEFAULT_SCHOOL_SETTINGS, ...(saved ?? {}) } as SchoolSettings;
+      setSchoolSettings(merged);
+      applyTheme(merged.themePreset);
+    });
+  }, []);
+
+  const saveSchoolSettings = async (next: SchoolSettings): Promise<boolean> => {
+    try {
+      await api.saveSchoolSettings(next);
+      setSchoolSettings(next);
+      applyTheme(next.themePreset);
+      return true;
+    } catch (e) {
+      console.error('saveSchoolSettings error:', e);
+      return false;
+    }
+  };
+
   // ── Bảng vai trò và quyền ─────────────────────────────────────────────────
   // Chưa cấu hình thì dùng bảng mặc định; trường nào sửa thì lấy bản đã lưu
   useEffect(() => {
@@ -534,6 +561,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       isLoading, isRefreshing, isBackgroundLoading, liveWeek,
       ensureRangeLoaded, ensureAllLoaded,
       branding, saveBranding, saveRoleConfigs,
+      schoolSettings, saveSchoolSettings,
       unsavedChanges, setUnsavedChanges,
       academicYear, setAcademicYear,
       fetchData, refreshData, syncSettings, syncUsers,

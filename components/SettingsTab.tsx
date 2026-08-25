@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Save, Settings, Calendar, GraduationCap, Users, AlertTriangle, Star, UserPlus, ClipboardList, Palette } from 'lucide-react';
+import { Save, Settings, SlidersHorizontal, Calendar, GraduationCap, Users, AlertTriangle, Star, UserPlus, ClipboardList, Palette } from 'lucide-react';
 import { useAppStore } from '../contexts/AppContext';
 import { useModal } from '../contexts/ModalContext';
 
@@ -12,11 +12,13 @@ import SettingsCriteriaTab from './settings/SettingsCriteriaTab';
 import SettingsAccountsTab from './settings/SettingsAccountsTab';
 import SettingsAuditLogTab from './settings/SettingsAuditLogTab';
 import SettingsBrandingTab from './settings/SettingsBrandingTab';
+import SettingsRulesTab from './settings/SettingsRulesTab';
 
-type SubTab = 'BRANDING' | 'ROLES' | 'TIME' | 'CLASSES' | 'STUDENTS' | 'CRITERIA_VIOLATION' | 'CRITERIA_ACHIEVEMENT' | 'ACCOUNTS' | 'AUDIT_LOG';
+type SubTab = 'BRANDING' | 'RULES' | 'ROLES' | 'TIME' | 'CLASSES' | 'STUDENTS' | 'CRITERIA_VIOLATION' | 'CRITERIA_ACHIEVEMENT' | 'ACCOUNTS' | 'AUDIT_LOG';
 
 const SUB_TABS: { id: SubTab; label: string; icon: React.ReactNode }[] = [
   { id: 'BRANDING', label: 'Thương hiệu', icon: <Palette size={16} /> },
+  { id: 'RULES', label: 'Quy định', icon: <SlidersHorizontal size={16} /> },
   { id: 'ROLES', label: 'Vai trò', icon: <Settings size={16} /> },
   { id: 'TIME', label: 'Thời gian', icon: <Calendar size={16} /> },
   { id: 'CLASSES', label: 'Lớp học', icon: <GraduationCap size={16} /> },
@@ -84,6 +86,7 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ initialSubTab }) => {
 
       {/* Sub-tab Content */}
       {activeSubTab === 'BRANDING' && <SettingsBrandingTab />}
+      {activeSubTab === 'RULES' && <SettingsRulesTab />}
       {activeSubTab === 'ROLES' && <SettingsRolesTab />}
       {activeSubTab === 'TIME' && <SettingsTimeTab />}
       {activeSubTab === 'CLASSES' && <SettingsClassesTab />}

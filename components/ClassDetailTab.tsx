@@ -14,7 +14,7 @@ interface ClassDetailTabProps {
 }
 
 const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ setViewingViolation, selectedClassId, setSelectedClassId }) => {
-  const { currentUser, classes, violations, criteria, students, timeConfigs } = useAppStore();
+  const { currentUser, classes, violations, criteria, students, timeConfigs, schoolSettings } = useAppStore();
   const { showToast } = useModal();
 
   // selectedClassId is lifted to App.tsx for tab persistence
@@ -45,7 +45,7 @@ const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ setViewingViolation, se
                   isDateInRange(v.date, config.startDate, config.endDate)
               );
 
-              const score = calculateScore(violationsInScope, 500, 1, false);
+              const score = calculateScore(violationsInScope, schoolSettings.baseScore, 1, false);
 
               return {
                   name: config.name,
@@ -78,7 +78,7 @@ const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ setViewingViolation, se
           const data = keys.map(weekKey => {
               const weekNum = parseInt(weekKey.split('-W')[1]);
               const violationsInWeek = clsViolations.filter(v => getYearWeekKey(new Date(v.date)) === weekKey);
-              const score = calculateScore(violationsInWeek, 500, 1, false);
+              const score = calculateScore(violationsInWeek, schoolSettings.baseScore, 1, false);
               return {
                   name: `T${weekNum}`,
                   fullLabel: `Tuần ${weekNum} (Auto)`,
@@ -113,7 +113,7 @@ const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ setViewingViolation, se
         const hk1V = weightedSemesters.hk1.violations.filter(v => v.classId === classId);
         const hk2V = weightedSemesters.hk2.violations.filter(v => v.classId === classId);
         return parseFloat((calculateScore(hk1V, baseScore, weightedSemesters.hk1.weeksCount, true) +
-                           calculateScore(hk2V, baseScore, weightedSemesters.hk2.weeksCount, true) * 2).toFixed(2));
+                           calculateScore(hk2V, baseScore, weightedSemesters.hk2.weeksCount, true) * schoolSettings.semester2Multiplier).toFixed(2));
       }
       return calculateScore(clsV, baseScore, weeksCount, isRangeMode);
     };

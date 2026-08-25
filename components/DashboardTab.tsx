@@ -20,7 +20,7 @@ function getWeekRange(date: Date): { start: string; end: string } {
 }
 
 const DashboardTab: React.FC = () => {
-  const { violations, classes, criteria, students, timeConfigs } = useAppStore();
+  const { violations, classes, criteria, students, timeConfigs, schoolSettings } = useAppStore();
 
   const today = getLocalDateString();
 
@@ -115,7 +115,7 @@ const DashboardTab: React.FC = () => {
     return classes.map(cls => {
       const clsV = thisWeekViolations.filter(v => v.classId === cls.id);
       const clsA = thisWeekAchievements.filter(v => v.classId === cls.id);
-      const score = calculateScore([...clsV, ...clsA], 500, 1, false);
+      const score = calculateScore([...clsV, ...clsA], schoolSettings.baseScore, 1, false);
       return { subject: cls.name, score, fullMark: 500 };
     }).sort((a, b) => b.score - a.score).slice(0, 8); // top 8 lớp cho radar dễ đọc
   }, [classes, thisWeekViolations, thisWeekAchievements]);

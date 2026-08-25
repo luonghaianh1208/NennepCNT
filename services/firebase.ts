@@ -261,6 +261,22 @@ export const api = {
     return { status: 'success', created: records.length };
   },
 
+  // 4g. Quy định riêng của trường: công thức điểm, khối lớp, giải thưởng, tông màu
+  getSchoolSettings: async (): Promise<Record<string, any> | null> => {
+    try {
+      const snap = await getDoc(doc(db, 'settings', 'school'));
+      return snap.exists() ? (snap.data() as Record<string, any>) : null;
+    } catch (e) {
+      console.warn('Không đọc được quy định của trường:', e);
+      return null;
+    }
+  },
+
+  saveSchoolSettings: async (settings: Record<string, any>) => {
+    await setDoc(doc(db, 'settings', 'school'), settings);
+    return { status: 'success' };
+  },
+
   // 4f. Bảng vai trò và quyền — chính quy tắc bảo mật cũng đọc tài liệu này
   getRoleConfigs: async (): Promise<Record<string, any> | null> => {
     try {

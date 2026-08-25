@@ -66,7 +66,7 @@ export default function App() {
 
   const [rankingFilterMode, setRankingFilterMode] = useState<'WEEK' | 'MONTH' | 'SEMESTER' | 'ALL'>('WEEK');
   const [rankingFilterConfigId, setRankingFilterConfigId] = useState<string>('');
-  const [rankingGradeTab, setRankingGradeTab] = useState<'10' | '11' | '12'>('10');
+  const [rankingGradeTab, setRankingGradeTab] = useState<string>('10');
   const [classDetailSelectedId, setClassDetailSelectedId] = useState<string>('');
   const [settingsSubTab, setSettingsSubTab] = useState<'ROLES' | 'TIME' | 'CLASSES' | 'STUDENTS' | 'CRITERIA_VIOLATION' | 'CRITERIA_ACHIEVEMENT' | 'ACCOUNTS' | 'AUDIT_LOG' | undefined>(undefined);
 
@@ -239,7 +239,7 @@ export default function App() {
       `}</style>
 
       {/* ── HEADER ─────────────────────────────────────────────────────────── */}
-      <header className="bg-gradient-to-b from-red-700 to-red-900 text-white px-4 pt-5 pb-4 sticky top-0 z-20 shadow-lg rounded-b-[1.5rem] relative overflow-hidden transition-colors duration-500">
+      <header className="text-white px-4 pt-5 pb-4 sticky top-0 z-20 shadow-lg rounded-b-[1.5rem] relative overflow-hidden transition-colors duration-500" style={{ background: `linear-gradient(160deg, var(--brand-from, #b91c1c), var(--brand-to, #7f1d1d))` }}>
         {/* Đoàn star particles */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           {doanStars.map(s => (
@@ -263,7 +263,7 @@ export default function App() {
               <img src="https://upload.wikimedia.org/wikipedia/vi/0/09/Huy_Hi%E1%BB%87u_%C4%90o%C3%A0n.png" alt="Đoàn TNCS Hồ Chí Minh" className="w-9 h-9 object-contain drop-shadow-md z-0" />
             </div>
             <div>
-              <h1 className="text-xl font-black tracking-tight leading-none text-yellow-300">{branding.shortName}</h1>
+              <h1 className="text-xl font-black tracking-tight leading-none" style={{ color: 'var(--brand-accent, #fde047)' }}>{branding.shortName}</h1>
               <div className="text-[10px] text-yellow-300 font-bold uppercase tracking-widest mt-0.5 flex items-center gap-1">
                 <span className="truncate max-w-[220px]">{branding.schoolName}</span>
               </div>

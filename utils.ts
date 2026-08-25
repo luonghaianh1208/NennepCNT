@@ -1,9 +1,41 @@
 
-import { RoleConfig, RolePermissions, PermissionKey, ClassEntity, Student, Criteria, User, Violation, TimeConfig } from './types';
+import { RoleConfig, RolePermissions, PermissionKey, SchoolSettings, ClassEntity, Student, Criteria, User, Violation, TimeConfig } from './types';
 // exceljs (~900KB) chỉ cần khi người dùng bấm xuất Excel → nạp động trong hàm,
 // không kéo vào gói chính làm chậm lần mở app đầu tiên
 
 // Đổi tên thành INITIAL_... để làm giá trị khởi tạo cho State
+/**
+ * Bốn tông màu nhận diện. Chỉ đổi phần "áo" của hệ thống — thanh tiêu đề, màn
+ * hình chờ, trang giới thiệu. Màu cảnh báo (đỏ cho xoá, cho điểm trừ) giữ
+ * nguyên vì đó là màu mang ý nghĩa, đổi đi thì người dùng đọc sai thông tin.
+ */
+export const THEME_PRESETS: Record<string, { label: string; from: string; to: string; accent: string }> = {
+  DOAN:  { label: 'Đoàn (đỏ – vàng)', from: '#b91c1c', to: '#7f1d1d', accent: '#fde047' },
+  BLUE:  { label: 'Xanh dương',       from: '#1d4ed8', to: '#1e3a8a', accent: '#fde047' },
+  GREEN: { label: 'Xanh lá',          from: '#15803d', to: '#14532d', accent: '#fef08a' },
+  PLUM:  { label: 'Tím than',         from: '#6d28d9', to: '#4c1d95', accent: '#fde047' },
+};
+
+export const DEFAULT_SCHOOL_SETTINGS: SchoolSettings = {
+  baseScore: 500,
+  semester2Multiplier: 2,
+  requirePhotoForViolation: true,
+  grades: ['10', '11', '12'],
+  prizes: ['Nhất', 'Nhì', 'Ba', 'Khuyến khích', 'Tham gia'],
+  activityGroups: ['Văn nghệ', 'Thể thao', 'Học tập', 'Phong trào', 'Khác'],
+  activityLevels: ['Cấp trường', 'Cấp thành phố', 'Cấp tỉnh', 'Cấp quốc gia'],
+  themePreset: 'DOAN',
+};
+
+/** Đưa tông màu vào biến CSS để mọi màn hình dùng chung */
+export const applyTheme = (presetKey: string) => {
+  const preset = THEME_PRESETS[presetKey] ?? THEME_PRESETS.DOAN;
+  const root = document.documentElement;
+  root.style.setProperty('--brand-from', preset.from);
+  root.style.setProperty('--brand-to', preset.to);
+  root.style.setProperty('--brand-accent', preset.accent);
+};
+
 /** Danh sách quyền kèm mô tả — dùng cho màn hình Vai trò và tài liệu hướng dẫn */
 export const PERMISSION_GROUPS: {
   group: string;

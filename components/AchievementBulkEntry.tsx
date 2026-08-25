@@ -15,22 +15,20 @@ import { api } from '../services/firebase';
  * thì hệ thống tự thêm tiêu chí mới để lần sau dùng lại.
  */
 
-const PRIZES = ['Nhất', 'Nhì', 'Ba', 'Khuyến khích', 'Tham gia'];
-const GROUPS = ['Văn nghệ', 'Thể thao', 'Học tập', 'Phong trào', 'Khác'];
-const LEVELS = ['Cấp trường', 'Cấp thành phố', 'Cấp tỉnh', 'Cấp quốc gia'];
-const EMPTY_ROW = { classId: '', participants: '', prize: 'Nhất', points: '' };
+// Giải thưởng, nhóm và cấp độ lấy từ Cấu hình → Quy định của từng trường
+const EMPTY_ROW = { classId: '', participants: '', prize: '', points: '' };
 
 type Row = typeof EMPTY_ROW;
 
 const AchievementBulkEntry: React.FC = () => {
-  const { classes, criteria, setCriteria, violations, setViolations, currentUser, timeConfigs } = useAppStore();
+  const { classes, criteria, setCriteria, violations, setViolations, currentUser, timeConfigs, schoolSettings } = useAppStore();
   const { showToast, showAlert, showConfirm } = useModal();
 
   const [date, setDate] = useState(getLocalDateString());
   const [activityName, setActivityName] = useState('');
-  const [group, setGroup] = useState(GROUPS[0]);
-  const [level, setLevel] = useState(LEVELS[0]);
-  const [rows, setRows] = useState<Row[]>(Array.from({ length: 5 }, () => ({ ...EMPTY_ROW })));
+  const [group, setGroup] = useState(schoolSettings.activityGroups[0] ?? '');
+  const [level, setLevel] = useState(schoolSettings.activityLevels[0] ?? '');
+  const [rows, setRows] = useState<Row[]>(Array.from({ length: 5 }, () => ({ ...EMPTY_ROW, prize: schoolSettings.prizes[0] ?? '' })));
   const [image, setImage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -239,14 +237,14 @@ const AchievementBulkEntry: React.FC = () => {
           <div>
             <label className="block text-xs font-bold text-slate-600 mb-1">Nhóm hoạt động</label>
             <select className="w-full p-3 rounded-lg border border-slate-300 bg-white" value={group} onChange={e => setGroup(e.target.value)}>
-              {GROUPS.map(g => <option key={g} value={g}>{g}</option>)}
+              {schoolSettings.activityGroups.map(g => <option key={g} value={g}>{g}</option>)}
             </select>
           </div>
 
           <div>
             <label className="block text-xs font-bold text-slate-600 mb-1">Cấp độ</label>
             <select className="w-full p-3 rounded-lg border border-slate-300 bg-white" value={level} onChange={e => setLevel(e.target.value)}>
-              {LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
+              {schoolSettings.activityLevels.map(l => <option key={l} value={l}>{l}</option>)}
             </select>
           </div>
 
@@ -344,7 +342,7 @@ const AchievementBulkEntry: React.FC = () => {
                       value={row.prize}
                       onChange={e => updateRow(i, { prize: e.target.value })}
                     >
-                      {PRIZES.map(p => <option key={p} value={p}>{p}</option>)}
+                      {schoolSettings.prizes.map(p => <option key={p} value={p}>{p}</option>)}
                     </select>
                   </td>
                   <td className="px-2 py-2">

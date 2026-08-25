@@ -7,7 +7,7 @@ import { useAppStore } from '../../contexts/AppContext';
 import { useModal } from '../../contexts/ModalContext';
 
 const SettingsClassesTab: React.FC = () => {
-  const { classes, setClasses, students, setStudents, setUnsavedChanges } = useAppStore();
+  const { classes, setClasses, students, setStudents, setUnsavedChanges, schoolSettings } = useAppStore();
   const { showConfirm, showToast } = useModal();
 
   const [newClassName, setNewClassName] = useState('');
@@ -136,9 +136,7 @@ const SettingsClassesTab: React.FC = () => {
       <div className="flex flex-col sm:flex-row gap-2 bg-slate-100 p-3 rounded-lg border border-slate-200 mb-4">
         <input className="flex-1 p-2 rounded border border-slate-300 text-sm outline-none" placeholder="Tên lớp (VD: 10A5)" value={newClassName} onChange={e => setNewClassName(e.target.value)} />
         <select className="p-2 rounded border border-slate-300 text-sm outline-none bg-white" value={newClassGrade} onChange={e => setNewClassGrade(e.target.value)}>
-          <option value="10">Khối 10</option>
-          <option value="11">Khối 11</option>
-          <option value="12">Khối 12</option>
+          {schoolSettings.grades.map(g => <option key={g} value={g}>Khối {g}</option>)}
         </select>
         <input className="flex-1 p-2 rounded border border-slate-300 text-sm outline-none" placeholder="GVCN (Tùy chọn)" value={newClassTeacher} onChange={e => setNewClassTeacher(e.target.value)} />
         <button onClick={handleAddClass} className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded text-sm flex items-center justify-center gap-1">

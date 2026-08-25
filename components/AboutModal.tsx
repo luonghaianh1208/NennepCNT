@@ -48,7 +48,7 @@ const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
           </div>
 
           {/* Header */}
-          <div className="relative bg-gradient-to-br from-red-700 to-red-900 mx-4 rounded-2xl p-4 mt-2 overflow-hidden">
+          <div className="relative mx-4 rounded-2xl p-4 mt-2 overflow-hidden" style={{ background: `linear-gradient(160deg, var(--brand-from, #b91c1c), var(--brand-to, #7f1d1d))` }}>
             {/* Decorative */}
             <div className="absolute -right-6 -top-6 w-24 h-24 bg-white/10 rounded-full" />
             <div className="absolute -right-2 top-8 w-16 h-16 bg-white/5 rounded-full" />

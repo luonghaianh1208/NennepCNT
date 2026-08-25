@@ -12,8 +12,8 @@ interface RankingTabProps {
   setFilterMode: (mode: 'WEEK' | 'MONTH' | 'SEMESTER' | 'ALL') => void;
   filterConfigId: string;
   setFilterConfigId: (id: string) => void;
-  gradeTab: '10' | '11' | '12';
-  setGradeTab: (g: '10' | '11' | '12') => void;
+  gradeTab: string;
+  setGradeTab: (g: string) => void;
   onNavigateToList: (classId: string, mode: 'MONTH' | 'WEEK' | 'SEMESTER' | 'ALL', configId: string) => void;
 }
 
@@ -27,7 +27,7 @@ const RankingTab: React.FC<RankingTabProps> = ({
   onNavigateToList,
 }) => {
   const { classes, violations, criteria, students, timeConfigs, roleConfigs, currentUser,
-    isBackgroundLoading, ensureRangeLoaded, ensureAllLoaded } = useAppStore();
+    isBackgroundLoading, ensureRangeLoaded, ensureAllLoaded, schoolSettings } = useAppStore();
 
   // Chọn kỳ nào thì bảo đảm đã có dữ liệu của kỳ đó rồi mới tính điểm
   useEffect(() => {
@@ -84,7 +84,7 @@ const RankingTab: React.FC<RankingTabProps> = ({
   // Helper: tính stats + xế́p hạng cho danh sách lớp bất kỳ
   // isHK2=true → nhân ×2 cả score (khi xem HK2 đơn lẻ để thấy đú́ng trọng số)
   const rankClassList = (targetClasses: any[], relevantViolations: any[], weeksCount: number, isRangeMode: boolean, weightedSemesters?: any, isHK2?: boolean) => {
-      const baseScore = 500;
+      const baseScore = schoolSettings.baseScore;
       const stats = targetClasses.map(cls => {
           const clsViolations = relevantViolations.filter((v: any) => v.classId === cls.id);
           const violationCount = clsViolations.filter((v: any) => v.points > 0).length;
@@ -95,11 +95,11 @@ const RankingTab: React.FC<RankingTabProps> = ({
               const hk2V = weightedSemesters.hk2.violations.filter((v: any) => v.classId === cls.id);
               const scoreHK1 = calculateScore(hk1V, baseScore, weightedSemesters.hk1.weeksCount, true);
               const scoreHK2 = calculateScore(hk2V, baseScore, weightedSemesters.hk2.weeksCount, true);
-              totalScore = parseFloat((scoreHK1 + scoreHK2 * 2).toFixed(2));
+              totalScore = parseFloat((scoreHK1 + scoreHK2 * schoolSettings.semester2Multiplier).toFixed(2));
           } else if (isHK2) {
               // SEMESTER HK2 đơn lẻ: tính bình thường rồi nhân ×2
               const rawScore = calculateScore(clsViolations, baseScore, weeksCount, isRangeMode);
-              totalScore = parseFloat((rawScore * 2).toFixed(2));
+              totalScore = parseFloat((rawScore * schoolSettings.semester2Multiplier).toFixed(2));
           } else {
               totalScore = calculateScore(clsViolations, baseScore, weeksCount, isRangeMode);
           }
@@ -135,7 +135,7 @@ const RankingTab: React.FC<RankingTabProps> = ({
   let timeLabel = '';
   if (rankingFilterMode === 'ALL') {
     if (rankingWeightedSemesters) {
-      timeLabel = `Năm học: ${rankingWeightedSemesters.hk1.name} ×1 + ${rankingWeightedSemesters.hk2.name} ×2`;
+      timeLabel = `Năm học: ${rankingWeightedSemesters.hk1.name} ×1 + ${rankingWeightedSemesters.hk2.name} ×${schoolSettings.semester2Multiplier}`;
     } else {
       const min = getEarliestViolationDate(violations);
       timeLabel = `Toàn bộ dữ liệu (${formatDateDisplay(min.toISOString())} - Nay)`;
@@ -143,7 +143,7 @@ const RankingTab: React.FC<RankingTabProps> = ({
   } else {
     const config = timeConfigs.find(c => c.id === rankingFilterConfigId);
     timeLabel = config ? `${config.name} (${formatDateDisplay(config.startDate)} - ${formatDateDisplay(config.endDate)})` : 'Vui lòng chọn mốc thời gian';
-    if (rankingIsHK2) timeLabel += ' · ×2 (HK2)';
+    if (rankingIsHK2) timeLabel += ` · ×${schoolSettings.semester2Multiplier} (HK2)`;
   }
 
   const getRankColor = (rank: number) => {
@@ -289,8 +289,8 @@ const RankingTab: React.FC<RankingTabProps> = ({
       </div>
 
       <div className="flex bg-white rounded-xl p-1 shadow-sm border border-slate-200">
-         {['10', '11', '12'].map((g) => (
-           <button key={g} onClick={() => setRankingGradeTab(g as '10'|'11'|'12')} className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${rankingGradeTab === g ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}>
+         {schoolSettings.grades.map((g) => (
+           <button key={g} onClick={() => setRankingGradeTab(g)} className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${rankingGradeTab === g ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}>
              Khối {g}
            </button>
          ))}

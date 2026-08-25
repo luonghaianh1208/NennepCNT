@@ -15,7 +15,7 @@ interface EntryTabProps {
 }
 
 const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
-  const { currentUser, classes, students, criteria, violations, setViolations, roleConfigs, users, createViolation, timeConfigs } = useAppStore();
+  const { currentUser, classes, students, criteria, violations, setViolations, roleConfigs, users, createViolation, timeConfigs, schoolSettings } = useAppStore();
   const { showConfirm, showAlert, showToast } = useModal();
 
   const [entryMode, setEntryMode] = useState<'VIOLATION' | 'ACHIEVEMENT'>('VIOLATION');
@@ -394,7 +394,7 @@ const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
     if (!selectedClassId || !selectedCriteriaId) return showAlert('Thiếu thông tin', 'Vui lòng chọn lớp và nội dung', 'error');
     if (selectedType === 'PERSONAL' && !selectedStudentId) return showAlert('Thiếu thông tin', 'Vui lòng chọn học sinh', 'error');
 
-    if (entryMode === 'VIOLATION' && !previewImage) {
+    if (entryMode === 'VIOLATION' && schoolSettings.requirePhotoForViolation && !previewImage) {
       return showAlert('Thiếu ảnh', 'Bắt buộc phải có ảnh minh họa/bằng chứng cho lỗi vi phạm.', 'error');
     }
 
@@ -705,9 +705,7 @@ const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
               <div className="relative">
                 <select className="w-full p-3 rounded-lg border border-slate-200 bg-slate-50 text-slate-700 appearance-none" value={selectedGrade} onChange={(e) => { setSelectedGrade(e.target.value); setSelectedClassId(''); setSelectedStudentId(''); }}>
                   <option value="">Tất cả</option>
-                  <option value="10">Khối 10</option>
-                  <option value="11">Khối 11</option>
-                  <option value="12">Khối 12</option>
+                  {schoolSettings.grades.map(g => <option key={g} value={g}>Khối {g}</option>)}
                 </select>
                 <ChevronDown className="absolute right-3 top-3.5 text-slate-400 pointer-events-none" size={16} />
               </div>
@@ -776,7 +774,7 @@ const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
               <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleImageChange} />
               <button onClick={() => fileInputRef.current?.click()} className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${!previewImage ? (entryMode === 'VIOLATION' ? 'bg-red-50 text-red-600 border border-red-200' : 'bg-slate-50 text-slate-600 border border-slate-200') : 'bg-blue-50 text-blue-600'}`}>
                 <Camera size={18} />
-                <span>{previewImage ? 'Đổi ảnh khác' : (entryMode === 'VIOLATION' ? 'Chụp/Tải ảnh (Bắt buộc)' : 'Chụp/Tải ảnh (Không bắt buộc)')}</span>
+                <span>{previewImage ? 'Đổi ảnh khác' : (entryMode === 'VIOLATION' && schoolSettings.requirePhotoForViolation ? 'Chụp/Tải ảnh (Bắt buộc)' : 'Chụp/Tải ảnh (Không bắt buộc)')}</span>
               </button>
 
               {entryMode === 'VIOLATION' && (
