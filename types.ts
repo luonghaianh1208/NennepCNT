@@ -55,6 +55,11 @@ export interface SchoolSettings {
   activityGroups: string[];
   /** Cấp độ hoạt động */
   activityLevels: string[];
+  /**
+   * Bảng điểm khen thưởng theo giải × cấp độ, ví dụ prizePoints['Nhất']['Cấp trường'] = 50.
+   * Nhờ bảng này mà mỗi hoạt động mới không còn đẻ ra tiêu chí riêng nữa.
+   */
+  prizePoints: Record<string, Record<string, number>>;
   /** Tông màu nhận diện của trường */
   themePreset: string;
 }

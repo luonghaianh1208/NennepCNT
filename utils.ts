@@ -24,8 +24,22 @@ export const DEFAULT_SCHOOL_SETTINGS: SchoolSettings = {
   prizes: ['Nhất', 'Nhì', 'Ba', 'Khuyến khích', 'Tham gia'],
   activityGroups: ['Văn nghệ', 'Thể thao', 'Học tập', 'Phong trào', 'Khác'],
   activityLevels: ['Cấp trường', 'Cấp thành phố', 'Cấp tỉnh', 'Cấp quốc gia'],
+  prizePoints: {
+    'Nhất':         { 'Cấp trường': 50, 'Cấp thành phố': 80, 'Cấp tỉnh': 120, 'Cấp quốc gia': 200 },
+    'Nhì':          { 'Cấp trường': 40, 'Cấp thành phố': 65, 'Cấp tỉnh': 100, 'Cấp quốc gia': 170 },
+    'Ba':           { 'Cấp trường': 30, 'Cấp thành phố': 50, 'Cấp tỉnh': 80,  'Cấp quốc gia': 140 },
+    'Khuyến khích': { 'Cấp trường': 20, 'Cấp thành phố': 35, 'Cấp tỉnh': 60,  'Cấp quốc gia': 100 },
+    'Tham gia':     { 'Cấp trường': 10, 'Cấp thành phố': 15, 'Cấp tỉnh': 25,  'Cấp quốc gia': 40 },
+  },
   themePreset: 'DOAN',
 };
+
+/** Tra điểm thưởng theo giải và cấp độ; chưa khai thì trả 0 để người nhập tự điền */
+export const lookupPrizePoints = (
+  settings: SchoolSettings,
+  prize: string,
+  level: string,
+): number => Number(settings.prizePoints?.[prize]?.[level] ?? 0);
 
 /** Đưa tông màu vào biến CSS để mọi màn hình dùng chung */
 export const applyTheme = (presetKey: string) => {

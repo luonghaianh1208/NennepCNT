@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { Plus, Trash2, CheckCircle2, Loader2, Camera, X, Star, Info } from 'lucide-react';
 import { Violation } from '../types';
-import { getLocalDateString, removeVietnameseTones, isDateOutsideAllConfigs } from '../utils';
+import { getLocalDateString, removeVietnameseTones, isDateOutsideAllConfigs, lookupPrizePoints } from '../utils';
 import { useAppStore } from '../contexts/AppContext';
 import { useModal } from '../contexts/ModalContext';
 import { api } from '../services/firebase';
@@ -10,9 +10,8 @@ import { api } from '../services/firebase';
  * Nhập thành tích theo hoạt động: khai báo một hoạt động rồi ghi giải thưởng
  * cho nhiều lớp trong cùng một bảng, lưu một lần.
  *
- * Điểm được gợi ý từ tiêu chí có sẵn (ví dụ "Nhất Flashmob 2026") nhưng vẫn sửa
- * được, vì có hoạt động dùng mức thưởng riêng. Hoạt động chưa có trong danh mục
- * thì hệ thống tự thêm tiêu chí mới để lần sau dùng lại.
+ * Điểm tra từ bảng giải × cấp độ trong Cấu hình → Quy định, vẫn sửa tay được
+ * cho hoạt động có mức thưởng riêng.
  */
 
 // Giải thưởng, nhóm và cấp độ lấy từ Cấu hình → Quy định của từng trường
@@ -54,37 +53,37 @@ const AchievementBulkEntry: React.FC = () => {
     return [...names].sort();
   }, [achievementCriteria]);
 
-  /** Tìm tiêu chí ứng với "<giải> <hoạt động>", bỏ qua dấu và chữ hoa thường */
-  const findCriteria = (prize: string, activity: string) => {
-    if (!activity.trim()) return undefined;
-    const target = removeVietnameseTones(`${prize} ${activity}`).replace(/\s+/g, ' ').trim();
-    return achievementCriteria.find(
-      c => removeVietnameseTones(c.content).replace(/\s+/g, ' ').trim() === target,
-    );
-  };
+  /**
+   * Điểm thưởng tra từ bảng giải × cấp độ trong Cấu hình → Quy định.
+   *
+   * Trước đây mỗi hoạt động mới đẻ ra một tiêu chí riêng cho từng giải, nên
+   * danh mục thành tích phình rất nhanh (67 tiêu chí cho 29 hoạt động). Nay
+   * tên hoạt động lưu thẳng vào bản ghi, tiêu chí chỉ còn tối đa
+   * "số giải × số cấp độ" mục dùng chung cho mọi hoạt động.
+   */
+  const suggestPoints = (prize: string, lv: string) => lookupPrizePoints(schoolSettings, prize, lv);
 
   const updateRow = (index: number, patch: Partial<Row>) => {
     setRows(prev =>
       prev.map((row, i) => {
         if (i !== index) return row;
         const next = { ...row, ...patch };
-        // Đổi giải hoặc vừa nhập tên hoạt động → gợi ý lại điểm từ tiêu chí có sẵn
         if (patch.prize !== undefined) {
-          const found = findCriteria(next.prize, activityName);
-          if (found) next.points = String(Math.abs(found.points));
+          const suggested = suggestPoints(next.prize, level);
+          if (suggested) next.points = String(suggested);
         }
         return next;
       }),
     );
   };
 
-  /** Khi gõ xong tên hoạt động thì điền điểm cho những dòng chưa có điểm */
-  const applySuggestedPoints = (name: string) => {
+  /** Đổi cấp độ thì gợi ý lại điểm cho mọi dòng đang dùng mức chuẩn */
+  const applyLevelPoints = (nextLevel: string) => {
     setRows(prev =>
       prev.map(row => {
-        if (row.points) return row;
-        const found = findCriteria(row.prize, name);
-        return found ? { ...row, points: String(Math.abs(found.points)) } : row;
+        const suggested = suggestPoints(row.prize, nextLevel);
+        const wasStandard = !row.points || row.points === String(suggestPoints(row.prize, level));
+        return suggested && wasStandard ? { ...row, points: String(suggested) } : row;
       }),
     );
   };
@@ -138,17 +137,20 @@ const AchievementBulkEntry: React.FC = () => {
         imageUrls = [res.url];
       }
 
-      // 2. Thiếu tiêu chí nào thì tạo mới để lần sau chọn lại được
+      // 2. Tiêu chí dùng chung theo "giải × cấp độ", KHÔNG tạo riêng cho từng
+      //    hoạt động nữa. Tên hoạt động đã nằm trong chính bản ghi.
       const newCriteria: typeof criteria = [];
       const criteriaIdFor = async (prize: string, points: number) => {
-        const existing = findCriteria(prize, activity) ?? newCriteria.find(
-          c => removeVietnameseTones(c.content) === removeVietnameseTones(`${prize} ${activity}`),
-        );
+        const label = `Khen thưởng ${prize} — ${level}`;
+        const key = removeVietnameseTones(label).replace(/\s+/g, ' ').trim();
+        const existing =
+          achievementCriteria.find(c => removeVietnameseTones(c.content).replace(/\s+/g, ' ').trim() === key) ??
+          newCriteria.find(c => removeVietnameseTones(c.content).replace(/\s+/g, ' ').trim() === key);
         if (existing) return existing.id;
 
         const created = {
           id: `C${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-          content: `${prize} ${activity}`,
+          content: label,
           points: Math.abs(points),
           type: 'PLUS' as const,
         };
@@ -227,7 +229,6 @@ const AchievementBulkEntry: React.FC = () => {
               placeholder="Ví dụ: Flashmob 2026, Hội khoẻ Phù Đổng..."
               value={activityName}
               onChange={e => setActivityName(e.target.value)}
-              onBlur={e => applySuggestedPoints(e.target.value)}
             />
             <datalist id="activity-suggestions">
               {activitySuggestions.map(name => <option key={name} value={name} />)}
@@ -243,7 +244,7 @@ const AchievementBulkEntry: React.FC = () => {
 
           <div>
             <label className="block text-xs font-bold text-slate-600 mb-1">Cấp độ</label>
-            <select className="w-full p-3 rounded-lg border border-slate-300 bg-white" value={level} onChange={e => setLevel(e.target.value)}>
+            <select className="w-full p-3 rounded-lg border border-slate-300 bg-white" value={level} onChange={e => { setLevel(e.target.value); applyLevelPoints(e.target.value); }}>
               {schoolSettings.activityLevels.map(l => <option key={l} value={l}>{l}</option>)}
             </select>
           </div>
@@ -312,7 +313,7 @@ const AchievementBulkEntry: React.FC = () => {
           <tbody>
             {rows.map((row, i) => {
               const takenByOthers = rows.filter((_, j) => j !== i).map(r => r.classId);
-              const suggested = findCriteria(row.prize, activityName);
+              const suggested = suggestPoints(row.prize, level);
               return (
                 <tr key={i} className="border-t border-slate-100">
                   <td className="px-3 py-2">
@@ -350,7 +351,9 @@ const AchievementBulkEntry: React.FC = () => {
                       type="number" min={0}
                       className={`w-full p-2 rounded border bg-white font-bold text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${suggested ? 'border-green-300 text-green-700' : 'border-slate-200 text-slate-700'}`}
                       placeholder="0"
-                      title={suggested ? `Gợi ý từ tiêu chí "${suggested.content}"` : 'Hoạt động chưa có trong danh mục — tự nhập điểm'}
+                      title={suggested
+                        ? `Mức chuẩn của trường: ${row.prize} · ${level} = ${suggested}đ`
+                        : `Chưa khai mức điểm cho ${row.prize} · ${level} trong Cấu hình → Quy định — tự nhập điểm`}
                       value={row.points}
                       onChange={e => updateRow(i, { points: e.target.value })}
                     />
@@ -379,9 +382,9 @@ const AchievementBulkEntry: React.FC = () => {
 
       <p className="text-xs text-slate-500 flex items-start gap-1.5">
         <Info size={14} className="mt-0.5 shrink-0" />
-        Ô điểm viền xanh là điểm lấy sẵn từ tiêu chí đã có; hoạt động mới thì tự nhập điểm,
-        hệ thống sẽ thêm tiêu chí để lần sau chọn lại. Số người tham gia chỉ để đối chiếu mức
-        thưởng, không tự cộng vào điểm.
+        Ô điểm viền xanh là mức chuẩn của trường, tra từ bảng giải × cấp độ trong
+        Cấu hình → Quy định; hoạt động đặc biệt thì gõ đè lên. Số người tham gia chỉ để đối
+        chiếu mức thưởng, không tự cộng vào điểm.
       </p>
 
       <button

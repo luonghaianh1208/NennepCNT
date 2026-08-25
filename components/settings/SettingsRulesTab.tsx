@@ -149,6 +149,49 @@ const SettingsRulesTab: React.FC = () => {
         <ListEditor label="Cấp độ hoạt động" items={form.activityLevels} placeholder="Ví dụ: Cấp quận"
           hint="Cấp càng cao thường điểm thưởng càng lớn."
           onChange={activityLevels => set({ activityLevels })} />
+
+        {/* Bảng điểm: thay cho việc mỗi hoạt động đẻ ra một tiêu chí riêng */}
+        <div>
+          <label className="block text-xs font-bold text-slate-600 mb-1">Bảng điểm thưởng</label>
+          <p className="text-xs text-slate-400 mb-2">
+            Khai một lần, dùng cho mọi hoạt động. Khi nhập khen thưởng, chọn giải và cấp độ là hệ
+            thống điền điểm sẵn — vẫn sửa tay được cho hoạt động đặc biệt.
+          </p>
+          <div className="overflow-x-auto border border-slate-200 rounded-lg">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className="px-3 py-2 text-left font-bold text-slate-600 min-w-[130px]">Giải</th>
+                  {form.activityLevels.map(lv => (
+                    <th key={lv} className="px-2 py-2 text-center font-bold text-slate-600 whitespace-nowrap">{lv}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {form.prizes.map(prize => (
+                  <tr key={prize} className="border-t border-slate-100">
+                    <td className="px-3 py-2 font-medium text-slate-800">{prize}</td>
+                    {form.activityLevels.map(lv => (
+                      <td key={lv} className="px-2 py-1.5">
+                        <input
+                          type="number" min={0}
+                          className="w-full p-1.5 border border-slate-200 rounded text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          value={form.prizePoints?.[prize]?.[lv] ?? 0}
+                          onChange={e => set({
+                            prizePoints: {
+                              ...form.prizePoints,
+                              [prize]: { ...(form.prizePoints?.[prize] ?? {}), [lv]: Number(e.target.value) || 0 },
+                            },
+                          })}
+                        />
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
       {/* ── Tông màu ────────────────────────────────────────────────────── */}
