@@ -69,7 +69,7 @@ const ViewViolationModal: React.FC<ViewViolationModalProps> = ({
               ))}
             </div>
           ) : (
-            <div className="w-full h-20 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 text-sm italic border border-slate-200 border-dashed">
+            <div className="w-full h-20 bg-slate-50 rounded-xl flex items-center justify-center text-slate-500 text-sm italic border border-slate-200 border-dashed">
               Không có ảnh minh họa
             </div>
           )}
@@ -105,7 +105,7 @@ const ViewViolationModal: React.FC<ViewViolationModalProps> = ({
             )}
 
             <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-100">
-              <span className="text-xs text-slate-400 font-medium">Người báo cáo</span>
+              <span className="text-xs text-slate-500 font-medium">Người báo cáo</span>
               <div className="flex items-center gap-2">
                 {showReporterDetails && (
                   <span className="text-xs font-bold text-slate-700 text-right">

@@ -5,7 +5,7 @@ import { User, RoleConfig } from '../../types';
 import { exportToExcel } from '../../utils';
 import { useAppStore } from '../../contexts/AppContext';
 import { useModal } from '../../contexts/ModalContext';
-import { accounts } from '../../services/firebase';
+import { accounts, userMessage } from '../../services/firebase';
 
 const SettingsAccountsTab: React.FC = () => {
   const { users, setUsers, classes, roleConfigs, currentUser, setCurrentUser, refreshData, syncUsers } = useAppStore();
@@ -42,7 +42,7 @@ const SettingsAccountsTab: React.FC = () => {
       await refreshData();
       showToast('Đã tạo tài khoản. Thư đặt mật khẩu đã gửi tới email của người dùng.', 'success');
     } catch (e: any) {
-      showToast(e.message, 'error');
+      showToast(userMessage(e), 'error');
     } finally {
       setBusy(false);
     }
@@ -64,7 +64,7 @@ const SettingsAccountsTab: React.FC = () => {
       await refreshData();
       showToast('Đã xoá tài khoản.', 'success');
     } catch (e: any) {
-      showAlert('Không xoá được', e.message, 'error');
+      showAlert('Không xoá được', userMessage(e), 'error');
     } finally {
       setBusy(false);
     }
@@ -78,7 +78,7 @@ const SettingsAccountsTab: React.FC = () => {
       await refreshData();
       showToast(willActivate ? 'Đã mở khoá tài khoản.' : 'Đã khoá đăng nhập của tài khoản này.', 'success');
     } catch (e: any) {
-      showToast(e.message, 'error');
+      showToast(userMessage(e), 'error');
     } finally {
       setBusy(false);
     }
@@ -92,7 +92,7 @@ const SettingsAccountsTab: React.FC = () => {
       await accounts.sendReset(email);
       showToast(`Đã gửi thư đặt lại mật khẩu tới ${email}`, 'success');
     } catch (e: any) {
-      showToast(e.message, 'error');
+      showToast(userMessage(e), 'error');
     } finally {
       setBusy(false);
     }
@@ -115,7 +115,7 @@ const SettingsAccountsTab: React.FC = () => {
       setEditingUser(null);
       showToast('Đã lưu thông tin tài khoản!', 'success');
     } catch (e: any) {
-      showAlert('Không lưu được', e.message, 'error');
+      showAlert('Không lưu được', userMessage(e), 'error');
     } finally {
       setBusy(false);
     }
@@ -208,7 +208,7 @@ const SettingsAccountsTab: React.FC = () => {
           ].filter(Boolean).join(' ');
           showAlert(failed.length ? 'Hoàn tất, có dòng lỗi' : 'Hoàn tất', note, failed.length ? 'info' : 'success');
         } catch (err: any) {
-          showAlert('Không tạo được tài khoản', err.message, 'error');
+          showAlert('Không tạo được tài khoản', userMessage(err), 'error');
         } finally {
           setBusy(false);
         }
@@ -294,17 +294,24 @@ const SettingsAccountsTab: React.FC = () => {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-slate-500">{u.className || '-'}</td>
-                    <td className="px-4 py-3 text-right flex justify-end gap-2">
-                      <button onClick={() => handleSendReset(u)} disabled={busy} title="Gửi thư đặt lại mật khẩu"
-                        className="text-slate-400 hover:text-amber-600 disabled:opacity-40"><KeyRound size={16}/></button>
-                      <button onClick={() => handleToggleStatus(u as any)} disabled={busy}
-                        title={(u as any).active === false ? 'Mở khoá đăng nhập' : 'Khoá đăng nhập (giữ nguyên dữ liệu đã nhập)'}
-                        className="text-slate-400 hover:text-slate-700 disabled:opacity-40">
-                        {(u as any).active === false ? <Unlock size={16}/> : <Lock size={16}/>}
-                      </button>
-                      <button onClick={() => setEditingUser({ ...u })} className="text-slate-400 hover:text-blue-600"><Edit size={16}/></button>
-                      <button onClick={() => handleDeleteUser(u.id)} disabled={busy}
-                        className="text-slate-400 hover:text-red-600 disabled:opacity-40"><Trash2 size={16}/></button>
+                    {/* Bốn nút 16px sát nhau, nút ngoài cùng là xoá vĩnh viễn đứng ngay
+                        cạnh nút sửa — trên điện thoại là bẫy chạm nhầm. Vùng chạm 44px
+                        và tách nút xoá ra xa bằng một vạch ngăn. */}
+                    <td className="px-4 py-3">
+                      <div className="flex justify-end items-center gap-1">
+                        <button onClick={() => handleSendReset(u)} disabled={busy} title="Gửi thư đặt lại mật khẩu"
+                          className="text-slate-500 hover:text-amber-600 hover:bg-amber-50 disabled:opacity-40 rounded-lg w-11 h-11 inline-flex items-center justify-center"><KeyRound size={16}/></button>
+                        <button onClick={() => handleToggleStatus(u as any)} disabled={busy}
+                          title={(u as any).active === false ? 'Mở khoá đăng nhập' : 'Khoá đăng nhập (giữ nguyên dữ liệu đã nhập)'}
+                          className="text-slate-500 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-40 rounded-lg w-11 h-11 inline-flex items-center justify-center">
+                          {(u as any).active === false ? <Unlock size={16}/> : <Lock size={16}/>}
+                        </button>
+                        <button onClick={() => setEditingUser({ ...u })} title="Sửa thông tin"
+                          className="text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg w-11 h-11 inline-flex items-center justify-center"><Edit size={16}/></button>
+                        <span className="w-px h-6 bg-slate-200 mx-1" aria-hidden="true" />
+                        <button onClick={() => handleDeleteUser(u.id)} disabled={busy} title="Xoá vĩnh viễn tài khoản"
+                          className="text-slate-500 hover:text-red-600 hover:bg-red-50 disabled:opacity-40 rounded-lg w-11 h-11 inline-flex items-center justify-center"><Trash2 size={16}/></button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -330,7 +337,7 @@ const SettingsAccountsTab: React.FC = () => {
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Email đăng nhập</label>
                 <input className="w-full p-2 border rounded-lg bg-slate-100 text-slate-500" value={editingUser.email || editingUser.username} readOnly/>
-                <p className="text-xs text-slate-400 mt-1">
+                <p className="text-xs text-slate-500 mt-1">
                   Email là danh tính đăng nhập nên không sửa tại đây. Cần đổi thì tạo tài khoản mới rồi khoá tài khoản cũ.
                 </p>
               </div>

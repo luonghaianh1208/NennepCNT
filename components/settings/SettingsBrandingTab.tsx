@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { Save, Image as ImageIcon, Loader2, Info, X } from 'lucide-react';
 import { useAppStore } from '../../contexts/AppContext';
 import { useModal } from '../../contexts/ModalContext';
-import { api } from '../../services/firebase';
+import { api, userMessage } from '../../services/firebase';
 
 /**
  * Thương hiệu của trường: tên, logo, khẩu hiệu, năm học.
@@ -36,7 +36,7 @@ const SettingsBrandingTab: React.FC = () => {
         set({ logoUrl: res.url });
         showToast('Đã tải logo lên, nhớ bấm Lưu', 'success');
       } catch (err: any) {
-        showAlert('Không tải được logo', err.message, 'error');
+        showAlert('Không tải được logo', userMessage(err), 'error');
       } finally {
         setIsUploading(false);
         if (fileRef.current) fileRef.current.value = '';
@@ -143,7 +143,7 @@ const SettingsBrandingTab: React.FC = () => {
               </button>
             )}
           </div>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-slate-500 mt-1">
             Nên dùng ảnh vuông, nền trong suốt (PNG), dưới 2MB.
           </p>
         </div>

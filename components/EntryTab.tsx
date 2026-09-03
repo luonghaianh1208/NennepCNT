@@ -445,7 +445,7 @@ const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
       console.error('Batch import error:', err);
       setIsSubmitting(false);
       setImportProgress('');
-      await showAlert('Import Thất Bại', 'Có lỗi khi gửi dữ liệu lên server. Vui lòng thử lại.', 'error');
+      await showAlert('Import Thất Bại', 'Chưa gửi được dữ liệu. Kiểm tra kết nối mạng rồi thử lại.', 'error');
     }
     setPreviewRows([]);
   };
@@ -568,10 +568,10 @@ const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
                             'bg-white border-b border-slate-100'
                       }
                     >
-                      <td className="px-3 py-2 text-slate-400">{row.rowIndex}</td>
+                      <td className="px-3 py-2 text-slate-500">{row.rowIndex}</td>
                       <td className="px-3 py-2 font-medium text-slate-700">{row.date}</td>
                       <td className="px-3 py-2 text-slate-700">{row.className}</td>
-                      <td className="px-3 py-2 text-slate-600">{row.studentName || <span className="italic text-slate-400">Tập thể</span>}</td>
+                      <td className="px-3 py-2 text-slate-600">{row.studentName || <span className="italic text-slate-500">Tập thể</span>}</td>
                       <td className="px-3 py-2">
                         <span className="text-slate-500 italic">{row.inputCriteria || '—'}</span>
                         {row.status === 'ok' && (
@@ -760,7 +760,7 @@ const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
                   <option value="">Tất cả</option>
                   {schoolSettings.grades.map(g => <option key={g} value={g}>Khối {g}</option>)}
                 </select>
-                <ChevronDown className="absolute right-3 top-3.5 text-slate-400 pointer-events-none" size={16} />
+                <ChevronDown className="absolute right-3 top-3.5 text-slate-500 pointer-events-none" size={16} />
               </div>
             </div>
             {/* Lớp — trường quan trọng */}
@@ -773,7 +773,7 @@ const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
                   <option value="">-- Chọn Lớp --</option>
                   {filteredClasses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
-                <ChevronDown className="absolute right-3 top-3.5 text-blue-400 pointer-events-none" size={16} />
+                <ChevronDown className="absolute right-3 top-3.5 text-blue-600 pointer-events-none" size={16} />
               </div>
             </div>
           </div>
@@ -791,7 +791,7 @@ const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
               {/* Danh sách học sinh tải song song lúc mở app; trong lúc chờ thì
                   khoá ô chọn lại để không ai tưởng lớp mình không có học sinh */}
               <select
-                className="w-full p-3 rounded-lg border-2 border-slate-300 bg-white disabled:bg-slate-50 disabled:text-slate-400"
+                className="w-full p-3 rounded-lg border-2 border-slate-300 bg-white disabled:bg-slate-50 disabled:text-slate-500"
                 value={selectedStudentId}
                 onChange={(e) => setSelectedStudentId(e.target.value)}
                 disabled={!selectedClassId || !students.length}
@@ -849,8 +849,8 @@ const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
 
           {/* Ghi chú — trường phụ */}
           <div>
-            <label className="block text-xs font-medium text-slate-400 mb-1">Ghi chú thêm <span className="italic">(tùy chọn)</span></label>
-            <textarea placeholder="Ghi chú thêm..." className="w-full p-3 rounded-lg border border-slate-200 bg-slate-50/70 text-sm text-slate-600 placeholder:text-slate-300" rows={2} value={entryNote} onChange={(e) => setEntryNote(e.target.value)} />
+            <label className="block text-xs font-medium text-slate-500 mb-1">Ghi chú thêm <span className="italic">(tùy chọn)</span></label>
+            <textarea placeholder="Ghi chú thêm..." className="w-full p-3 rounded-lg border border-slate-200 bg-slate-50/70 text-sm text-slate-600 placeholder:text-slate-400" rows={2} value={entryNote} onChange={(e) => setEntryNote(e.target.value)} />
           </div>
 
           <button

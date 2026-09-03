@@ -57,11 +57,11 @@ const ListEditor: React.FC<{
                 if (e.key === 'Escape') { e.preventDefault(); setEditing(null); }
               }} />
             <button onClick={saveRename} disabled={!isValid}
-              className="text-green-600 hover:text-green-700 disabled:text-slate-300"
+              className="text-green-600 hover:text-green-700 disabled:text-slate-400"
               title={isValid ? 'Lưu tên mới' : 'Tên trống hoặc trùng mục khác'}>
               <Check size={13} />
             </button>
-            <button onClick={() => setEditing(null)} className="text-slate-400 hover:text-slate-600" title="Thôi không sửa">
+            <button onClick={() => setEditing(null)} className="text-slate-500 hover:text-slate-600" title="Thôi không sửa">
               <X size={13} />
             </button>
           </span>
@@ -69,16 +69,16 @@ const ListEditor: React.FC<{
           <span key={item} className="inline-flex items-center gap-1 bg-slate-100 border border-slate-200 rounded-full pl-3 pr-1.5 py-1 text-sm">
             {item}
             <button onClick={() => { setEditing(item); setNewName(item); }}
-              className="text-slate-400 hover:text-blue-600" title={`Sửa tên ${item}`}>
+              className="text-slate-500 hover:text-blue-600" title={`Sửa tên ${item}`}>
               <Pencil size={11} />
             </button>
             <button onClick={() => onChange(items.filter(i => i !== item))}
-              className="text-slate-400 hover:text-red-600" title={`Bỏ ${item}`}>
+              className="text-slate-500 hover:text-red-600" title={`Bỏ ${item}`}>
               <X size={13} />
             </button>
           </span>
         )))}
-        {!items.length && <span className="text-xs text-slate-400 italic">Chưa có mục nào</span>}
+        {!items.length && <span className="text-xs text-slate-500 italic">Chưa có mục nào</span>}
       </div>
       <div className="flex gap-2">
         <input
@@ -93,7 +93,7 @@ const ListEditor: React.FC<{
           <Plus size={15} />
         </button>
       </div>
-      <p className="text-xs text-slate-400 mt-1">{hint}</p>
+      <p className="text-xs text-slate-500 mt-1">{hint}</p>
     </div>
   );
 };
@@ -160,7 +160,7 @@ const SettingsRulesTab: React.FC = () => {
               className="w-full p-2.5 border border-slate-300 rounded-lg"
               value={form.baseScore}
               onChange={e => set({ baseScore: Number(e.target.value) || 0 })} />
-            <p className="text-xs text-slate-400 mt-1">Mỗi lớp bắt đầu với số điểm này, trừ dần khi vi phạm.</p>
+            <p className="text-xs text-slate-500 mt-1">Mỗi lớp bắt đầu với số điểm này, trừ dần khi vi phạm.</p>
           </div>
 
           <div>
@@ -172,7 +172,7 @@ const SettingsRulesTab: React.FC = () => {
               value={form.semester2Multiplier}
               onChange={e => set({ semester2Multiplier: Number(e.target.value) })}
               onBlur={e => { if (!(Number(e.target.value) >= 1)) set({ semester2Multiplier: 1 }); }} />
-            <p className="text-xs text-slate-400 mt-1">Điền 1 nếu trường tính hai học kỳ ngang nhau.</p>
+            <p className="text-xs text-slate-500 mt-1">Điền 1 nếu trường tính hai học kỳ ngang nhau.</p>
           </div>
         </div>
 
@@ -229,7 +229,7 @@ const SettingsRulesTab: React.FC = () => {
         {/* Bảng điểm: thay cho việc mỗi hoạt động đẻ ra một tiêu chí riêng */}
         <div>
           <label className="block text-xs font-bold text-slate-600 mb-1">Bảng điểm thưởng</label>
-          <p className="text-xs text-slate-400 mb-2">
+          <p className="text-xs text-slate-500 mb-2">
             Khai một lần, dùng cho mọi hoạt động. Khi nhập khen thưởng, chọn giải và cấp độ là hệ
             thống điền điểm sẵn — vẫn sửa tay được cho hoạt động đặc biệt. Ô để 0 nghĩa là không gợi ý.
             Sửa tên giải hay cấp độ thì điểm đã khai đi theo, nhưng các bản ghi khen thưởng cũ vẫn

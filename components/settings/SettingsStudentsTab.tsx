@@ -8,7 +8,7 @@ import { useModal } from '../../contexts/ModalContext';
 
 const SettingsStudentsTab: React.FC = () => {
   const { classes, students, setStudents, setUnsavedChanges } = useAppStore();
-  const { showToast } = useModal();
+  const { showToast, showConfirm } = useModal();
 
   const [selectedClassForStudent, setSelectedClassForStudent] = useState(classes[0]?.id || '');
   const [newStudentName, setNewStudentName] = useState('');
@@ -26,7 +26,17 @@ const SettingsStudentsTab: React.FC = () => {
     setUnsavedChanges(true);
   };
 
-  const handleDeleteStudent = (id: string) => {
+  // Đây là chỗ duy nhất trong Cấu hình từng xoá ngay không hỏi lại, mà nút thùng
+  // rác lại nhỏ và sát mép phải — trên điện thoại rất dễ chạm nhầm
+  const handleDeleteStudent = async (id: string) => {
+    const student = students.find(s => s.id === id);
+    const ok = await showConfirm({
+      title: 'Xoá học sinh',
+      message: `Xoá "${student?.name || id}" khỏi danh sách lớp?\n\nCác bản ghi vi phạm đã có của em này vẫn giữ nguyên, nhưng sẽ không tra được tên nữa.`,
+      type: 'danger',
+      confirmText: 'Xoá học sinh',
+    });
+    if (!ok) return;
     setStudents(students.filter(s => s.id !== id));
     setUnsavedChanges(true);
   };
@@ -185,10 +195,11 @@ const SettingsStudentsTab: React.FC = () => {
           <tbody>
             {students.filter(s => s.classId === selectedClassForStudent).map(s => (
               <tr key={s.id} className="border-b last:border-0 hover:bg-slate-50">
-                <td className="px-4 py-3 font-medium text-slate-400 text-xs">{s.id}</td>
+                <td className="px-4 py-3 font-medium text-slate-500 text-xs">{s.id}</td>
                 <td className="px-4 py-3 font-medium text-slate-700">{s.name}</td>
                 <td className="px-4 py-3 text-right">
-                  <button onClick={() => handleDeleteStudent(s.id)} className="text-red-500 hover:text-red-700">
+                  <button onClick={() => handleDeleteStudent(s.id)} title={`Xoá ${s.name}`}
+                    className="text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg w-11 h-11 inline-flex items-center justify-center">
                     <Trash2 size={16} />
                   </button>
                 </td>

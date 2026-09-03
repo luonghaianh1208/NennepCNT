@@ -165,16 +165,16 @@ const DashboardTab: React.FC = () => {
         {/* Hôm nay */}
         <div className="bg-white rounded-xl border border-red-100 p-4 shadow-sm relative overflow-hidden">
           <div className="absolute top-3 right-3 text-red-100"><AlertTriangle size={28} /></div>
-          <div className="text-xs font-bold text-red-400 uppercase mb-1">Vi phạm hôm nay</div>
+          <div className="text-xs font-bold text-red-500 uppercase mb-1">Vi phạm hôm nay</div>
           <div className="text-4xl font-black text-red-600">{todayViolations.length}</div>
-          <div className="text-xs text-slate-400 mt-1">{todayViolations.filter(v => v.studentId).length} cá nhân · {todayViolations.filter(v => !v.studentId).length} tập thể</div>
+          <div className="text-xs text-slate-500 mt-1">{todayViolations.filter(v => v.studentId).length} cá nhân · {todayViolations.filter(v => !v.studentId).length} tập thể</div>
         </div>
 
         <div className="bg-white rounded-xl border border-green-100 p-4 shadow-sm relative overflow-hidden">
           <div className="absolute top-3 right-3 text-green-100"><Star size={28} /></div>
           <div className="text-xs font-bold text-green-500 uppercase mb-1">Thành tích hôm nay</div>
           <div className="text-4xl font-black text-green-600">{todayAchievements.length}</div>
-          <div className="text-xs text-slate-400 mt-1">{todayAchievements.filter(v => v.studentId).length} cá nhân · {todayAchievements.filter(v => !v.studentId).length} tập thể</div>
+          <div className="text-xs text-slate-500 mt-1">{todayAchievements.filter(v => v.studentId).length} cá nhân · {todayAchievements.filter(v => !v.studentId).length} tập thể</div>
         </div>
       </div>
 
@@ -264,7 +264,7 @@ const DashboardTab: React.FC = () => {
 
       {/* Empty state khi chưa có dữ liệu hôm nay */}
       {violations.length === 0 && (
-        <div className="text-center py-12 text-slate-400">
+        <div className="text-center py-12 text-slate-500">
           <Activity size={48} strokeWidth={1} className="mx-auto mb-3 opacity-40" />
           <p className="font-semibold">Chưa có dữ liệu</p>
           <p className="text-sm mt-1">Dữ liệu sẽ hiển thị sau khi có vi phạm được ghi nhận.</p>

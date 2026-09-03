@@ -52,7 +52,7 @@ const DashboardCharts: React.FC<Props> = ({ byGradeData, radarData, thisWeekLabe
           <Activity size={16} className="text-blue-500" />
           Điểm thi đua các lớp — {thisWeekLabel}
         </div>
-        <p className="text-xs text-slate-400 mb-3">Top 8 lớp (điểm cao = ít vi phạm nhất)</p>
+        <p className="text-xs text-slate-500 mb-3">Top 8 lớp (điểm cao = ít vi phạm nhất)</p>
         <div className="h-60">
           <ResponsiveContainer width="100%" height="100%">
             <RadarChart data={radarData} margin={{ top: 10, right: 20, bottom: 10, left: 20 }}>

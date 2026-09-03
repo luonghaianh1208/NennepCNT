@@ -4,7 +4,7 @@ import { Violation } from '../types';
 import { getLocalDateString, removeVietnameseTones, isDateOutsideAllConfigs, lookupPrizePoints } from '../utils';
 import { useAppStore } from '../contexts/AppContext';
 import { useModal } from '../contexts/ModalContext';
-import { api } from '../services/firebase';
+import { api, userMessage } from '../services/firebase';
 
 /**
  * Nhập thành tích theo hoạt động: khai báo một hoạt động rồi ghi giải thưởng
@@ -202,7 +202,7 @@ const AchievementBulkEntry: React.FC = () => {
         'success',
       );
     } catch (e: any) {
-      showAlert('Không lưu được', e.message ?? String(e), 'error');
+      showAlert('Không lưu được', userMessage(e), 'error');
     } finally {
       setIsSaving(false);
     }
@@ -360,7 +360,7 @@ const AchievementBulkEntry: React.FC = () => {
                   </td>
                   <td className="px-1 text-center">
                     {rows.length > 1 && (
-                      <button onClick={() => setRows(rows.filter((_, j) => j !== i))} className="text-slate-300 hover:text-red-500">
+                      <button onClick={() => setRows(rows.filter((_, j) => j !== i))} className="text-slate-400 hover:text-red-500">
                         <Trash2 size={16} />
                       </button>
                     )}

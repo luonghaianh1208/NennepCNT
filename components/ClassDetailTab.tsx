@@ -211,7 +211,7 @@ const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ setViewingViolation, se
         <div className="bg-white border-l-4 border-l-green-500 rounded-xl shadow-sm p-4">
            <div className="text-slate-500 text-xs font-bold uppercase mb-1 flex items-center gap-1"><TrendingUp size={14} /> Tổng Điểm</div>
            <div className="text-3xl font-black text-slate-800">{myScore.toFixed(2)}</div>
-           <div className="text-xs text-slate-400 mt-1">{scoringLabel}</div>
+           <div className="text-xs text-slate-500 mt-1">{scoringLabel}</div>
         </div>
       </div>
 
@@ -280,7 +280,7 @@ const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ setViewingViolation, se
                  </table>
              </div>
          ) : (
-             <div className="text-center py-6 text-slate-400 italic text-sm">Chưa có học sinh nào bị ghi nhận lỗi vi phạm.</div>
+             <div className="text-center py-6 text-slate-500 italic text-sm">Chưa có học sinh nào bị ghi nhận lỗi vi phạm.</div>
          )}
       </div>
 
@@ -327,7 +327,7 @@ const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ setViewingViolation, se
                       )}
                     </div>
                   );
-              }) : <div className="text-center py-8 text-slate-400 text-sm bg-slate-50 rounded-lg border border-dashed border-slate-200">Không có vi phạm nào</div>}
+              }) : <div className="text-center py-8 text-slate-500 text-sm bg-slate-50 rounded-lg border border-dashed border-slate-200">Không có vi phạm nào</div>}
             </div>
          </div>
 
@@ -373,7 +373,7 @@ const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ setViewingViolation, se
                       )}
                     </div>
                   );
-              }) : <div className="text-center py-8 text-slate-400 text-sm bg-slate-50 rounded-lg border border-dashed border-slate-200">Chưa có thành tích nào</div>}
+              }) : <div className="text-center py-8 text-slate-500 text-sm bg-slate-50 rounded-lg border border-dashed border-slate-200">Chưa có thành tích nào</div>}
             </div>
          </div>
       </div>

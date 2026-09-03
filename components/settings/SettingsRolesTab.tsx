@@ -102,7 +102,7 @@ const SettingsRolesTab: React.FC = () => {
                       <span className="text-xs">{roleConfigs[key].label}</span>
                       {key !== 'ADMIN' && key !== 'GUEST' && (
                         <button onClick={() => handleDeleteRole(key)} title={`Xoá vai trò ${key}`}
-                          className="text-slate-300 hover:text-red-500">
+                          className="text-slate-400 hover:text-red-500">
                           <Trash2 size={12} />
                         </button>
                       )}
@@ -123,7 +123,7 @@ const SettingsRolesTab: React.FC = () => {
                     <tr key={item.key} className="border-t border-slate-100 hover:bg-slate-50/60">
                       <td className="px-3 py-2">
                         <div className="font-medium text-slate-800">{item.label}</div>
-                        <div className="text-xs text-slate-400 leading-snug">{item.hint}</div>
+                        <div className="text-xs text-slate-500 leading-snug">{item.hint}</div>
                       </td>
                       {roleKeys.map(key => {
                         const on = roleConfigs[key][item.key];
@@ -174,7 +174,7 @@ const SettingsRolesTab: React.FC = () => {
             <Plus size={16} /> Thêm
           </button>
         </div>
-        <p className="text-xs text-slate-400 mt-2">Vai trò mới chưa có quyền nào, bật thêm trong bảng phía trên rồi bấm Lưu.</p>
+        <p className="text-xs text-slate-500 mt-2">Vai trò mới chưa có quyền nào, bật thêm trong bảng phía trên rồi bấm Lưu.</p>
       </div>
     </div>
   );

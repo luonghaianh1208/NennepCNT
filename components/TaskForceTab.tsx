@@ -177,7 +177,7 @@ const TaskForceTab: React.FC = () => {
       <div className="bg-gradient-to-r from-slate-800 to-slate-900 text-white rounded-xl p-4 shadow-sm flex items-center justify-between">
          <div>
             <h2 className="text-xl font-bold flex items-center gap-2"><Shield className="text-yellow-400"/> Thống Kê Ban Nền Nếp</h2>
-            <p className="text-slate-400 text-xs">Theo dõi hoạt động và tính điểm thi đua thành viên</p>
+            <p className="text-slate-500 text-xs">Theo dõi hoạt động và tính điểm thi đua thành viên</p>
          </div>
       </div>
 
@@ -257,19 +257,19 @@ const TaskForceTab: React.FC = () => {
                             </div>
                         </div>
                         <div className="text-right">
-                           <div className="text-xs text-slate-400 font-bold uppercase">Điểm thi đua</div>
+                           <div className="text-xs text-slate-500 font-bold uppercase">Điểm thi đua</div>
                            <div className={`text-xl font-black ${u.score >= 0 ? 'text-blue-600' : 'text-red-500'}`}>{u.score}</div>
                         </div>
                       </div>
 
                       <div className="grid grid-cols-3 gap-2 text-center text-xs">
                           <div className="bg-blue-50 p-2 rounded-lg border border-blue-100">
-                              <div className="text-blue-400 font-medium mb-1">Báo lỗi (x2)</div>
+                              <div className="text-blue-600 font-medium mb-1">Báo lỗi (x2)</div>
                               <div className="font-bold text-blue-700 text-lg">{u.reportedCount}</div>
                           </div>
                           
                           <div className="bg-red-50 p-2 rounded-lg border border-red-100">
-                              <div className="text-red-400 font-medium mb-1">Vi phạm (x-5)</div>
+                              <div className="text-red-500 font-medium mb-1">Vi phạm (x-5)</div>
                               <div className="font-bold text-red-700 text-lg">{u.personalViolationsCount}</div>
                           </div>
 
@@ -316,7 +316,7 @@ const TaskForceTab: React.FC = () => {
           })}
           
           {stats.length === 0 && (
-              <div className="text-center py-10 text-slate-400">Không tìm thấy dữ liệu.</div>
+              <div className="text-center py-10 text-slate-500">Không tìm thấy dữ liệu.</div>
           )}
       </div>
 

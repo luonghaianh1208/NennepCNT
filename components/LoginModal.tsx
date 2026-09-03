@@ -85,7 +85,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ onClose, onSuccess }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-red-900/80 backdrop-blur-sm p-6 animate-in fade-in">
       <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl p-8 animate-in zoom-in-95 relative">
-        <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
+        <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-slate-600">
           <X size={24} />
         </button>
 
@@ -104,7 +104,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ onClose, onSuccess }) => {
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-1">
                   Tên đăng nhập{' '}
-                  <span className="text-xs font-normal text-slate-500 italic ml-1">(nhập email đã đăng kí)</span>
+                  <span className="text-xs font-normal text-slate-500 italic ml-1">(nhập email đã đăng ký)</span>
                 </label>
                 <input
                   type="text"
@@ -117,10 +117,9 @@ const LoginModal: React.FC<LoginModalProps> = ({ onClose, onSuccess }) => {
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1">
-                  Mật khẩu{' '}
-                  <span className="text-xs font-normal text-slate-500 italic ml-1">(dạng CNT@xxxx)</span>
-                </label>
+                {/* Nhãn cũ ghi "(dạng CNT@xxxx)" — vừa sai (người dùng tự đặt
+                    mật khẩu), vừa gắn cứng tên viết tắt của một trường cụ thể */}
+                <label className="block text-sm font-bold text-slate-700 mb-1">Mật khẩu</label>
                 <input
                   type="password"
                   className="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-red-500 outline-none"
@@ -200,7 +199,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ onClose, onSuccess }) => {
                   Email đã đăng ký
                 </label>
                 <div className="relative">
-                  <Mail size={16} className="absolute left-3 top-3.5 text-slate-400 pointer-events-none" />
+                  <Mail size={16} className="absolute left-3 top-3.5 text-slate-500 pointer-events-none" />
                   <input
                     type="email"
                     className="w-full pl-9 pr-3 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-400 outline-none"
@@ -263,14 +262,20 @@ const LoginModal: React.FC<LoginModalProps> = ({ onClose, onSuccess }) => {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <h2 className="text-xl font-bold text-slate-800 mb-2">Đã gửi mật khẩu mới!</h2>
+            {/* Hệ thống gửi ĐƯỜNG DẪN để người dùng tự đặt mật khẩu, không sinh
+                mật khẩu mới. Màn hình cũ hứa một chuỗi không tồn tại nên người
+                dùng mở thư đi tìm rồi kẹt luôn. */}
+            <h2 className="text-xl font-bold text-slate-800 mb-2">Đã gửi thư hướng dẫn!</h2>
             <p className="text-slate-500 text-sm leading-relaxed mb-2">
-              Mật khẩu mới dạng <code className="bg-slate-100 px-1.5 py-0.5 rounded font-mono text-red-600">CNT@xxxx</code><br />
-              đã được gửi về
+              Thư đặt lại mật khẩu đã được gửi tới
             </p>
-            <p className="font-semibold text-slate-700 text-sm mb-6">{forgotEmail}</p>
-            <p className="text-xs text-slate-400 mb-6">
-              Kiểm tra cả thư mục Spam nếu không thấy email trong hộp thư chính.
+            <p className="font-semibold text-slate-700 text-sm mb-4">{forgotEmail}</p>
+            <p className="text-slate-600 text-sm leading-relaxed mb-6 bg-slate-50 border border-slate-200 rounded-lg p-3 text-left">
+              Mở thư và bấm vào <strong>đường dẫn trong thư</strong> để tự đặt mật khẩu mới.
+              Thư không chứa mật khẩu sẵn — bạn tự chọn mật khẩu của mình.
+            </p>
+            <p className="text-xs text-slate-500 mb-6">
+              Chưa thấy thư? Kiểm tra thêm mục Thư rác (Spam).
             </p>
             <button
               onClick={() => setView('login')}

@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Download, Filter, Search, CheckSquare, Square, Trash2, Edit, Link2, ListChecks, ChevronDown, Copy, RefreshCw, AlertTriangle, X } from 'lucide-react';
 import { Violation } from '../types';
-import { safeParseImages, formatDateDisplay, isDateInRange, exportToExcel, findDuplicateViolations, can } from '../utils';
+import { safeParseImages, formatDateDisplay, isDateInRange, exportToExcel, findDuplicateViolations, can, getLocalDateString } from '../utils';
 import { useAppStore } from '../contexts/AppContext';
 import { useModal } from '../contexts/ModalContext';
 
@@ -112,7 +112,9 @@ const ListTab: React.FC<ListTabProps> = ({
       return list.sort((a, b) => b.timestamp - a.timestamp);
     }
 
-    let list = violations;
+    // Bản sao: bên dưới có .sort() tại chỗ, mà với bộ lọc mặc định thì list
+    // chính là mảng state của context — sắp xếp thẳng vào state của React
+    let list = [...violations];
 
     // --- LOGIC LỌC TRÙNG LẶP (Dành cho Admin) — dùng util từ utils.ts ---
     if (showDuplicatesOnly && canModerate) {
@@ -265,7 +267,7 @@ const ListTab: React.FC<ListTabProps> = ({
     });
 
     const fullData = [headerRow, ...dataRows];
-    exportToExcel(fullData, `Du_lieu_thi_dua_${new Date().toISOString().slice(0,10)}`);
+    exportToExcel(fullData, `Du_lieu_thi_dua_${getLocalDateString()}`);
   };
 
   const handleBulkEdit = async () => {
@@ -332,7 +334,7 @@ const ListTab: React.FC<ListTabProps> = ({
         </div>
         
         <div className="relative w-full">
-            <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
+            <Search className="absolute left-3 top-2.5 text-slate-500" size={18} />
             <input 
                 type="text" 
                 placeholder="Tìm kiếm theo tên HS, lớp, lỗi vi phạm, ghi chú..." 
@@ -443,7 +445,7 @@ const ListTab: React.FC<ListTabProps> = ({
                 </div>
               </div>
             ))}
-            <p className="text-center text-slate-400 text-sm py-2 animate-pulse">Đang tải dữ liệu mới nhất...</p>
+            <p className="text-center text-slate-500 text-sm py-2 animate-pulse">Đang tải dữ liệu mới nhất...</p>
           </div>
         )}
         {visibleViolations.map((v) => {
@@ -482,7 +484,7 @@ const ListTab: React.FC<ListTabProps> = ({
             <div key={v.id} className={`relative group bg-white rounded-xl shadow-sm border p-4 transition-all ${isSelected ? 'border-blue-500 ring-1 ring-blue-500 bg-blue-50/30' : 'border-slate-200 hover:border-blue-300'}`}>
               {canEditOthers && (
                 <div className="absolute top-3 right-3 z-20 cursor-pointer" onClick={(e) => { e.stopPropagation(); toggleSelection(v.id); }}>
-                  {isSelected ? <CheckSquare className="text-blue-600" size={20} fill="white" /> : <Square className="text-slate-300 hover:text-blue-400" size={20} />}
+                  {isSelected ? <CheckSquare className="text-blue-600" size={20} fill="white" /> : <Square className="text-slate-400 hover:text-blue-600" size={20} />}
                 </div>
               )}
               <div className="flex justify-between items-start" onClick={() => setViewingViolation(v)}>
@@ -557,7 +559,7 @@ const ListTab: React.FC<ListTabProps> = ({
             {searchTerm.trim() ? (
               <>
                 <p className="font-bold text-slate-600 text-base mb-1">Không tìm thấy kết quả</p>
-                <p className="text-slate-400 text-sm mb-3">Không có bản ghi nào khớp với “<span className="font-semibold text-slate-600">{searchTerm}</span>”</p>
+                <p className="text-slate-500 text-sm mb-3">Không có bản ghi nào khớp với “<span className="font-semibold text-slate-600">{searchTerm}</span>”</p>
                 <button
                   onClick={() => setSearchTerm('')}
                   className="text-sm text-blue-600 font-semibold hover:underline"
@@ -565,13 +567,13 @@ const ListTab: React.FC<ListTabProps> = ({
               </>
             ) : showDuplicatesOnly ? (
               <>
-                <p className="font-bold text-green-600 text-base mb-1">✅ Không có bản ghi trùng lập</p>
-                <p className="text-slate-400 text-sm">Dữ liệu trong khoảng thời gian này hoàn toàn sạch.</p>
+                <p className="font-bold text-green-600 text-base mb-1">✅ Không có bản ghi trùng lặp</p>
+                <p className="text-slate-500 text-sm">Dữ liệu trong khoảng thời gian này hoàn toàn sạch.</p>
               </>
             ) : (
               <>
                 <p className="font-bold text-slate-600 text-base mb-1">Chưa có dữ liệu</p>
-                <p className="text-slate-400 text-sm mb-4">Chưa có bản ghi nào phù hợp với bộ lọc hiện tại.</p>
+                <p className="text-slate-500 text-sm mb-4">Chưa có bản ghi nào phù hợp với bộ lọc hiện tại.</p>
                 <div className="flex flex-col sm:flex-row gap-2 items-center">
                   <button
                     onClick={() => { setFilterMode('ALL'); setFilterClassId('ALL'); }}
@@ -605,7 +607,7 @@ const ListTab: React.FC<ListTabProps> = ({
         <div className="fixed bottom-20 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:max-w-2xl bg-slate-900 text-white p-3 rounded-xl shadow-xl flex items-center justify-between z-30 animate-in slide-in-from-bottom-5">
            <div className="font-bold pl-2">Đã chọn {selectedViolationIds.size} mục</div>
            <div className="flex gap-2">
-              <button onClick={() => setSelectedViolationIds(new Set())} className="px-4 py-2 text-slate-300 hover:text-white font-medium">Hủy</button>
+              <button onClick={() => setSelectedViolationIds(new Set())} className="px-4 py-2 text-slate-400 hover:text-white font-medium">Hủy</button>
               <button onClick={() => { setShowBulkEdit(true); setBulkEditField(''); setBulkEditValue(''); }} className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-lg flex items-center gap-2">
                  <Edit size={16} /> Sửa
               </button>
@@ -627,14 +629,14 @@ const ListTab: React.FC<ListTabProps> = ({
       <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4">
         <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden">
           <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-            <h3 className="font-bold text-slate-800">Ấp dụng cho {selectedViolationIds.size} mục</h3>
-            <button onClick={() => setShowBulkEdit(false)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+            <h3 className="font-bold text-slate-800">Áp dụng cho {selectedViolationIds.size} mục</h3>
+            <button onClick={() => setShowBulkEdit(false)} className="text-slate-500 hover:text-slate-600"><X size={20} /></button>
           </div>
           <div className="p-5 space-y-4">
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-1.5">Chọn trường cần sửa</label>
               <div className="grid grid-cols-2 gap-2">
-                <button onClick={() => { setBulkEditField('date'); setBulkEditValue(new Date().toISOString().slice(0,10)); }} className={`py-2.5 px-3 rounded-xl border-2 text-sm font-bold transition-all ${bulkEditField === 'date' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-500 hover:border-slate-300'}`}>
+                <button onClick={() => { setBulkEditField('date'); setBulkEditValue(getLocalDateString()); }} className={`py-2.5 px-3 rounded-xl border-2 text-sm font-bold transition-all ${bulkEditField === 'date' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-500 hover:border-slate-300'}`}>
                   📅 Ngày vi phạm
                 </button>
                 <button onClick={() => { setBulkEditField('note'); setBulkEditValue(''); }} className={`py-2.5 px-3 rounded-xl border-2 text-sm font-bold transition-all ${bulkEditField === 'note' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-500 hover:border-slate-300'}`}>
@@ -677,7 +679,7 @@ const ListTab: React.FC<ListTabProps> = ({
                 {isBulkUpdating ? (
                   <><svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> Đang lưu...</>
                 ) : (
-                  <>✅ Ấp dụng cho {selectedViolationIds.size} mục</>
+                  <>✅ Áp dụng cho {selectedViolationIds.size} mục</>
                 )}
               </button>
             )}

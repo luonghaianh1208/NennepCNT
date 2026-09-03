@@ -117,6 +117,17 @@ export const friendlyError = (e: any): string => {
   return 'Thao tác chưa thực hiện được. Thử lại, nếu vẫn lỗi thì báo quản trị viên.';
 };
 
+/**
+ * Câu để hiện ra màn hình. Cloud Functions của hệ thống đã ném lỗi bằng tiếng
+ * Việt ("Đây là quản trị viên còn hoạt động duy nhất…") — giữ nguyên vì nó cụ
+ * thể hơn. Còn lại là lỗi hạ tầng, phải dịch.
+ */
+export const userMessage = (e: any): string => {
+  const raw = String(e?.message ?? '').trim();
+  const hasVietnamese = /[àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]/i.test(raw);
+  return hasVietnamese ? raw : friendlyError(e);
+};
+
 /** Nơi gọi vẫn kiểm tra `result.error` như thời còn dùng backend cũ */
 type BatchResult = { status: string; created?: number; updated?: number; error?: string };
 

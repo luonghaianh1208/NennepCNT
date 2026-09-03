@@ -23,7 +23,7 @@ const showConfigError = (message: string) => {
         <h1 className="text-lg font-bold text-red-700 mb-2">Chưa cấu hình được hệ thống</h1>
         <p className="text-sm text-slate-600 leading-relaxed">{message}</p>
         <p className="text-xs text-slate-400 mt-4">
-          Vui lòng liên hệ đơn vị triển khai để kiểm tra tệp <code>tenant-config.json</code>.
+          Vui lòng liên hệ đơn vị triển khai để kiểm tra lại cấu hình của trường.
         </p>
       </div>
     </div>,

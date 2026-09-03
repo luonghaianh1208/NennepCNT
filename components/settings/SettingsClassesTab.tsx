@@ -147,7 +147,7 @@ const SettingsClassesTab: React.FC = () => {
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
         {classes.map(c => (
           <div key={c.id} className="bg-white border border-slate-200 p-3 rounded-lg relative group hover:shadow-md transition-shadow">
-            <button onClick={() => handleDeleteClass(c.id)} className="absolute top-1 right-1 text-slate-300 hover:text-red-500 p-1 opacity-0 group-hover:opacity-100 transition-all">
+            <button onClick={() => handleDeleteClass(c.id)} className="absolute top-1 right-1 text-slate-400 hover:text-red-500 p-1 opacity-60 group-hover:opacity-100 focus-visible:opacity-100 transition-all">
               <X size={14}/>
             </button>
             <div className="font-bold text-slate-800 text-center text-lg">{c.name}</div>

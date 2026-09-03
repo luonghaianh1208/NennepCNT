@@ -37,7 +37,7 @@ const ContentSkeleton: React.FC = () => (
       <Bar className="h-40 w-full" />
     </div>
 
-    <div className="flex items-center justify-center gap-2 text-slate-400 text-sm py-2">
+    <div className="flex items-center justify-center gap-2 text-slate-500 text-sm py-2">
       <Loader2 size={16} className="animate-spin" />
       Đang tải dữ liệu từ hệ thống...
     </div>

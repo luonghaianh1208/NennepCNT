@@ -96,7 +96,7 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                 <h3 className="text-lg font-bold text-slate-800">{modal.title}</h3>
               </div>
               {modal.message && (
-                <p className="text-slate-600 text-sm leading-relaxed ml-[52px]">{modal.message}</p>
+                <p className="text-slate-600 text-sm leading-relaxed ml-[52px] whitespace-pre-line">{modal.message}</p>
               )}
             </div>
 

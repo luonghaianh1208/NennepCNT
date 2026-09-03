@@ -160,7 +160,7 @@ const RankingTab: React.FC<RankingTabProps> = ({
 
   const getRankColor = (rank: number) => {
       if (rank === 1) return 'text-yellow-500';
-      if (rank === 2) return 'text-slate-400';
+      if (rank === 2) return 'text-slate-500';
       if (rank === 3) return 'text-orange-600';
       return 'text-slate-700';
   };
@@ -253,7 +253,7 @@ const RankingTab: React.FC<RankingTabProps> = ({
                       <h3 className="font-bold text-slate-800 flex items-center gap-2">
                           <Download size={20} className="text-green-600"/> Xuất Báo Cáo
                       </h3>
-                      <button onClick={() => setShowExportModal(false)} className="text-slate-400 hover:text-slate-600">
+                      <button onClick={() => setShowExportModal(false)} className="text-slate-500 hover:text-slate-600">
                           <X size={20} />
                       </button>
                   </div>
@@ -345,7 +345,7 @@ const RankingTab: React.FC<RankingTabProps> = ({
              )}
              {rankingFilterMode === 'ALL' && !rankingWeightedSemesters && (
                <div className="flex items-center gap-2 px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg text-xs text-orange-600 flex-1">
-                 ⚠️ Cần cấu hình đủ 2 học kỳ ở Cài Đặt → Cấu Hình Thời Gian.
+                 ⚠️ Cần cấu hình đủ 2 học kỳ ở Cấu Hình → Thời gian.
                </div>
              )}
           </div>
@@ -366,11 +366,11 @@ const RankingTab: React.FC<RankingTabProps> = ({
              className={`flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-bold shadow transition-all whitespace-nowrap
                ${rankingFilterMode === 'WEEK'
                  ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
-                 : 'bg-slate-200 text-slate-400 cursor-not-allowed'}
+                 : 'bg-slate-200 text-slate-500 cursor-not-allowed'}
                disabled:opacity-60`}
            >
              <FileText size={16} />
-             {isGeneratingReport ? 'Đang tạo...' : 'Báo cáo DOCX'}
+             {isGeneratingReport ? 'Đang tạo...' : 'Báo cáo Word'}
            </button>
          )}
       </div>
@@ -400,7 +400,7 @@ const RankingTab: React.FC<RankingTabProps> = ({
                        {rankingIsHK2 && <span className="ml-1 text-[10px] bg-orange-100 text-orange-600 px-1 rounded">×2</span>}
                        {rankingFilterMode === 'ALL' && rankingWeightedSemesters && <span className="ml-1 text-[10px] bg-purple-100 text-purple-600 px-1 rounded">Năm học</span>}
                     </span>
-                    <span className="text-[10px] text-slate-400 mt-0.5">Nhấn để xem chi tiết →</span>
+                    <span className="text-[10px] text-slate-500 mt-0.5">Nhấn để xem chi tiết →</span>
                   </button>
                 </div>
               );
@@ -410,9 +410,9 @@ const RankingTab: React.FC<RankingTabProps> = ({
         <div className="text-center py-10 px-4">
           <div className="text-4xl mb-3">📋</div>
           <p className="font-bold text-slate-600 mb-1">Chưa có dữ liệu xếp hạng</p>
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-slate-500">
             {timeConfigs.filter(c => c.type === rankingFilterMode).length === 0
-              ? `Admin chưa cấu hình ${rankingFilterMode === 'WEEK' ? 'tuần' : rankingFilterMode === 'MONTH' ? 'tháng' : 'học kỳ'} nào. Vào tab Cài Đặt → Cấu Hình Thời Gian để thêm.`
+              ? `Admin chưa cấu hình ${rankingFilterMode === 'WEEK' ? 'tuần' : rankingFilterMode === 'MONTH' ? 'tháng' : 'học kỳ'} nào. Vào tab Cấu Hình → Thời gian để thêm.`
               : 'Không có vi phạm nào trong khoảng thời gian này.'
             }
           </p>
@@ -432,11 +432,11 @@ const RankingTab: React.FC<RankingTabProps> = ({
               </span>
               <div>
                 <span className="font-bold text-slate-700 group-hover:text-blue-700 transition-colors">{item.name}</span>
-                <div className="text-[10px] text-slate-400">Nhấn để xem chi tiết →</div>
+                <div className="text-[10px] text-slate-500">Nhấn để xem chi tiết →</div>
               </div>
             </div>
             <div className="flex items-center gap-6">
-              <div className="text-xs text-slate-400 text-right"><div>{item.totalViolations} lỗi</div><div>GV: {item.homeroomTeacher}</div></div>
+              <div className="text-xs text-slate-500 text-right"><div>{item.totalViolations} lỗi</div><div>GV: {item.homeroomTeacher}</div></div>
               <div className="flex items-center gap-1">
                 <span className="font-bold text-blue-600 w-12 text-right">{item.score}</span>
                 {rankingIsHK2 && <span className="text-[10px] bg-orange-100 text-orange-600 px-1 rounded font-bold">×2</span>}

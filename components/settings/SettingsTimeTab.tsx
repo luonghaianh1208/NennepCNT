@@ -86,7 +86,7 @@ const SettingsTimeTab: React.FC = () => {
                     <div className="absolute top-2 right-2">
                       <button
                         onClick={() => handleDeleteTimeConfig(config.id)}
-                        className="text-slate-400 hover:text-red-500 transition-colors p-1"
+                        className="text-slate-500 hover:text-red-500 transition-colors p-1"
                       >
                         <Trash2 size={16}/>
                       </button>

@@ -131,17 +131,17 @@ const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
               <Download size={18} />
               Tải tài liệu giới thiệu sản phẩm (HTML)
             </button>
-            <p className="text-center text-xs text-slate-400 mt-2">
+            <p className="text-center text-xs text-slate-500 mt-2">
               File HTML đẹp · 9 trang · Có nút tải ảnh ZIP
             </p>
           </div>
 
           {/* Copyright */}
           <div className="border-t border-slate-100 px-4 py-3 text-center bg-slate-50 rounded-none">
-            <p className="text-[10px] text-slate-400">
+            <p className="text-[10px] text-slate-500">
               © 2026 Lương Hải Anh · 2Anh AI Education
             </p>
-            <p className="text-[10px] text-slate-400 mt-0.5">
+            <p className="text-[10px] text-slate-500 mt-0.5">
               Bảo lưu mọi quyền — Không sao chép khi chưa được phép
             </p>
           </div>

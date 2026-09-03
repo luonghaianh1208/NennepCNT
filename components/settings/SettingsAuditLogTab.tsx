@@ -48,7 +48,7 @@ const SettingsAuditLogTab: React.FC = () => {
   };
 
   const handleClearLogs = async () => {
-    const ok = await showConfirm({ title: 'Xóa Audit Log', message: 'Xóa toàn bộ lịch sử thao tác? Hành động này không thể hoàn tác.', type: 'danger', confirmText: 'Xóa Log' });
+    const ok = await showConfirm({ title: 'Xóa Nhật ký thao tác', message: 'Xóa toàn bộ lịch sử thao tác? Hành động này không thể hoàn tác.', type: 'danger', confirmText: 'Xóa Log' });
     if (ok) {
       clearAuditLogs();
       showToast('Đã xóa audit log.', 'success');
@@ -69,18 +69,18 @@ const SettingsAuditLogTab: React.FC = () => {
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
       <div className="flex justify-between items-center mb-4">
         <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
-          <ClipboardList size={20} className="text-indigo-500"/> Audit Log
+          <ClipboardList size={20} className="text-indigo-500"/> Nhật ký thao tác
         </h3>
         <button
           onClick={handleClearLogs}
           className="flex items-center gap-1 text-xs bg-red-50 text-red-600 border border-red-200 px-3 py-1.5 rounded-lg hover:bg-red-100 font-bold"
         >
-          <Trash2 size={14}/> Xóa log
+          <Trash2 size={14}/> Xoá nhật ký
         </button>
       </div>
 
       {auditLogs.length === 0 ? (
-        <div className="text-center py-12 text-slate-400">
+        <div className="text-center py-12 text-slate-500">
           <ClipboardList size={40} className="mx-auto mb-2 opacity-30"/>
           <p className="italic">Chưa có hoạt động nào được ghi lại.</p>
         </div>
@@ -103,10 +103,10 @@ const SettingsAuditLogTab: React.FC = () => {
                 const isDelete = log.action === 'DELETE_VIOLATION' || log.action === 'BULK_DELETE';
                 return (
                   <tr key={log.id} className={`border-b last:border-0 hover:bg-slate-50 ${isDelete ? 'bg-red-50/30' : ''}`}>
-                    <td className="px-3 py-2 text-slate-400 font-mono text-xs whitespace-nowrap">{formatTime(log)}</td>
+                    <td className="px-3 py-2 text-slate-500 font-mono text-xs whitespace-nowrap">{formatTime(log)}</td>
                     <td className="px-3 py-2">
                       <div className="font-medium text-slate-700 text-xs">{log.userName}</div>
-                      <div className="text-[10px] text-slate-400">{log.userRole}</div>
+                      <div className="text-[10px] text-slate-500">{log.userRole}</div>
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap">
                       <span className={`text-[10px] px-2 py-0.5 rounded border font-bold ${actionColors[log.action] || 'text-slate-600 bg-slate-50 border-slate-200'}`}>
@@ -114,10 +114,10 @@ const SettingsAuditLogTab: React.FC = () => {
                       </span>
                     </td>
                     <td className="px-3 py-2 text-xs font-medium text-slate-700">
-                      {log.violationClass || <span className="text-slate-300">—</span>}
+                      {log.violationClass || <span className="text-slate-400">—</span>}
                     </td>
                     <td className="px-3 py-2 text-xs text-slate-500 whitespace-nowrap">
-                      {log.violationDate || <span className="text-slate-300">—</span>}
+                      {log.violationDate || <span className="text-slate-400">—</span>}
                     </td>
                     <td className="px-3 py-2 text-xs text-slate-600 max-w-[160px] truncate" title={log.violationCriteria || log.details}>
                       {log.violationCriteria || log.details}
@@ -125,7 +125,7 @@ const SettingsAuditLogTab: React.FC = () => {
                     <td className="px-3 py-2 text-right">
                       {log.violationPoints != null
                         ? <span className="text-xs font-bold text-red-600">-{log.violationPoints}</span>
-                        : <span className="text-slate-300 text-xs">—</span>}
+                        : <span className="text-slate-400 text-xs">—</span>}
                     </td>
                   </tr>
                 );
@@ -134,7 +134,7 @@ const SettingsAuditLogTab: React.FC = () => {
           </table>
         </div>
       )}
-      <div className="mt-2 text-xs text-slate-400 text-right">Tổng: {auditLogs.length} bản ghi (lưu trên DB Google Sheets)</div>
+      <div className="mt-2 text-xs text-slate-500 text-right">Tổng: {auditLogs.length} bản ghi</div>
     </div>
   );
 };

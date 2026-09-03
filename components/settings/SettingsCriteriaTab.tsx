@@ -212,11 +212,11 @@ const SettingsCriteriaTab: React.FC<Props> = ({ type }) => {
                       {usageCount.get(c.id)} bản ghi
                     </span>
                   ) : (
-                    <span className="text-xs text-slate-300">chưa dùng</span>
+                    <span className="text-xs text-slate-400">chưa dùng</span>
                   )}
                 </td>
                 <td className="px-4 py-3 text-right">
-                  <button onClick={() => handleDeleteCriteria(c.id)} className="text-slate-400 hover:text-red-600"><Trash2 size={16} /></button>
+                  <button onClick={() => handleDeleteCriteria(c.id)} className="text-slate-500 hover:text-red-600"><Trash2 size={16} /></button>
                 </td>
               </tr>
             ))}
