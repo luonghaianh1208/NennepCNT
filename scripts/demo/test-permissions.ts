@@ -14,9 +14,11 @@ import { DEMO_EMAIL, DEMO_PASSWORD } from './credentials';
 
 initFirebase(JSON.parse(readFileSync('public/tenant-config.json', 'utf8')).firebase);
 
+// reportedBy phải là chính người đang đăng nhập, đúng như ứng dụng vẫn ghi —
+// firestore.rules chặn việc ghi bản ghi mang tên người khác
 const sample = (id: string, points: number) => ({
   id, date: '2026-05-20', classId: '10Toán1', studentId: '', criteriaId: 'TEST',
-  points, note: 'kiểm thử phân quyền', images: [], reportedBy: 'test',
+  points, note: 'kiểm thử phân quyền', images: [], reportedBy: auth.currentUser?.uid ?? '',
   isSecurityReport: false, timestamp: 1779600000000,
 });
 
