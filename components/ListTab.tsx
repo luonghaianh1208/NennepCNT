@@ -97,6 +97,21 @@ const ListTab: React.FC<ListTabProps> = ({
   const canBulkDelete = useMemo(() => can(roleConfigs, currentUser.role, 'bulkDelete'), [currentUser, roleConfigs]);
   const canSeeReporter = useMemo(() => can(roleConfigs, currentUser.role, 'seeReporter'), [currentUser, roleConfigs]);
   const canModerate = useMemo(() => can(roleConfigs, currentUser.role, 'moderation'), [currentUser, roleConfigs]);
+
+  /**
+   * Vai trò bị giới hạn "chỉ xem lớp phụ trách" — trước đây quyền này khai
+   * trong bảng nhưng không được thực thi ở đâu cả, nên cờ đỏ và GVCN vẫn xem
+   * được vi phạm toàn trường và xuất Excel tải về cả trường.
+   *
+   * Đây là chặn ở giao diện. Chặn ở tầng dữ liệu thì bảng xếp hạng hỏng theo,
+   * vì xếp hạng cần đọc bản ghi của MỌI lớp để so sánh — Firestore từ chối cả
+   * truy vấn chứ không lọc bớt. Muốn chặn triệt để phải có một nguồn đã lược
+   * danh tính riêng cho phần xếp hạng.
+   */
+  const ownClassId = useMemo(
+    () => (can(roleConfigs, currentUser.role, 'ownClassOnly') ? currentUser.className || '' : ''),
+    [roleConfigs, currentUser],
+  );
   // Tính violations nằm ngoài tất cả timeConfig (chỉ admin cần)
   const outOfConfigViolations = useMemo(() => {
     if (!canModerate) return [];
@@ -109,7 +124,7 @@ const ListTab: React.FC<ListTabProps> = ({
   const filteredViolations = useMemo(() => {
     // --- LOGIC LỌC NGOÀI CẤU HÌNH (Chỉ admin) ---
     if (showOutOfConfig && canModerate) {
-      let list = outOfConfigViolations;
+      let list = ownClassId ? outOfConfigViolations.filter(v => v.classId === ownClassId) : outOfConfigViolations;
       if (filterCriteriaType === 'MINUS') list = list.filter(v => v.points > 0);
       else if (filterCriteriaType === 'PLUS') list = list.filter(v => v.points < 0);
       if (searchTerm.trim()) {
@@ -129,6 +144,8 @@ const ListTab: React.FC<ListTabProps> = ({
     // Bản sao: bên dưới có .sort() tại chỗ, mà với bộ lọc mặc định thì list
     // chính là mảng state của context — sắp xếp thẳng vào state của React
     let list = [...violations];
+    // Giới hạn theo lớp phụ trách trước mọi bộ lọc khác
+    if (ownClassId) list = list.filter(v => v.classId === ownClassId);
 
     // --- LOGIC LỌC TRÙNG LẶP (Dành cho Admin) — dùng util từ utils.ts ---
     if (showDuplicatesOnly && canModerate) {
@@ -178,7 +195,7 @@ const ListTab: React.FC<ListTabProps> = ({
     }
 
     return list;
-  }, [violations, filterClassId, filterMode, filterConfigId, filterCriteriaType, deferredSearch, timeConfigs, classMap, studentMap, criteriaMap, userMap, showDuplicatesOnly, canModerate, showOutOfConfig, outOfConfigViolations]);
+  }, [violations, filterClassId, filterMode, filterConfigId, filterCriteriaType, deferredSearch, timeConfigs, classMap, studentMap, criteriaMap, userMap, showDuplicatesOnly, canModerate, showOutOfConfig, outOfConfigViolations, ownClassId]);
 
   // Thông báo khi lọc xong (Chỉ chạy khi showDuplicatesOnly chuyển sang true)
   useEffect(() => {
