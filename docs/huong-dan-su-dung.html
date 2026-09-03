@@ -60,7 +60,7 @@ footer{text-align:center;color:#94a3b8;font-size:12.5px;padding:22px 0}
   <h2>Nội dung</h2>
   <ol>
     <li><a href="#dangnhap">Đăng nhập lần đầu</a></li>
-    <li><a href="#taikhoan">Cấp tài khoản</a></li>
+    <li><a href="#taikhoan">Cấp quyền truy cập</a></li>
     <li><a href="#vaitro">Vai trò và quyền</a></li>
     <li><a href="#vipham">Nhập vi phạm</a></li>
     <li><a href="#khenthuong">Nhập khen thưởng</a></li>
@@ -77,43 +77,54 @@ footer{text-align:center;color:#94a3b8;font-size:12.5px;padding:22px 0}
   <ol class="steps">
     <li>Mở đường dẫn hệ thống mà đơn vị triển khai đã bàn giao cho nhà trường.</li>
     <li>Người chưa đăng nhập vẫn xem được Tổng quan, Tra cứu và Xếp hạng — học sinh và phụ huynh dùng phần này.</li>
-    <li>Bấm <strong>Đăng nhập</strong> ở góc phải trên, nhập <strong>email</strong> và mật khẩu.</li>
+    <li>Bấm <strong>Đăng nhập</strong> ở góc phải trên, rồi bấm <strong>Đăng nhập bằng Google</strong> và chọn tài khoản Google của bạn.</li>
   </ol>
+  <div class="ok">
+    Hệ thống <strong>không có mật khẩu riêng</strong>. Bạn dùng chính tài khoản Google của mình, nên không có mật khẩu để quên và không phải chờ thư nào cả.
+  </div>
   <div class="note">
-    Chưa có mật khẩu? Bấm <strong>Quên mật khẩu</strong> ở màn hình đăng nhập, hệ thống gửi thư đặt mật khẩu tới email của bạn.
-    Nhớ kiểm tra cả hộp thư rác. Link trong thư có hạn khoảng một giờ; quá hạn thì xin quản trị viên gửi lại.
+    Báo <em>"Địa chỉ ... chưa được cấp quyền"</em> nghĩa là email của bạn chưa có trong danh sách của nhà trường.
+    Liên hệ Đoàn trường để được thêm vào — nhớ báo <strong>đúng địa chỉ Google bạn đang dùng</strong>.
   </div>
 </section>
 
 <section id="taikhoan">
-  <h2>2. Cấp tài khoản</h2>
-  <p>Vào <strong>Cấu hình → Tài khoản</strong>. Chỉ vai trò có quyền <em>Quản lý tài khoản</em> mới thấy mục này.</p>
+  <h2>2. Cấp quyền truy cập</h2>
+  <p>Vào <strong>Cấu hình → Ai được vào hệ thống</strong>. Chỉ vai trò có quyền <em>Quản lý tài khoản</em> mới thấy mục này.</p>
+  <p>Hệ thống <strong>không tạo tài khoản</strong> cho ai — chỉ ghi địa chỉ Google vào danh sách được phép. Ai đăng nhập bằng Google với địa chỉ có trong danh sách thì vào được ngay, đúng vai trò đã chọn.</p>
 
-  <h3>Cấp từng tài khoản</h3>
+  <h3>Cấp cho từng người</h3>
   <ol class="steps">
-    <li>Điền <strong>Họ tên</strong> và <strong>Email thật</strong> — email vừa là tên đăng nhập vừa là nơi nhận thư.</li>
-    <li>Chọn <strong>vai trò</strong>, chọn <strong>lớp</strong> nếu người đó phụ trách một lớp cụ thể.</li>
-    <li>Bấm nút <strong>+</strong>. Hệ thống tạo tài khoản và gửi thư đặt mật khẩu ngay.</li>
+    <li>Điền <strong>Họ tên</strong> và <strong>Địa chỉ Google</strong> — phải là địa chỉ người đó thật sự đăng nhập Google được.</li>
+    <li>Chọn <strong>vai trò</strong>, chọn <strong>lớp phụ trách</strong> nếu người đó chỉ được làm việc trong một lớp.</li>
+    <li>Bấm nút <strong>+</strong>. Xong — không gửi thư, không mật khẩu, người đó đăng nhập được ngay.</li>
   </ol>
-  <div class="ok">
-    Quản trị viên <strong>không đặt mật khẩu hộ</strong> bất kỳ ai. Mỗi người tự đặt mật khẩu của mình qua thư — kể cả quản trị viên cũng không đọc được mật khẩu người khác.
+  <div class="warn">
+    Ghi <strong>sai một ký tự</strong> trong địa chỉ là người đó đăng nhập sẽ báo "chưa được cấp quyền". Nên chép dán địa chỉ thay vì gõ tay.
   </div>
 
   <h3>Cấp hàng loạt bằng Excel</h3>
   <ol class="steps">
-    <li>Bấm <strong>Tải mẫu</strong> để lấy file Excel gồm 4 cột: <code>Ho_ten</code> · <code>Email</code> · <code>Lop</code> · <code>Role</code>.</li>
-    <li>Điền danh sách. Cột Role nhận <code>ADMIN</code>, <code>BCH</code>, <code>RED_FLAG</code>, <code>DISCIPLINE</code>, <code>LEADER</code>, <code>GUEST</code> — gõ tiếng Việt như "Cờ đỏ", "Nền nếp" hệ thống cũng tự nhận diện.</li>
-    <li>Bấm <strong>Import Excel</strong>. Tối đa 200 tài khoản mỗi lượt, thư gửi lần lượt.</li>
-    <li>Xong việc hệ thống báo số tài khoản đã tạo và liệt kê dòng lỗi nếu có.</li>
+    <li>Bấm <strong>Tải mẫu</strong> để lấy file gồm 4 cột: <code>Ho_ten</code> · <code>Email_Google</code> · <code>Lop</code> · <code>Vai_tro</code>.</li>
+    <li>Điền danh sách. Cột Vai trò nhận <code>ADMIN</code>, <code>BCH</code>, <code>RED_FLAG</code>, <code>DISCIPLINE</code>, <code>LEADER</code>, <code>GUEST</code> — gõ tiếng Việt như "Cờ đỏ", "Nền nếp" hệ thống cũng tự nhận diện.</li>
+    <li>Bấm <strong>Nhập Excel</strong>. Tối đa 200 người mỗi lượt.</li>
+    <li>Xong việc hệ thống báo số người đã cấp quyền và liệt kê dòng lỗi nếu có.</li>
   </ol>
 
-  <h3>Bốn nút thao tác trong bảng tài khoản</h3>
+  <h3>Cột Trạng thái</h3>
+  <table>
+    <tr><th style="width:190px">Trạng thái</th><th>Nghĩa là</th></tr>
+    <tr><td>ĐANG DÙNG</td><td>Người này đã đăng nhập ít nhất một lần</td></tr>
+    <tr><td>CHƯA VÀO LẦN NÀO</td><td>Đã cấp quyền nhưng chưa đăng nhập bao giờ — thường do ghi sai địa chỉ, hoặc người đó chưa được báo</td></tr>
+    <tr><td>ĐÃ KHOÁ</td><td>Bị chặn đăng nhập, dữ liệu đã nhập vẫn giữ nguyên</td></tr>
+  </table>
+
+  <h3>Ba nút thao tác</h3>
   <table>
     <tr><th style="width:130px">Nút</th><th>Công dụng</th></tr>
-    <tr><td>🔑 Chìa khoá</td><td>Gửi lại thư đặt mật khẩu — dùng khi người dùng quên mật khẩu hoặc link đã hết hạn</td></tr>
-    <tr><td>🔒 Ổ khoá</td><td>Khoá đăng nhập nhưng <strong>giữ nguyên</strong> mọi dữ liệu người đó đã nhập. Bấm lại để mở khoá</td></tr>
-    <tr><td>✏️ Bút</td><td>Sửa họ tên, vai trò, lớp phụ trách</td></tr>
-    <tr><td>🗑️ Thùng rác</td><td>Xoá vĩnh viễn — chỉ được phép khi người đó chưa từng nhập bản ghi nào</td></tr>
+    <tr><td>🔒 Ổ khoá</td><td>Chặn đăng nhập nhưng <strong>giữ nguyên</strong> mọi dữ liệu người đó đã nhập. Bấm lại để mở khoá</td></tr>
+    <tr><td>✏️ Bút</td><td>Đổi vai trò. Có hiệu lực <strong>ngay lập tức</strong>, kể cả khi người đó đang mở ứng dụng</td></tr>
+    <tr><td>🗑️ Thùng rác</td><td>Thu hồi quyền vĩnh viễn — chỉ được phép khi người đó chưa từng nhập bản ghi nào</td></tr>
   </table>
   <div class="note">
     Giáo viên nghỉ việc hay học sinh ra trường thì nên <strong>khoá</strong> chứ đừng xoá. Mỗi bản ghi vi phạm đều lưu người nhập; xoá tài khoản là mất dấu vết ai đã ghi, ảnh hưởng tới việc đối chiếu khi có khiếu nại.
@@ -129,14 +140,13 @@ footer{text-align:center;color:#94a3b8;font-size:12.5px;padding:22px 0}
     <tr><th style="width:230px">Quyền</th><th>Cho phép làm gì</th></tr>
     <tr><td>Ghi vi phạm</td><td>Chấm lỗi hằng ngày, kèm ảnh minh chứng</td></tr>
     <tr><td>Ghi khen thưởng</td><td>Nhập điểm cộng, thành tích hoạt động</td></tr>
-    <tr><td>Nhập từ Excel</td><td>Tải mẫu và nhập hàng loạt nhiều dòng cùng lúc</td></tr>
     <tr><td>Sửa/xoá bản ghi người khác</td><td>Không có quyền này thì chỉ sửa được bản ghi do chính mình nhập</td></tr>
     <tr><td>Xoá hàng loạt</td><td>Chọn nhiều dòng rồi xoá một lượt</td></tr>
     <tr><td>Thấy tên người nhập</td><td>Không có thì cột người ghi hiện "Ẩn danh"</td></tr>
     <tr><td>Chỉ xem lớp phụ trách</td><td><strong>Đây là giới hạn, không phải mở rộng</strong>: bật lên thì chỉ xem được lớp mình</td></tr>
     <tr><td>Công cụ kiểm duyệt</td><td>Lọc bản ghi trùng lặp và bản ghi rơi ngoài mốc thời gian</td></tr>
     <tr><td>Quản lý danh mục</td><td>Lớp, học sinh, tiêu chí, mốc thời gian</td></tr>
-    <tr><td>Quản lý tài khoản</td><td>Cấp, khoá, đổi vai trò, gửi lại mật khẩu</td></tr>
+    <tr><td>Quản lý tài khoản</td><td>Cấp quyền, khoá, đổi vai trò</td></tr>
     <tr><td>Phân công Ban Nề Nếp</td><td>Sắp lịch trực, phân công cờ đỏ</td></tr>
     <tr><td>Hệ thống</td><td>Xem nhật ký và đổi thương hiệu nhà trường</td></tr>
   </table>
@@ -148,7 +158,6 @@ footer{text-align:center;color:#94a3b8;font-size:12.5px;padding:22px 0}
     </tr>
     <tr><td>Ghi vi phạm</td><td class="tick">✓</td><td class="role">–</td><td class="tick">✓</td><td class="tick">✓</td><td class="tick">✓</td><td class="tick">✓</td><td class="role">–</td><td class="role">–</td></tr>
     <tr><td>Ghi khen thưởng</td><td class="tick">✓</td><td class="role">–</td><td class="tick">✓</td><td class="tick">✓</td><td class="role">–</td><td class="role">–</td><td class="role">–</td><td class="role">–</td></tr>
-    <tr><td>Nhập từ Excel</td><td class="tick">✓</td><td class="role">–</td><td class="tick">✓</td><td class="role">–</td><td class="role">–</td><td class="role">–</td><td class="role">–</td><td class="role">–</td></tr>
     <tr><td>Sửa/xoá của người khác</td><td class="tick">✓</td><td class="role">–</td><td class="tick">✓</td><td class="role">–</td><td class="role">–</td><td class="role">–</td><td class="role">–</td><td class="role">–</td></tr>
     <tr><td>Xoá hàng loạt</td><td class="tick">✓</td><td class="role">–</td><td class="tick">✓</td><td class="role">–</td><td class="role">–</td><td class="role">–</td><td class="role">–</td><td class="role">–</td></tr>
     <tr><td>Thấy tên người nhập</td><td class="tick">✓</td><td class="tick">✓</td><td class="tick">✓</td><td class="tick">✓</td><td class="role">–</td><td class="tick">✓</td><td class="role">–</td><td class="role">–</td></tr>
@@ -186,14 +195,9 @@ footer{text-align:center;color:#94a3b8;font-size:12.5px;padding:22px 0}
     Nếu ngày ghi nhận nằm ngoài mọi tuần, tháng, học kỳ đã cấu hình thì hệ thống cảnh báo bằng viền vàng và hỏi lại trước khi lưu. Bản ghi kiểu đó <strong>không được tính vào xếp hạng và báo cáo</strong>. Gặp cảnh báo này thì đổi ngày, hoặc bổ sung mốc thời gian trong phần Cấu hình.
   </div>
 
-  <h3>Nhập nhiều dòng bằng Excel</h3>
-  <ol class="steps">
-    <li>Bấm <strong>Tải mẫu</strong> — file có sẵn 100 dòng và danh sách tiêu chí ở sheet thứ hai.</li>
-    <li>Điền dữ liệu. Cột <code>Ten_HS</code> để trống nghĩa là vi phạm tập thể lớp.</li>
-    <li>Cột nội dung chọn từ menu thả xuống trong ô, hoặc gõ gần đúng — hệ thống tự nhận diện.</li>
-    <li>Bấm <strong>Import Excel</strong>, xem bảng đối chiếu rồi xác nhận.</li>
-  </ol>
-  <p>Trong bảng đối chiếu: chấm xanh là khớp chắc chắn, vàng là cần xem lại, đỏ là lỗi cần sửa trước khi nhập.</p>
+<!-- Phần "Nhập nhiều dòng bằng Excel" tạm ẩn theo yêu cầu ngày 03/09/2026.
+     Tính năng vẫn còn trong mã nguồn, tắt bằng FEATURES.excelImport trong
+     utils.ts. Bật lại thì mở lại đoạn này. -->
 </section>
 
 <section id="khenthuong">
@@ -248,7 +252,7 @@ footer{text-align:center;color:#94a3b8;font-size:12.5px;padding:22px 0}
     <li><strong>Thương hiệu</strong> — nhập tên trường, tên rút gọn, khẩu hiệu, tải logo. Nội dung này hiện trên thanh tiêu đề và trang giới thiệu.</li>
     <li><strong>Thời gian</strong> — khai báo các tuần, tháng, học kỳ của năm học. <em>Bước này phải làm trước</em>, vì mọi bản ghi đều dựa vào mốc thời gian để tính xếp hạng.</li>
     <li><strong>Lớp học</strong> rồi <strong>Học sinh</strong> — nhập tay hoặc tải mẫu Excel rồi import.</li>
-    <li><strong>Vi phạm</strong> và <strong>Thành tích</strong> — bộ tiêu chí và điểm số tương ứng.</li>
+    <li><strong>Lỗi vi phạm</strong> — bộ tiêu chí và điểm trừ. Riêng khen thưởng khai ở tab <strong>Quy định</strong> bằng bảng điểm giải × cấp độ, không cần khai từng tiêu chí.</li>
     <li><strong>Vai trò</strong> — rà lại bảng quyền cho phù hợp với cách tổ chức của trường.</li>
     <li><strong>Tài khoản</strong> — cấp tài khoản cho cán bộ và cờ đỏ.</li>
   </ol>
@@ -263,7 +267,7 @@ footer{text-align:center;color:#94a3b8;font-size:12.5px;padding:22px 0}
   <ul>
     <li>Mọi thao tác <strong>xoá</strong>: xoá bản ghi (đơn và hàng loạt), xoá tiêu chí, mốc thời gian, lớp, học sinh, tài khoản</li>
     <li>Việc <strong>thêm</strong> tiêu chí và mốc thời gian</li>
-    <li>Thao tác <strong>tài khoản</strong>: cấp mới, cấp hàng loạt, gửi lại mật khẩu, khoá/mở, đổi vai trò</li>
+    <li>Thao tác <strong>tài khoản</strong>: cấp quyền, cấp hàng loạt, khoá/mở, đổi vai trò</li>
   </ul>
   <p>Với bản ghi bị xoá, nhật ký lưu ảnh chụp nhanh <em>trước khi xoá</em>: lớp nào, ngày nào, tiêu chí gì, bao nhiêu điểm — đủ để dựng lại khi cần đối chiếu.</p>
   <p>Việc nhập vi phạm và khen thưởng không ghi vào nhật ký, vì mỗi bản ghi đã có sẵn tên người nhập bên trong.</p>
@@ -273,11 +277,11 @@ footer{text-align:center;color:#94a3b8;font-size:12.5px;padding:22px 0}
   <h2>10. Xử lý tình huống thường gặp</h2>
   <table>
     <tr><th style="width:290px">Tình huống</th><th>Cách xử lý</th></tr>
-    <tr><td>Không nhận được thư đặt mật khẩu</td><td>Kiểm tra hộp thư rác. Vẫn không có thì nhờ quản trị viên bấm nút 🔑 để gửi lại.</td></tr>
-    <tr><td>Link đặt mật khẩu báo hết hạn</td><td>Link chỉ sống khoảng một giờ. Nhờ quản trị viên gửi lại, hoặc tự bấm "Quên mật khẩu" ở màn hình đăng nhập.</td></tr>
+    <tr><td>Bấm đăng nhập nhưng báo "chưa được cấp quyền"</td><td>Địa chỉ Google của bạn chưa có trong danh sách, hoặc quản trị viên ghi nhầm một ký tự. Báo Đoàn trường kèm đúng địa chỉ bạn đang dùng.</td></tr>
+    <tr><td>Cửa sổ đăng nhập Google không hiện ra</td><td>Trình duyệt đang chặn cửa sổ bật lên. Cho phép cửa sổ bật lên cho trang này rồi bấm lại.</td></tr>
+<tr><td>Đăng nhập nhầm tài khoản Google khác</td><td>Đăng xuất rồi bấm lại — hệ thống luôn hiện ô chọn tài khoản, không tự đăng nhập bằng tài khoản cũ.</td></tr>
     <tr><td>Nhập xong nhưng không thấy trong xếp hạng</td><td>Kiểm tra ngày ghi nhận có nằm trong tuần/tháng/học kỳ đã cấu hình không. Vào Tra cứu, bật bộ lọc "ngoài cấu hình" để xem các bản ghi bị lệch.</td></tr>
-    <tr><td>Ô chọn học sinh trống khi vừa mở app</td><td>Danh sách học sinh đang tải, đợi vài giây. Trong lúc đó nút Import Excel cũng tạm khoá để tránh nhập sai tên.</td></tr>
-    <tr><td>Import Excel báo dòng lỗi</td><td>Thường do tên lớp hoặc tên tiêu chí không khớp. Xem cột lý do trong bảng đối chiếu, sửa file rồi nhập lại.</td></tr>
+    <tr><td>Ô chọn học sinh trống khi vừa mở app</td><td>Danh sách học sinh đang tải, đợi vài giây rồi thử lại.</td></tr>
     <tr><td>Muốn xoá tiêu chí đang dùng</td><td>Hệ thống báo tiêu chí đó đang gắn với bao nhiêu bản ghi. Xoá đi thì bản ghi vẫn còn nhưng mất tên tiêu chí — cân nhắc giữ lại nếu chỉ muốn ngưng dùng.</td></tr>
     <tr><td>Nhân sự chuyển công tác</td><td>Khoá tài khoản (nút 🔒) thay vì xoá, để giữ nguyên dấu vết người nhập liệu trong dữ liệu cũ.</td></tr>
     <tr><td>Máy hiện dữ liệu cũ</td><td>Bấm nút làm mới trên thanh tiêu đề. Riêng tuần đang diễn ra thì tự cập nhật, không cần bấm.</td></tr>

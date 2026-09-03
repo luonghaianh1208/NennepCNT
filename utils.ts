@@ -16,6 +16,24 @@ export const THEME_PRESETS: Record<string, { label: string; from: string; to: st
   PLUM:  { label: 'Tím than',         from: '#6d28d9', to: '#4c1d95', accent: '#fde047' },
 };
 
+/**
+ * Công tắc bật/tắt tính năng — sửa ở ĐÚNG MỘT CHỖ này rồi dựng lại là xong.
+ *
+ * `excelImport`: nhập vi phạm hàng loạt từ file Excel. Tắt từ 03/09/2026 theo
+ * yêu cầu của chủ dự án — tính năng vẫn còn nguyên trong mã nguồn, chỉ ẩn khỏi
+ * giao diện. Bật lại: đổi thành `true`, dựng lại, triển khai. Khi tắt thì cả
+ * nút bấm, phần hướng dẫn trong app lẫn dòng quyền "Nhập từ Excel" ở bảng phân
+ * quyền đều ẩn theo — để quản trị viên không bật một quyền không có tác dụng.
+ *
+ * Nhập THÀNH TÍCH hàng loạt đã bỏ hẳn, không nằm sau công tắc này: khen thưởng
+ * nay nhập bằng bảng "một hoạt động — nhiều lớp", lấy điểm từ bảng giải × cấp
+ * độ trong Cấu hình → Quy định. Giữ thêm đường Excel là có hai nguồn điểm khác
+ * nhau cho cùng một giải.
+ */
+export const FEATURES = {
+  excelImport: false,
+} as const;
+
 export const DEFAULT_SCHOOL_SETTINGS: SchoolSettings = {
   baseScore: 500,
   semester2Multiplier: 2,
@@ -89,7 +107,11 @@ export const PERMISSION_GROUPS: {
     items: [
       { key: 'entryViolation', label: 'Ghi vi phạm', hint: 'Chấm lỗi hằng ngày, kèm ảnh minh chứng' },
       { key: 'entryAchievement', label: 'Ghi khen thưởng', hint: 'Nhập điểm cộng, thành tích hoạt động' },
-      { key: 'importExcel', label: 'Nhập từ Excel', hint: 'Tải mẫu và nhập hàng loạt nhiều dòng' },
+      // Ẩn khi tắt nhập Excel — quyền bật lên mà không có màn hình nào dùng thì
+      // chỉ làm quản trị viên hiểu nhầm
+      ...(FEATURES.excelImport
+        ? [{ key: 'importExcel' as PermissionKey, label: 'Nhập từ Excel', hint: 'Tải mẫu và nhập hàng loạt nhiều dòng' }]
+        : []),
     ],
   },
   {
@@ -111,7 +133,7 @@ export const PERMISSION_GROUPS: {
     group: 'Quản trị',
     items: [
       { key: 'manageCatalog', label: 'Quản lý danh mục', hint: 'Lớp, học sinh, tiêu chí, mốc thời gian' },
-      { key: 'manageAccounts', label: 'Quản lý tài khoản', hint: 'Cấp, khoá, đổi vai trò, gửi lại mật khẩu' },
+      { key: 'manageAccounts', label: 'Quản lý tài khoản', hint: 'Cấp quyền, khoá, đổi vai trò' },
       { key: 'manageTaskforce', label: 'Phân công Ban Nề Nếp', hint: 'Sắp lịch trực, phân công cờ đỏ' },
       { key: 'manageSystem', label: 'Hệ thống', hint: 'Xem nhật ký và đổi thương hiệu nhà trường' },
     ],

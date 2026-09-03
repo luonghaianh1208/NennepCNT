@@ -68,7 +68,7 @@ export default function App() {
   const [rankingFilterConfigId, setRankingFilterConfigId] = useState<string>('');
   const [rankingGradeTab, setRankingGradeTab] = useState<string>('10');
   const [classDetailSelectedId, setClassDetailSelectedId] = useState<string>('');
-  const [settingsSubTab, setSettingsSubTab] = useState<'ROLES' | 'TIME' | 'CLASSES' | 'STUDENTS' | 'CRITERIA_VIOLATION' | 'CRITERIA_ACHIEVEMENT' | 'ACCOUNTS' | 'AUDIT_LOG' | undefined>(undefined);
+  const [settingsSubTab, setSettingsSubTab] = useState<'ROLES' | 'TIME' | 'CLASSES' | 'STUDENTS' | 'CRITERIA_VIOLATION' | 'RULES' | 'ACCOUNTS' | 'AUDIT_LOG' | undefined>(undefined);
 
   const navigateToList = (classId: string, mode: 'MONTH' | 'WEEK' | 'SEMESTER' | 'ALL', configId: string) => {
     setListFilterClassId(classId);
@@ -339,9 +339,10 @@ export default function App() {
         {!isLoading && (
         <React.Suspense fallback={<TabFallback />}>
         {activeTab === 'dashboard' && <DashboardTab />}
+        {/* Khen thưởng khai ở tab Quy định, không còn màn hình tiêu chí riêng */}
         {activeTab === 'entry' && currentUser.role !== 'GUEST' && canCurrentUserEntry() && (
           <EntryTab onNavigateToCriteria={(mode) => {
-            setSettingsSubTab(mode === 'VIOLATION' ? 'CRITERIA_VIOLATION' : 'CRITERIA_ACHIEVEMENT');
+            setSettingsSubTab(mode === 'VIOLATION' ? 'CRITERIA_VIOLATION' : 'RULES');
             setActiveTab('settings');
           }} />
         )}

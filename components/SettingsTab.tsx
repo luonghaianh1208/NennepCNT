@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Save, Settings, SlidersHorizontal, Calendar, GraduationCap, Users, AlertTriangle, Star, UserPlus, ClipboardList, Palette } from 'lucide-react';
+import { Save, Settings, SlidersHorizontal, Calendar, GraduationCap, Users, AlertTriangle, UserPlus, ClipboardList, Palette } from 'lucide-react';
 import { useAppStore } from '../contexts/AppContext';
 import { useModal } from '../contexts/ModalContext';
 
@@ -14,7 +14,11 @@ import SettingsAuditLogTab from './settings/SettingsAuditLogTab';
 import SettingsBrandingTab from './settings/SettingsBrandingTab';
 import SettingsRulesTab from './settings/SettingsRulesTab';
 
-type SubTab = 'BRANDING' | 'RULES' | 'ROLES' | 'TIME' | 'CLASSES' | 'STUDENTS' | 'CRITERIA_VIOLATION' | 'CRITERIA_ACHIEVEMENT' | 'ACCOUNTS' | 'AUDIT_LOG';
+// Không còn tab "Thành tích": danh mục tiêu chí khen thưởng trùng vai trò với
+// bảng điểm giải × cấp độ ở tab Quy định, mà hai nơi lại là hai nguồn điểm khác
+// nhau — sửa một bên thì bên kia không biết. Khen thưởng nay khai duy nhất ở
+// Quy định; tiêu chí do hệ thống tự sinh khi ghi, người dùng không phải đụng tới.
+type SubTab = 'BRANDING' | 'RULES' | 'ROLES' | 'TIME' | 'CLASSES' | 'STUDENTS' | 'CRITERIA_VIOLATION' | 'ACCOUNTS' | 'AUDIT_LOG';
 
 const SUB_TABS: { id: SubTab; label: string; icon: React.ReactNode }[] = [
   { id: 'BRANDING', label: 'Thương hiệu', icon: <Palette size={16} /> },
@@ -23,8 +27,7 @@ const SUB_TABS: { id: SubTab; label: string; icon: React.ReactNode }[] = [
   { id: 'TIME', label: 'Thời gian', icon: <Calendar size={16} /> },
   { id: 'CLASSES', label: 'Lớp học', icon: <GraduationCap size={16} /> },
   { id: 'STUDENTS', label: 'Học sinh', icon: <Users size={16} /> },
-  { id: 'CRITERIA_VIOLATION', label: 'Vi phạm', icon: <AlertTriangle size={16} /> },
-  { id: 'CRITERIA_ACHIEVEMENT', label: 'Thành tích', icon: <Star size={16} /> },
+  { id: 'CRITERIA_VIOLATION', label: 'Lỗi vi phạm', icon: <AlertTriangle size={16} /> },
   { id: 'ACCOUNTS', label: 'Tài khoản', icon: <UserPlus size={16} /> },
   { id: 'AUDIT_LOG', label: 'Log', icon: <ClipboardList size={16} /> },
 ];
@@ -100,7 +103,6 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ initialSubTab }) => {
       {activeSubTab === 'CLASSES' && <SettingsClassesTab />}
       {activeSubTab === 'STUDENTS' && <SettingsStudentsTab />}
       {activeSubTab === 'CRITERIA_VIOLATION' && <SettingsCriteriaTab type="MINUS" />}
-      {activeSubTab === 'CRITERIA_ACHIEVEMENT' && <SettingsCriteriaTab type="PLUS" />}
       {activeSubTab === 'ACCOUNTS' && <SettingsAccountsTab />}
       {activeSubTab === 'AUDIT_LOG' && <SettingsAuditLogTab />}
     </div>

@@ -3,7 +3,7 @@ import React, { useState, useRef, useMemo } from 'react';
 import { AlertTriangle, Star, ChevronDown, Camera, X, CheckCircle2, Loader2, StopCircle, FileSpreadsheet, Download, Settings } from 'lucide-react';
 import { Violation } from '../types';
 import { api } from '../services/firebase';
-import { isDateInRange, removeVietnameseTones, exportToExcel, getLocalDateString, matchVietnamese, fuzzyMatchScore, toISODate, can, isDateOutsideAllConfigs, formatDateDisplay } from '../utils';
+import { isDateInRange, removeVietnameseTones, exportToExcel, getLocalDateString, matchVietnamese, fuzzyMatchScore, toISODate, can, isDateOutsideAllConfigs, formatDateDisplay, FEATURES } from '../utils';
  import { compressImageFile } from '../utils/imagePipeline';
 import { useAppStore } from '../contexts/AppContext';
 import { useModal } from '../contexts/ModalContext';
@@ -64,8 +64,9 @@ const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
   // Ghi khen thưởng và nhập Excel là hai quyền riêng, không gộp chung vào "admin"
   const canEnterAchievement = useMemo(
     () => can(roleConfigs, currentUser.role, 'entryAchievement'), [currentUser, roleConfigs]);
+  // Nhập Excel đang tắt ở FEATURES — giữ nguyên mã, chỉ ẩn khỏi giao diện
   const canImportExcel = useMemo(
-    () => can(roleConfigs, currentUser.role, 'importExcel'), [currentUser, roleConfigs]);
+    () => FEATURES.excelImport && can(roleConfigs, currentUser.role, 'importExcel'), [currentUser, roleConfigs]);
 
   const filteredClasses = useMemo(() => {
     if (!selectedGrade || selectedGrade === 'Tất cả') return classes;
