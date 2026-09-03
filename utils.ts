@@ -435,7 +435,7 @@ export const diffConfigChanges = (before: ConfigSnapshot, after: ConfigSnapshot)
 export const excelSerialToISO = (serial: number): string => {
   if (!isFinite(serial) || serial <= 0) return '';
   const EXCEL_EPOCH_UTC = Date.UTC(1899, 11, 30);
-  const d = new Date(EXCEL_EPOCH_UTC + Math.round(serial) * 86400000);
+  const d = new Date(EXCEL_EPOCH_UTC + Math.floor(serial) * 86400000);
   const m = String(d.getUTCMonth() + 1).padStart(2, '0');
   const day = String(d.getUTCDate()).padStart(2, '0');
   return `${d.getUTCFullYear()}-${m}-${day}`;

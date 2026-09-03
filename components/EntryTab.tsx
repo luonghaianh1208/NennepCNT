@@ -3,7 +3,8 @@ import React, { useState, useRef, useMemo } from 'react';
 import { AlertTriangle, Star, ChevronDown, Camera, X, CheckCircle2, Loader2, StopCircle, FileSpreadsheet, Download, Settings } from 'lucide-react';
 import { Violation } from '../types';
 import { api } from '../services/firebase';
-import { isDateInRange, removeVietnameseTones, exportToExcel, getLocalDateString, matchVietnamese, fuzzyMatchScore, toISODate, can } from '../utils';
+import { isDateInRange, removeVietnameseTones, exportToExcel, getLocalDateString, matchVietnamese, fuzzyMatchScore, toISODate, can, isDateOutsideAllConfigs, formatDateDisplay } from '../utils';
+ import { compressImageFile } from '../utils/imagePipeline';
 import { useAppStore } from '../contexts/AppContext';
 import { useModal } from '../contexts/ModalContext';
 import AchievementBulkEntry from './AchievementBulkEntry';
@@ -18,7 +19,10 @@ const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
   const { currentUser, classes, students, criteria, violations, setViolations, roleConfigs, users, createViolation, timeConfigs, schoolSettings } = useAppStore();
   const { showConfirm, showAlert, showToast } = useModal();
 
-  const [entryMode, setEntryMode] = useState<'VIOLATION' | 'ACHIEVEMENT'>('VIOLATION');
+  // Vai trò chỉ có quyền khen thưởng mở tab ra mà thấy ngay form vi phạm thì bấm
+  // lưu sẽ bị tầng dữ liệu từ chối với thông báo khó hiểu
+  const [entryMode, setEntryMode] = useState<'VIOLATION' | 'ACHIEVEMENT'>(
+    () => (can(roleConfigs, currentUser.role, 'entryViolation') ? 'VIOLATION' : 'ACHIEVEMENT'));
   const [entryDate, setEntryDate] = useState(getLocalDateString());
   const [selectedGrade, setSelectedGrade] = useState<string>('');
   const [selectedClassId, setSelectedClassId] = useState('');
@@ -29,6 +33,7 @@ const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
   const [entryNote, setEntryNote] = useState('');
 
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [, setPreviewImageType] = useState<string>('image/jpeg');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [importProgress, setImportProgress] = useState<string>('');
 
@@ -71,12 +76,21 @@ const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
     return criteria.filter(c => entryMode === 'VIOLATION' ? c.type === 'MINUS' : c.type === 'PLUS');
   }, [criteria, entryMode]);
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => setPreviewImage(reader.result as string);
-      reader.readAsDataURL(file);
+    if (!file) return;
+    try {
+      // Thu nhỏ và nén ngay trên máy: ảnh camera 3-8MB xuống còn khoảng 200KB,
+      // vẫn đủ nét đọc biển số. Không nén thì trên 4G giờ ra chơi mỗi ảnh mất
+      // hàng chục giây, còn ảnh lớn thì bị kho lưu trữ từ chối thẳng.
+      const { dataUrl, mimeType } = await compressImageFile(file);
+      setPreviewImage(dataUrl);
+      setPreviewImageType(mimeType);
+    } catch {
+      showToast('Không đọc được ảnh này. Chọn ảnh khác hoặc chụp lại.', 'error');
+    } finally {
+      // Cho phép chọn lại đúng tệp vừa rồi nếu lần đầu lỗi
+      e.target.value = '';
     }
   };
 
@@ -228,7 +242,23 @@ const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
           // --- Xử lý ngày ---
           // Chuẩn hoá về YYYY-MM-DD ngay từ đây: ô Excel có thể là kiểu ngày,
           // cũng có thể là chữ do người dùng gõ tay "20/05/2026"
-          const ngay = toISODate(row[0]) || getLocalDateString();
+          // Ô trống hay ngày sai định dạng ("20/5/26", "T2 20/05") trước đây bị
+          // âm thầm gán ngày hôm nay, trạng thái vẫn xanh — vi phạm tuần 5 nhảy
+          // sang tuần hiện tại làm sai điểm CẢ HAI tuần. Nay báo đỏ để người
+          // dùng sửa file.
+          const ngay = toISODate(row[0]);
+          if (!ngay) {
+            parsed.push({
+              rowIndex: i,
+              date: '', className: String(row[1] || '').trim(), studentName: String(row[2] || '').trim(),
+              inputCriteria: String(row[3] || '').trim(), matchedCriteriaId: '',
+              matchedCriteriaLabel: '', matchScore: 0, note: String(row[4] || '').trim(),
+              reporterId: currentUser.id,
+              status: 'error',
+              errorReason: `Không đọc được ngày "${String(row[0] ?? '').trim()}" — dùng dạng NGÀY/THÁNG/NĂM, ví dụ 20/05/2026`,
+            });
+            continue;
+          }
 
           const tenLop = String(row[1] || '').trim();
           const tenHS = String(row[2] || '').trim();
@@ -287,9 +317,15 @@ const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
             }
           }
 
+          // Tên học sinh gõ sai thì trước đây bản ghi âm thầm thành vi phạm của
+          // CẢ LỚP, mà bảng xem trước vẫn hiện tên như đã khớp. Kiểm ở đây để
+          // người dùng thấy trước khi lưu.
+          const studentMissing =
+            !!tenHS && !students.some(s => s.classId === targetClass.id && matchVietnamese(s.name, tenHS));
+
           const AUTO_MATCH_THRESHOLD = 70;
           const status: 'ok' | 'review' | 'error' =
-            bestScore >= AUTO_MATCH_THRESHOLD ? 'ok' : 'review';
+            studentMissing ? 'review' : bestScore >= AUTO_MATCH_THRESHOLD ? 'ok' : 'review';
 
           parsed.push({
             rowIndex: i,
@@ -304,6 +340,9 @@ const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
             reporterId,
             imageUrl: linkAnh || undefined,
             status,
+            errorReason: studentMissing
+              ? `Lớp ${targetClass.name} không có học sinh tên "${tenHS}" — để trống ô này nếu là vi phạm của cả lớp`
+              : undefined,
           });
         }
 
@@ -329,6 +368,27 @@ const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
     if (validRows.length === 0) {
       await showAlert('Không có dòng nào hợp lệ', 'Vui lòng chọn tiêu chí cho các dòng chờ xem xét trước khi import.', 'error');
       return;
+    }
+
+    // Ngày ngoài mọi mốc thời gian vẫn lưu được nhưng không lọt vào xếp hạng,
+    // tổng quan hay báo cáo — người dùng chỉ phát hiện khi lọc "tất cả thời
+    // gian". Nhập tay đơn lẻ đã cảnh báo, nhập hàng loạt thì chưa.
+    const outsideDates = [...new Set(
+      validRows.filter(r => isDateOutsideAllConfigs(r.date, timeConfigs)).map(r => r.date),
+    )].sort();
+    if (outsideDates.length) {
+      const preview = outsideDates.slice(0, 5).map(formatDateDisplay).join(', ');
+      const more = outsideDates.length > 5 ? ` và ${outsideDates.length - 5} ngày khác` : '';
+      const ok = await showConfirm({
+        title: 'Có ngày nằm ngoài các mốc thời gian',
+        message:
+          `${outsideDates.length} ngày không thuộc tuần, tháng hay học kỳ nào đã cấu hình: ${preview}${more}.\n\n` +
+          'Những bản ghi này vẫn được lưu nhưng sẽ KHÔNG được tính vào bảng xếp hạng, trang Tổng quan và báo cáo.\n\n' +
+          'Kiểm tra lại ngày trong file, hoặc thêm mốc thời gian ở Cấu hình → Thời gian trước khi nhập.',
+        type: 'confirm',
+        confirmText: 'Vẫn nhập',
+      });
+      if (!ok) return;
     }
 
     const existingIds = new Set(violations.map(v => v.id));
@@ -366,7 +426,7 @@ const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
     setShowPreview(false);
     setIsSubmitting(true);
     abortImportRef.current = false;
-    setImportProgress(`Đang gửi ${recordsToSave.length} bản ghi lên server...`);
+    setImportProgress(`Đang lưu ${recordsToSave.length} bản ghi...`);
 
     try {
       // ✅ Issue 5: Batch import — 1 API call thay cho N*50ms sequential loop
@@ -411,21 +471,11 @@ const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
 
       let imageUrls: string[] = [];
       if (previewImage) {
-        const safeStudentName = selectedStudent ? removeVietnameseTones(selectedStudent.name) : 'TapThe';
-        const safeClassName = selectedClass ? removeVietnameseTones(selectedClass.name) : selectedClassId;
-        const safeViolation = criteriaItem ? removeVietnameseTones(criteriaItem.content) : 'LoiViPham';
-
-        const fileNameInfo = {
-          studentName: safeStudentName,
-          className: safeClassName,
-          violation: safeViolation,
-          date: entryDate
-        };
-        const uploadRes = await api.uploadImage(previewImage, fileNameInfo);
+        const uploadRes = await api.uploadImage(previewImage);
         if (uploadRes.status === 'success') {
           imageUrls.push(uploadRes.url);
         } else {
-          showToast('Lỗi upload ảnh: ' + uploadRes.message, 'error');
+          showToast(uploadRes.message || 'Chưa tải được ảnh lên. Thử lại giúp em.', 'error');
           setIsSubmitting(false);
           return;
         }
@@ -456,11 +506,14 @@ const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
       setSelectedCriteriaId('');
       setEntryNote('');
       setPreviewImage(null);
+      // Không đặt lại thì bản ghi tiếp theo âm thầm bị gắn cờ "bảo vệ báo" sai
+      setIsSecurityReport(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
-      setTimeout(() => setShowSuccessModal(false), 2000);
+      // Người ghi liên tục 20 lỗi thì 2 giây mỗi lần là mất 40 giây đứng nhìn
+      setTimeout(() => setShowSuccessModal(false), 900);
 
     } catch (error) {
-      showToast('Có lỗi xảy ra khi lưu dữ liệu.', 'error');
+      showToast('Chưa lưu được. Kiểm tra kết nối mạng rồi bấm lưu lại.', 'error');
       console.error(error);
     } finally {
       setIsSubmitting(false);

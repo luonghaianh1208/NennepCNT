@@ -413,16 +413,18 @@ export const api = {
   },
 
   // 6. Upload ảnh minh chứng lên Storage
-  uploadImage: async (base64: string, fileNameInfo: any) => {
+  // Tên tệp KHÔNG chứa tên học sinh, lớp hay nội dung vi phạm: ai thấy đường
+  // dẫn ảnh là đọc được câu chuyện mà chưa cần mở ảnh. Mô tả nằm trong bản ghi.
+  uploadImage: async (base64: string, _fileNameInfo?: any) => {
     try {
-      const safeName = `${fileNameInfo.className}_${fileNameInfo.studentName}_${fileNameInfo.violation}_${fileNameInfo.date}`
-        .replace(/[^a-zA-Z0-9_\-.]/g, '_');
-      const fileRef = ref(storage, `violations/${safeName}_${Date.now()}.jpg`);
+      const extension = base64.startsWith('data:image/webp') ? 'webp' : 'jpg';
+      const id = (crypto as any)?.randomUUID?.() ?? `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+      const fileRef = ref(storage, `violations/${id}.${extension}`);
       await uploadString(fileRef, base64, 'data_url');
       return { status: 'success', url: await getDownloadURL(fileRef) };
     } catch (e: any) {
       console.error('uploadImage error:', e);
-      return { status: 'error', message: e?.message ?? String(e) };
+      return { status: 'error', message: friendlyError(e) };
     }
   },
 
