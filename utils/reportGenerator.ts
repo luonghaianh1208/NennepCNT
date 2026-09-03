@@ -16,6 +16,10 @@ interface ReportInput {
   criteria: Criteria[];
   currentUser: User;
   isLeader: boolean;       // true nếu xuất dưới tư cách Lãnh đạo
+  // Quy định của trường — báo cáo phải tính đúng bằng công thức đang hiện trên
+  // màn hình, nếu không thì sổ in ra một đằng, phần mềm hiện một nẻo.
+  baseScore: number;
+  grades: string[];
 }
 
 // Màu đỏ đậm dùng cho phần NHƯỢC ĐIỂM và heading phụ
@@ -56,26 +60,25 @@ const sectionHeader = (text: string) =>
     spacing: { before: 160, after: 80 },
   });
 
-/** Tạo bảng xếp hạng 9 cột */
+/** Tạo bảng xếp hạng: mỗi khối của trường chiếm 3 cột Lớp — Điểm — Hạng */
 const buildRankingTable = (
   classes: ClassEntity[],
   relevantViolations: Violation[],
   weeksCount: number,
+  baseScore: number,
+  schoolGrades: string[],
 ): Table => {
-  const grades: (10 | 11 | 12)[] = [12, 11, 10];
-  const columnHeaders = [
-    'Lớp K12', 'Điểm', 'Hạng', 
-    'Lớp K11', 'Điểm', 'Hạng',
-    'Lớp K10', 'Điểm', 'Hạng',
-  ];
+  // Khối cao xếp trước, đúng như sổ vẫn in tay: K12 rồi K11 rồi K10
+  const grades = [...schoolGrades].sort((a, b) => Number(b) - Number(a));
+  const columnHeaders = grades.flatMap(grade => [`Lớp K${grade}`, 'Điểm', 'Hạng']);
 
   // Xếp hạng từng khối
-  const ranked: Record<number, { name: string; score: number; rank: number }[]> = {};
+  const ranked: Record<string, { name: string; score: number; rank: number }[]> = {};
   grades.forEach(grade => {
-    const gradeClasses = classes.filter(c => Number(c.grade) === grade);
+    const gradeClasses = classes.filter(c => String(c.grade) === grade);
     const stats = gradeClasses.map(cls => {
       const clsV = relevantViolations.filter(v => v.classId === cls.id);
-      const score = calculateScore(clsV, 500, weeksCount, false);
+      const score = calculateScore(clsV, baseScore, weeksCount, false);
       return { name: cls.name, score };
     }).sort((a, b) => b.score - a.score);
 
@@ -90,7 +93,7 @@ const buildRankingTable = (
     });
   });
 
-  const maxRows = Math.max(ranked[12].length, ranked[11].length, ranked[10].length);
+  const maxRows = Math.max(0, ...grades.map(grade => ranked[grade].length));
 
   const cellStyle = (text: string, bold = false, bgColor?: string) =>
     new TableCell({
@@ -111,7 +114,7 @@ const buildRankingTable = (
   // Data rows
   const dataRows = Array.from({ length: maxRows }, (_, i) => {
     const cells: TableCell[] = [];
-    [12, 11, 10].forEach(grade => {
+    grades.forEach(grade => {
       const item = ranked[grade][i];
       cells.push(cellStyle(item?.name || '', false));
       cells.push(cellStyle(item ? String(item.score) : '', false));
@@ -120,10 +123,18 @@ const buildRankingTable = (
     return new TableRow({ children: cells });
   });
 
+  // Chia đều bề ngang cho các khối, giữ đúng tỉ lệ Lớp : Điểm : Hạng của bản in cũ
+  const groupWidth = Math.floor(9900 / (grades.length || 1));
+  const columnWidths = grades.flatMap(() => {
+    const nameWidth = Math.round(groupWidth * 0.545);
+    const scoreWidth = Math.round(groupWidth * 0.242);
+    return [nameWidth, scoreWidth, groupWidth - nameWidth - scoreWidth];
+  });
+
   return new Table({
     layout: TableLayoutType.FIXED,
     width: { size: 100, type: WidthType.PERCENTAGE },
-    columnWidths: [1800, 800, 700, 1800, 800, 700, 1800, 800, 700],
+    columnWidths,
     rows: [headerRow, ...dataRows],
   });
 };
@@ -155,7 +166,7 @@ const computeStreak = (
 
 /** Main export function */
 export const generateWeeklyReport = async (input: ReportInput): Promise<void> => {
-  const { weekConfig, allWeekConfigs, violations, classes, students, criteria, currentUser, isLeader } = input;
+  const { weekConfig, allWeekConfigs, violations, classes, students, criteria, currentUser, isLeader, baseScore, grades } = input;
 
   // Vi phạm trong tuần
   const weeklyViolations = violations.filter(v =>
@@ -252,7 +263,7 @@ export const generateWeeklyReport = async (input: ReportInput): Promise<void> =>
   }
 
   // Ranking table
-  const rankingTable = buildRankingTable(classes, weeklyViolations, 1);
+  const rankingTable = buildRankingTable(classes, weeklyViolations, 1, baseScore, grades);
 
   // Khoảng cách sau bảng
   const afterTable = new Paragraph({ children: [], spacing: { after: 200 } });

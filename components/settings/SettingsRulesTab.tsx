@@ -1,9 +1,102 @@
 import React, { useState } from 'react';
-import { Save, Loader2, Plus, X, Info, Calculator, Palette } from 'lucide-react';
+import { Save, Loader2, Plus, X, Info, Calculator, Palette, Pencil, Check } from 'lucide-react';
 import { SchoolSettings } from '../../types';
-import { THEME_PRESETS } from '../../utils';
+import { THEME_PRESETS, renameInList, renamePrizeKey, renameLevelKey } from '../../utils';
 import { useAppStore } from '../../contexts/AppContext';
 import { useModal } from '../../contexts/ModalContext';
+
+/** Tên dài hơn thế này là vỡ bảng điểm thưởng, chặn ngay ở ô nhập */
+const MAX_LABEL = 40;
+
+/**
+ * Ô nhập danh sách dạng thẻ: gõ rồi Enter để thêm, bút chì để sửa tên tại chỗ,
+ * x để bỏ. Đặt ngoài component cha để gõ dở không bị mất khi cha vẽ lại.
+ */
+const ListEditor: React.FC<{
+  label: string;
+  hint: string;
+  items: string[];
+  placeholder: string;
+  onChange: (next: string[]) => void;
+  onRename: (from: string, to: string) => void;
+  onError: (message: string) => void;
+}> = ({ label, hint, items, placeholder, onChange, onRename, onError }) => {
+  const [draft, setDraft] = useState('');
+  const [editing, setEditing] = useState<string | null>(null);
+  const [newName, setNewName] = useState('');
+
+  const add = () => {
+    const value = draft.trim();
+    if (!value) return;
+    if (items.includes(value)) return onError(`"${value}" đã có trong danh sách`);
+    onChange([...items, value]);
+    setDraft('');
+  };
+
+  const trimmed = newName.trim();
+  // Trùng tên mục khác thì không cho lưu — hai mục cùng tên sẽ đè điểm của nhau
+  const isValid = !!trimmed && trimmed.length <= MAX_LABEL && (trimmed === editing || !items.includes(trimmed));
+
+  const saveRename = () => {
+    if (!isValid || editing === null) return;
+    if (trimmed !== editing) onRename(editing, trimmed);
+    setEditing(null);
+  };
+
+  return (
+    <div>
+      <label className="block text-xs font-bold text-slate-600 mb-1">{label}</label>
+      <div className="flex flex-wrap gap-1.5 mb-2">
+        {items.map(item => (editing === item ? (
+          <span key={item} className="inline-flex items-center gap-1 bg-white border border-blue-400 rounded-full pl-3 pr-1.5 py-1">
+            <input autoFocus value={newName} maxLength={MAX_LABEL} aria-label={`Tên mới cho ${item}`}
+              className={`w-32 bg-transparent text-sm outline-none ${isValid ? 'text-slate-800' : 'text-red-600'}`}
+              onChange={e => setNewName(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') { e.preventDefault(); saveRename(); }
+                if (e.key === 'Escape') { e.preventDefault(); setEditing(null); }
+              }} />
+            <button onClick={saveRename} disabled={!isValid}
+              className="text-green-600 hover:text-green-700 disabled:text-slate-300"
+              title={isValid ? 'Lưu tên mới' : 'Tên trống hoặc trùng mục khác'}>
+              <Check size={13} />
+            </button>
+            <button onClick={() => setEditing(null)} className="text-slate-400 hover:text-slate-600" title="Thôi không sửa">
+              <X size={13} />
+            </button>
+          </span>
+        ) : (
+          <span key={item} className="inline-flex items-center gap-1 bg-slate-100 border border-slate-200 rounded-full pl-3 pr-1.5 py-1 text-sm">
+            {item}
+            <button onClick={() => { setEditing(item); setNewName(item); }}
+              className="text-slate-400 hover:text-blue-600" title={`Sửa tên ${item}`}>
+              <Pencil size={11} />
+            </button>
+            <button onClick={() => onChange(items.filter(i => i !== item))}
+              className="text-slate-400 hover:text-red-600" title={`Bỏ ${item}`}>
+              <X size={13} />
+            </button>
+          </span>
+        )))}
+        {!items.length && <span className="text-xs text-slate-400 italic">Chưa có mục nào</span>}
+      </div>
+      <div className="flex gap-2">
+        <input
+          className="flex-1 p-2 border border-slate-300 rounded text-sm"
+          placeholder={placeholder}
+          value={draft}
+          maxLength={MAX_LABEL}
+          onChange={e => setDraft(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); add(); } }}
+        />
+        <button onClick={add} className="px-3 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded text-sm font-bold">
+          <Plus size={15} />
+        </button>
+      </div>
+      <p className="text-xs text-slate-400 mt-1">{hint}</p>
+    </div>
+  );
+};
 
 /**
  * Quy định riêng của trường — những thứ trước đây gán cứng trong mã nguồn:
@@ -33,49 +126,23 @@ const SettingsRulesTab: React.FC = () => {
     showToast(ok ? 'Đã lưu quy định của trường' : 'Lưu thất bại, thử lại giúp em', ok ? 'success' : 'error');
   };
 
-  /** Ô nhập danh sách dạng thẻ: gõ rồi Enter để thêm, bấm x để bỏ */
-  const ListEditor: React.FC<{
-    label: string; hint: string; items: string[]; onChange: (next: string[]) => void; placeholder: string;
-  }> = ({ label, hint, items, onChange, placeholder }) => {
-    const [draft, setDraft] = useState('');
-    const add = () => {
-      const value = draft.trim();
-      if (!value) return;
-      if (items.includes(value)) return showToast(`"${value}" đã có trong danh sách`, 'error');
-      onChange([...items, value]);
-      setDraft('');
-    };
-    return (
-      <div>
-        <label className="block text-xs font-bold text-slate-600 mb-1">{label}</label>
-        <div className="flex flex-wrap gap-1.5 mb-2">
-          {items.map(item => (
-            <span key={item} className="inline-flex items-center gap-1 bg-slate-100 border border-slate-200 rounded-full pl-3 pr-1.5 py-1 text-sm">
-              {item}
-              <button onClick={() => onChange(items.filter(i => i !== item))}
-                className="text-slate-400 hover:text-red-600" title={`Bỏ ${item}`}>
-                <X size={13} />
-              </button>
-            </span>
-          ))}
-          {!items.length && <span className="text-xs text-slate-400 italic">Chưa có mục nào</span>}
-        </div>
-        <div className="flex gap-2">
-          <input
-            className="flex-1 p-2 border border-slate-300 rounded text-sm"
-            placeholder={placeholder}
-            value={draft}
-            onChange={e => setDraft(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); add(); } }}
-          />
-          <button onClick={add} className="px-3 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded text-sm font-bold">
-            <Plus size={15} />
-          </button>
-        </div>
-        <p className="text-xs text-slate-400 mt-1">{hint}</p>
-      </div>
-    );
-  };
+  const showError = (message: string) => showToast(message, 'error');
+
+  // Đổi tên giải hoặc cấp độ phải chuyển cả khoá trong bảng điểm, nếu không thì
+  // cột điểm đã khai biến mất mà không báo gì.
+  const renamePrize = (from: string, to: string) => set({
+    prizes: renameInList(form.prizes, from, to),
+    prizePoints: renamePrizeKey(form.prizePoints, from, to),
+  });
+
+  const renameLevel = (from: string, to: string) => set({
+    activityLevels: renameInList(form.activityLevels, from, to),
+    prizePoints: renameLevelKey(form.prizePoints, from, to),
+  });
+
+  // Khối lớp và nhóm hoạt động không nằm trong bảng điểm nên chỉ đổi danh sách
+  const renameGrade = (from: string, to: string) => set({ grades: renameInList(form.grades, from, to) });
+  const renameGroup = (from: string, to: string) => set({ activityGroups: renameInList(form.activityGroups, from, to) });
 
   return (
     <div className="space-y-4">
@@ -138,6 +205,8 @@ const SettingsRulesTab: React.FC = () => {
           items={form.grades}
           placeholder="Ví dụ: 10"
           onChange={grades => set({ grades })}
+          onRename={renameGrade}
+          onError={showError}
         />
       </div>
 
@@ -147,22 +216,24 @@ const SettingsRulesTab: React.FC = () => {
 
         <ListEditor label="Giải thưởng" items={form.prizes} placeholder="Ví dụ: Giải phong trào"
           hint="Hiện trong ô chọn giải khi nhập khen thưởng theo hoạt động."
-          onChange={prizes => set({ prizes })} />
+          onChange={prizes => set({ prizes })} onRename={renamePrize} onError={showError} />
 
         <ListEditor label="Nhóm hoạt động" items={form.activityGroups} placeholder="Ví dụ: Tình nguyện"
           hint="Dùng để phân loại hoạt động khi thống kê."
-          onChange={activityGroups => set({ activityGroups })} />
+          onChange={activityGroups => set({ activityGroups })} onRename={renameGroup} onError={showError} />
 
         <ListEditor label="Cấp độ hoạt động" items={form.activityLevels} placeholder="Ví dụ: Cấp quận"
           hint="Cấp càng cao thường điểm thưởng càng lớn."
-          onChange={activityLevels => set({ activityLevels })} />
+          onChange={activityLevels => set({ activityLevels })} onRename={renameLevel} onError={showError} />
 
         {/* Bảng điểm: thay cho việc mỗi hoạt động đẻ ra một tiêu chí riêng */}
         <div>
           <label className="block text-xs font-bold text-slate-600 mb-1">Bảng điểm thưởng</label>
           <p className="text-xs text-slate-400 mb-2">
             Khai một lần, dùng cho mọi hoạt động. Khi nhập khen thưởng, chọn giải và cấp độ là hệ
-            thống điền điểm sẵn — vẫn sửa tay được cho hoạt động đặc biệt.
+            thống điền điểm sẵn — vẫn sửa tay được cho hoạt động đặc biệt. Ô để 0 nghĩa là không gợi ý.
+            Sửa tên giải hay cấp độ thì điểm đã khai đi theo, nhưng các bản ghi khen thưởng cũ vẫn
+            giữ tên tại thời điểm nhập — đổi tên trước khi vào mùa nhập là gọn nhất.
           </p>
           <div className="overflow-x-auto border border-slate-200 rounded-lg">
             <table className="w-full text-sm">

@@ -459,22 +459,24 @@ const ListTab: React.FC<ListTabProps> = ({
           const isReporterMe = v.reportedBy === currentUser.id;
           const reporterColor = reporterRoleConfig ? reporterRoleConfig.color : 'gray';
 
-          let reporterDisplay: React.ReactNode;
-
-          if (canSeeReporter || isReporterMe) {
-               const reporterClass = reporterUser?.className ? ` (${reporterUser.className})` : '';
-               reporterDisplay = (
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded border bg-${reporterColor}-50 border-${reporterColor}-100 text-${reporterColor}-700 font-medium`}>
-                      {reporterUser ? `${reporterUser.name}${reporterClass} - ${reporterRoleLabel}` : reporterRoleLabel}
-                  </span>
-               );
-          } else {
-               reporterDisplay = (
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded border bg-${reporterColor}-50 border-${reporterColor}-100 text-${reporterColor}-700 font-medium`}>
-                      {reporterRoleLabel}
-                  </span>
-               );
-          }
+          // Nhãn cộng dồn: màu + chức vụ luôn hiện, tên ghép thêm phía sau và chỉ
+          // với người có quyền hoặc chính người đã ghi. Cả trường nhìn màu là biết
+          // bản ghi do cờ đỏ, nền nếp hay BCH ghi, mà không lộ danh tính.
+          const canSeeName = canSeeReporter || isReporterMe;
+          const reporterFullName = reporterUser
+            ? `${reporterUser.name}${reporterUser.className ? ` (${reporterUser.className})` : ''}`
+            : null;
+          const reporterDisplay = (
+            <span
+              className={`text-[10px] px-1.5 py-0.5 rounded border bg-${reporterColor}-50 border-${reporterColor}-100 text-${reporterColor}-700 font-medium`}
+              title={canSeeName && reporterFullName
+                ? `${reporterRoleLabel} · ${reporterFullName}`
+                : 'Tên người ghi chỉ hiện với người có quyền xem'}
+            >
+              {reporterRoleLabel}
+              {canSeeName && reporterFullName ? <> · <span className="font-bold">{reporterFullName}</span></> : null}
+            </span>
+          );
 
           return (
             <div key={v.id} className={`relative group bg-white rounded-xl shadow-sm border p-4 transition-all ${isSelected ? 'border-blue-500 ring-1 ring-blue-500 bg-blue-50/30' : 'border-slate-200 hover:border-blue-300'}`}>

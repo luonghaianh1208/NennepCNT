@@ -58,7 +58,8 @@ const RankingTab: React.FC<RankingTabProps> = ({
     try {
       const isLeader = currentUser.role.toUpperCase() === 'LEADER';
       const { generateWeeklyReport } = await import('../utils/reportGenerator');
-      await generateWeeklyReport({ weekConfig, allWeekConfigs: timeConfigs, violations, classes, students, criteria, currentUser, isLeader });
+      await generateWeeklyReport({ weekConfig, allWeekConfigs: timeConfigs, violations, classes, students, criteria, currentUser, isLeader,
+        baseScore: schoolSettings.baseScore, grades: schoolSettings.grades });
       showToast(`Đã xuất báo cáo ${weekConfig.name} thành công!`, 'success');
     } catch (err) {
       showToast('Lỗi khi tạo file DOCX. Vui lòng thử lại.', 'error');
@@ -201,8 +202,8 @@ const RankingTab: React.FC<RankingTabProps> = ({
           rankedData = rankClassList(targetClasses, relevantViolations, weeksCount, isRangeMode, weightedSemesters, isHK2);
       } else {
           // Toàn trường: xế́p hạng riêng từng khối rồi gộp lại
-          [10, 11, 12].forEach(grade => {
-              const gradeClasses = classes.filter(c => c.grade === grade);
+          schoolSettings.grades.forEach(grade => {
+              const gradeClasses = classes.filter(c => String(c.grade) === grade);
               if (gradeClasses.length > 0) {
                   rankedData = [...rankedData, ...rankClassList(gradeClasses, relevantViolations, weeksCount, isRangeMode, weightedSemesters, isHK2)];
               }

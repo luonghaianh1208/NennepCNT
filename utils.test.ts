@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { isDateOutsideAllConfigs, toISODate, diffConfigChanges, type ConfigSnapshot } from './utils';
+import {
+  isDateOutsideAllConfigs, toISODate, diffConfigChanges, type ConfigSnapshot,
+  renameInList, renamePrizeKey, renameLevelKey,
+} from './utils';
 import { TimeConfig } from './types';
 
 describe('diffConfigChanges — chỉ ghi nhật ký việc xoá và việc thêm tiêu chí/mốc', () => {
@@ -130,5 +133,57 @@ describe('isDateOutsideAllConfigs', () => {
 
   it('ngày rỗng thì không cảnh báo', () => {
     expect(isDateOutsideAllConfigs('', configs)).toBe(false);
+  });
+});
+
+describe('đổi tên giải/cấp độ phải chuyển cả khoá bảng điểm', () => {
+  const table = {
+    'Nhất': { 'Cấp trường': 40, 'Cấp tỉnh': 80 },
+    'Nhì': { 'Cấp trường': 30, 'Cấp tỉnh': 0 },
+    'Tham gia': {},
+  };
+
+  it('đổi tên trong danh sách nhưng giữ nguyên thứ tự', () => {
+    expect(renameInList(['Nhất', 'Nhì', 'Ba'], 'Nhì', 'Giải nhì')).toEqual(['Nhất', 'Giải nhì', 'Ba']);
+  });
+
+  it('đổi tên giải thì cả dòng điểm đi theo', () => {
+    const next = renamePrizeKey(table, 'Nhất', 'Giải Nhất');
+    expect(next['Giải Nhất']).toEqual({ 'Cấp trường': 40, 'Cấp tỉnh': 80 });
+    expect(next['Nhất']).toBeUndefined();
+  });
+
+  it('đổi tên cấp độ thì đổi trong mọi giải', () => {
+    const next = renameLevelKey(table, 'Cấp tỉnh', 'Cấp thành phố');
+    expect(next['Nhất']['Cấp thành phố']).toBe(80);
+    expect(next['Nhất']['Cấp tỉnh']).toBeUndefined();
+    expect(next['Nhì']['Cấp thành phố']).toBe(0);
+  });
+
+  it('điểm 0 phải giữ nguyên — 0 là "không gợi ý", khác với chưa khai', () => {
+    const next = renamePrizeKey(table, 'Nhì', 'Á quân');
+    expect(next['Á quân']['Cấp tỉnh']).toBe(0);
+  });
+
+  it('giải chưa khai điểm nào vẫn đổi tên được', () => {
+    const next = renamePrizeKey(table, 'Tham gia', 'Có mặt');
+    expect(next['Có mặt']).toEqual({});
+    expect(Object.keys(next)).toHaveLength(3);
+  });
+
+  it('tên không có trong bảng thì bảng không đổi', () => {
+    expect(renamePrizeKey(table, 'Không tồn tại', 'X')).toEqual(table);
+  });
+
+  it('bảng chưa khai (undefined) không làm vỡ hàm', () => {
+    expect(renamePrizeKey(undefined, 'Nhất', 'X')).toEqual({});
+    expect(renameLevelKey(undefined, 'Cấp trường', 'X')).toEqual({});
+  });
+
+  it('không được sửa vào bảng gốc', () => {
+    const before = JSON.stringify(table);
+    renamePrizeKey(table, 'Nhất', 'X');
+    renameLevelKey(table, 'Cấp trường', 'Y');
+    expect(JSON.stringify(table)).toBe(before);
   });
 });

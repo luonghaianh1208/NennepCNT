@@ -41,6 +41,35 @@ export const lookupPrizePoints = (
   level: string,
 ): number => Number(settings.prizePoints?.[prize]?.[level] ?? 0);
 
+/**
+ * Bảng điểm thưởng khoá theo TÊN giải và TÊN cấp độ. Đổi tên trong danh sách mà
+ * quên chuyển khoá là mất sạch cột điểm đã khai — mất im lặng, không báo gì.
+ * Ba hàm dưới đây giữ hai nơi luôn đi cùng nhau; đều trả về bản mới, không sửa
+ * vào dữ liệu gốc.
+ */
+type PrizePointsTable = Record<string, Record<string, number>>;
+
+/** Đổi tên một mục trong danh sách, giữ nguyên thứ tự */
+export const renameInList = (list: string[], from: string, to: string): string[] =>
+  list.map(item => (item === from ? to : item));
+
+/** Đổi khoá tầng ngoài: tên giải */
+export const renamePrizeKey = (table: PrizePointsTable | undefined, from: string, to: string): PrizePointsTable => {
+  const next = { ...(table ?? {}) };
+  if (!(from in next)) return next;
+  next[to] = next[from];
+  delete next[from];
+  return next;
+};
+
+/** Đổi khoá tầng trong: tên cấp độ, áp cho mọi giải */
+export const renameLevelKey = (table: PrizePointsTable | undefined, from: string, to: string): PrizePointsTable =>
+  Object.fromEntries(Object.entries(table ?? {}).map(([prize, byLevel]) => {
+    const row = { ...byLevel };
+    if (from in row) { row[to] = row[from]; delete row[from]; }
+    return [prize, row];
+  }));
+
 /** Đưa tông màu vào biến CSS để mọi màn hình dùng chung */
 export const applyTheme = (presetKey: string) => {
   const preset = THEME_PRESETS[presetKey] ?? THEME_PRESETS.DOAN;

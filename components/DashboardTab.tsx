@@ -101,14 +101,14 @@ const DashboardTab: React.FC = () => {
 
   // ── Bar chart: Vi phạm theo khối ────────────────────────────────────────
   const byGradeData = useMemo(() => {
-    return [10, 11, 12].map(grade => {
-      const gradeClasses = classes.filter(c => c.grade === grade);
+    return schoolSettings.grades.map(grade => {
+      const gradeClasses = classes.filter(c => String(c.grade) === grade);
       const gradeIds = new Set(gradeClasses.map(c => c.id));
       const thisCount = thisWeekViolations.filter(v => gradeIds.has(v.classId)).length;
       const prevCount = prevWeekViolations.filter(v => gradeIds.has(v.classId)).length;
       return { name: `Khối ${grade}`, 'Tuần này': thisCount, 'Tuần trước': prevCount };
     });
-  }, [classes, thisWeekViolations, prevWeekViolations]);
+  }, [classes, thisWeekViolations, prevWeekViolations, schoolSettings.grades]);
 
   // ── Radar: Top lớp theo điểm tuần này ────────────────────────────────────
   const radarData = useMemo(() => {
@@ -116,9 +116,9 @@ const DashboardTab: React.FC = () => {
       const clsV = thisWeekViolations.filter(v => v.classId === cls.id);
       const clsA = thisWeekAchievements.filter(v => v.classId === cls.id);
       const score = calculateScore([...clsV, ...clsA], schoolSettings.baseScore, 1, false);
-      return { subject: cls.name, score, fullMark: 500 };
+      return { subject: cls.name, score, fullMark: schoolSettings.baseScore };
     }).sort((a, b) => b.score - a.score).slice(0, 8); // top 8 lớp cho radar dễ đọc
-  }, [classes, thisWeekViolations, thisWeekAchievements]);
+  }, [classes, thisWeekViolations, thisWeekAchievements, schoolSettings.baseScore]);
 
   // ── Recent violations hôm nay ─────────────────────────────────────────────
   const recentToday = useMemo(() =>
