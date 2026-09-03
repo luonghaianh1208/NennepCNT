@@ -132,13 +132,27 @@ exports.setAccountRole = onCall(async (request) => {
   const { uid, role } = request.data || {};
   if (!uid || !role) throw new HttpsError('invalid-argument', 'Thiếu mã tài khoản hoặc vai trò.');
 
-  // Không để hệ thống rơi vào cảnh không còn quản trị viên nào
+  // Tự hạ quyền chính mình là đường khoá cứng hệ thống dễ đi nhất — nhờ người
+  // quản trị khác làm hộ thì vẫn còn người bấm nút.
+  if (uid === actor.uid && String(role).toUpperCase() !== 'ADMIN') {
+    throw new HttpsError(
+      'failed-precondition',
+      'Không thể tự hạ quyền của chính mình. Nhờ một quản trị viên khác thực hiện.',
+    );
+  }
+
+  // Không để hệ thống rơi vào cảnh không còn quản trị viên nào ĐĂNG NHẬP ĐƯỢC.
+  // Phải đếm cả trạng thái khoá: admin đang bị khoá không cứu được hệ thống.
   if (String(role).toUpperCase() !== 'ADMIN') {
     const current = await db.collection('users').doc(uid).get();
     if (current.data()?.role === 'ADMIN') {
-      const admins = await db.collection('users').where('role', '==', 'ADMIN').count().get();
-      if (admins.data().count <= 1) {
-        throw new HttpsError('failed-precondition', 'Đây là quản trị viên cuối cùng, không thể hạ quyền.');
+      const admins = await db.collection('users').where('role', '==', 'ADMIN').get();
+      const usable = admins.docs.filter((d) => d.id !== uid && d.data()?.active !== false);
+      if (usable.length === 0) {
+        throw new HttpsError(
+          'failed-precondition',
+          'Đây là quản trị viên còn hoạt động duy nhất, không thể hạ quyền. Hãy cấp quyền quản trị cho người khác trước.',
+        );
       }
     }
   }

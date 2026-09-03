@@ -5,6 +5,10 @@ rules_version = '2';
 // Vai trò của người dùng nằm trong custom claim `role`; bảng quyền của từng vai
 // trò nằm ở tài liệu settings/roles do quản trị viên chỉnh trong ứng dụng. Quy
 // tắc đọc thẳng bảng đó, nên đổi quyền trong app là có hiệu lực ngay.
+//
+// Nguyên tắc: mọi quyền khai trong RolePermissions (types.ts) phải được thực thi
+// Ở ĐÂY. Ẩn nút trên giao diện không phải là kiểm soát truy cập — gọi thẳng SDK
+// là qua hết.
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -35,38 +39,101 @@ service cloud.firestore {
       return may(permission) || (signedIn() && roleKey() == 'ADMIN');
     }
 
+    // ── Trợ giúp cho bản ghi vi phạm / thành tích ────────────────────────────
+
+    // Lớp mà tài khoản này phụ trách (dùng cho quyền ownClassOnly)
+    function myClass() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('className', '')
+        : '';
+    }
+
+    // Vai trò bị giới hạn chỉ được đụng vào lớp mình phụ trách
+    function classAllowed(classId) {
+      return !may('ownClassOnly') || roleKey() == 'ADMIN' || classId == myClass();
+    }
+
+    // Người tạo phải ghi tên chính mình — không đổ vấy cho người khác.
+    // Ngoại lệ: nhập Excel từ sổ giấy phải ghi được tên người đã chấm hôm đó,
+    // nên quyền importExcel (chỉ Đoàn/BCH có) được phép ghi hộ.
+    function reporterIsSelf() {
+      return request.resource.data.get('reportedBy', '') == request.auth.uid
+        || mayOrAdmin('importExcel');
+    }
+
+    // Sửa/xoá bản ghi của người khác cần quyền riêng
+    function ownsRecordOrMayEditOthers() {
+      return resource.data.get('reportedBy', '') == request.auth.uid
+        || mayOrAdmin('editOthers');
+    }
+
+    // Không cho đổi lớp của bản ghi sang lớp ngoài phạm vi phụ trách
+    function updateStaysInScope() {
+      return classAllowed(resource.data.get('classId', ''))
+        && classAllowed(request.resource.data.get('classId', ''));
+    }
+
     // ── Dữ liệu nghiệp vụ ────────────────────────────────────────────────
-    // Đọc công khai để học sinh và phụ huynh tra cứu không cần đăng nhập
+    // Đọc: phải đăng nhập. Trước đây để công khai cho "học sinh tra cứu không
+    // cần đăng nhập", nhưng ứng dụng vẫn bắt đăng nhập mới vào được, nên phần
+    // mở đó chỉ có tác dụng cho người ngoài — kèm theo là lộ toàn bộ đường dẫn
+    // ảnh minh chứng và danh sách học sinh.
     match /violations/{id} {
-      allow read: if true;
-      allow create, update: if mayOrAdmin('entryViolation');
-      allow delete: if mayOrAdmin('entryViolation');
+      allow read: if signedIn();
+      allow create: if mayOrAdmin('entryViolation')
+                    && reporterIsSelf()
+                    && classAllowed(request.resource.data.get('classId', ''));
+      allow update: if mayOrAdmin('entryViolation')
+                    && ownsRecordOrMayEditOthers()
+                    && updateStaysInScope();
+      allow delete: if mayOrAdmin('entryViolation')
+                    && ownsRecordOrMayEditOthers()
+                    && classAllowed(resource.data.get('classId', ''));
     }
 
     match /achievements/{id} {
-      allow read: if true;
+      allow read: if signedIn();
       // Khen thưởng là quyền riêng: cờ đỏ ghi được vi phạm nhưng không ghi được điểm cộng
-      allow write: if mayOrAdmin('entryAchievement');
+      allow create: if mayOrAdmin('entryAchievement') && reporterIsSelf();
+      allow update, delete: if mayOrAdmin('entryAchievement') && ownsRecordOrMayEditOthers();
     }
 
+    // Nhật ký: chỉ người quản lý hệ thống đọc được (bên trong có email tài
+    // khoản). Ghi được nhưng phải ghi tên chính mình, và không ai sửa hay xoá.
     match /auditLogs/{id} {
-      allow read: if signedIn();
-      allow create: if signedIn();
+      allow read: if mayOrAdmin('manageSystem');
+      allow create: if signedIn() && request.resource.data.get('userId', '') == request.auth.uid;
+      allow update, delete: if false;
     }
 
     // ── Danh mục ─────────────────────────────────────────────────────────
-    match /classes/{id}     { allow read: if true; allow write: if mayOrAdmin('manageCatalog'); }
-    match /students/{id}    { allow read: if true; allow write: if mayOrAdmin('manageCatalog'); }
-    match /criteria/{id}    { allow read: if true; allow write: if mayOrAdmin('manageCatalog'); }
-    match /timeConfigs/{id} { allow read: if true; allow write: if mayOrAdmin('manageCatalog'); }
+    match /classes/{id}     { allow read: if signedIn(); allow write: if mayOrAdmin('manageCatalog'); }
+    match /students/{id}    { allow read: if signedIn(); allow write: if mayOrAdmin('manageCatalog'); }
+    match /criteria/{id}    { allow read: if signedIn(); allow write: if mayOrAdmin('manageCatalog'); }
+    match /timeConfigs/{id} { allow read: if signedIn(); allow write: if mayOrAdmin('manageCatalog'); }
 
     // ── Thiết lập hệ thống ───────────────────────────────────────────────
-    match /settings/branding { allow read: if true; allow write: if mayOrAdmin('manageSystem'); }
-    // Bảng quyền: ai sửa được quyền thì cũng phải là người quản lý tài khoản
-    match /settings/roles    { allow read: if true; allow write: if mayOrAdmin('manageAccounts'); }
-    match /settings/{id}     { allow read: if true; allow write: if mayOrAdmin('manageSystem'); }
+    // MỘT khối duy nhất. Trước đây tách ba khối chồng nhau, mà Firestore gộp các
+    // mệnh đề allow bằng OR — nên settings/roles hoá ra ghi được bằng
+    // manageSystem, tức quyền "đổi thương hiệu nhà trường" mở luôn được bảng
+    // phân quyền và tự nâng mình lên toàn quyền.
+    match /settings/{id} {
+      // Thương hiệu cần đọc trước khi đăng nhập để hiện tên trường trên màn hình đăng nhập
+      allow read: if id == 'branding' || signedIn();
+      allow write: if id == 'roles'
+        ? mayOrAdmin('manageAccounts')
+        : mayOrAdmin('manageSystem');
+    }
 
-    // Hồ sơ tài khoản: đọc được để hiện tên người nhập liệu
-    match /users/{id}       { allow read: if true; allow write: if mayOrAdmin('manageAccounts'); }
+    // Hồ sơ tài khoản: đọc được để hiện tên người nhập liệu.
+    // Vai trò do Cloud Function đặt qua custom claim — không ai sửa trường
+    // `role` từ trình duyệt, kể cả người quản lý tài khoản, vì chốt "quản trị
+    // viên cuối cùng" của Cloud Function đếm chính các tài liệu này.
+    match /users/{id} {
+      allow read: if signedIn();
+      allow create, delete: if mayOrAdmin('manageAccounts');
+      allow update: if mayOrAdmin('manageAccounts')
+        && request.resource.data.get('role', '') == resource.data.get('role', '');
+    }
   }
 }

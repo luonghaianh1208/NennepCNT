@@ -31,8 +31,8 @@ const SKIP_IMAGES = process.argv.includes('--skip-images');
 const DEMO_ACCOUNTS = [
   { email: DEMO_EMAIL.admin, name: 'Quản trị viên Demo', role: 'ADMIN', className: '' },
   { email: DEMO_EMAIL.bch, name: 'Cán bộ Đoàn Demo', role: 'BCH', className: '' },
-  { email: DEMO_EMAIL.redFlag, name: 'Cờ đỏ Demo', role: 'RED_FLAG', className: '10 Toán 1' },
-  { email: DEMO_EMAIL.teacher, name: 'Giáo viên Demo', role: 'GUEST', className: '10 Toán 1' },
+  { email: DEMO_EMAIL.redFlag, name: 'Cờ đỏ Demo', role: 'RED_FLAG', className: '10Toán1' },
+  { email: DEMO_EMAIL.teacher, name: 'Giáo viên Demo', role: 'GUEST', className: '10Toán1' },
 ];
 
 /** Ghi một collection theo lô 400 doc — dưới hạn 500 thao tác mỗi batch của Firestore */

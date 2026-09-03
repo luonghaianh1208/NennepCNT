@@ -1,23 +1,54 @@
 rules_version = '2';
 
-// Ảnh minh chứng: xem được công khai (link ảnh kèm token của Firebase),
-// chỉ người đã đăng nhập mới tải ảnh mới lên, giới hạn 10MB và đúng định dạng ảnh.
+// Ảnh minh chứng là ảnh học sinh thật. Trước đây để đọc công khai, mà bản ghi
+// vi phạm cũng đọc công khai nên đường dẫn ảnh nằm sẵn trong đó — ai có địa chỉ
+// trang là tải được cả kho. Nay bắt buộc đăng nhập.
 service firebase.storage {
   match /b/{bucket}/o {
-    // Logo trường: ai cũng xem được, chỉ quản trị viên được thay
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function roleKey() {
+      return request.auth.token.role is string ? request.auth.token.role : 'GUEST';
+    }
+
+    // Tra cùng bảng quyền mà Firestore dùng, để bật/tắt quyền trong app là có
+    // hiệu lực ở cả kho ảnh
+    function may(permission) {
+      return signedIn() && (
+        roleKey() == 'ADMIN'
+        || firestore.get(/databases/(default)/documents/settings/roles)
+             .data.get(roleKey(), {}).get(permission, false) == true
+      );
+    }
+
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+
+    // Logo trường: ai cũng xem được (hiện trên màn hình đăng nhập, trước khi có
+    // tài khoản), chỉ quản trị viên được thay
     match /branding/{file} {
       allow read: if true;
-      allow write: if request.auth != null
-                   && request.auth.token.role == 'ADMIN'
+      allow write: if may('manageSystem')
                    && request.resource.size < 2 * 1024 * 1024
-                   && request.resource.contentType.matches('image/.*');
+                   && isImage();
     }
 
     match /violations/{file} {
-      allow read: if true;
-      allow write: if request.auth != null
-                   && request.resource.size < 10 * 1024 * 1024
-                   && request.resource.contentType.matches('image/.*');
+      allow read: if signedIn();
+      // Chỉ người được phép ghi vi phạm hoặc khen thưởng mới tải ảnh lên.
+      // `resource == null` chặn ghi đè: đọc được bản ghi là biết tên file, nếu
+      // cho ghi đè thì thay ảnh minh chứng bằng ảnh trắng là xoá sạch bằng
+      // chứng mà không để lại vết.
+      allow create: if (may('entryViolation') || may('entryAchievement'))
+                    && resource == null
+                    && request.resource.size < 5 * 1024 * 1024
+                    && isImage();
+      // Sửa và xoá ảnh đã đính: chỉ người quản lý danh mục
+      allow update, delete: if may('manageCatalog');
     }
   }
 }
