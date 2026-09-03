@@ -1,7 +1,7 @@
 {
   "firebase": {
     "apiKey": "AIzaSyA8vDLt97KKSKsGQ9gExVMC93phNbdVlK8",
-    "authDomain": "nennep-demo.firebaseapp.com",
+    "authDomain": "nennep-demo.web.app",
     "projectId": "nennep-demo",
     "storageBucket": "nennep-demo.firebasestorage.app",
     "messagingSenderId": "870692201715",
