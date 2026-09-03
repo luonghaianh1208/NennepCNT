@@ -42,9 +42,37 @@ Tạo cơ sở dữ liệu và kho ảnh (đặt tại Singapore cho gần Việ
 firebase firestore:databases:create "(default)" --location asia-southeast1 --project PROJECT_ID
 ```
 
-Storage và Authentication bật qua API (xem `scripts/demo/` để tham khảo cách gọi),
-hoặc bấm *Get started* trong Console ở hai mục Storage và Authentication →
-Sign-in method → bật **Email/Password**.
+Storage bật qua API (xem `scripts/demo/` để tham khảo cách gọi), hoặc bấm
+*Get started* trong Console ở mục Storage.
+
+### Bật đăng nhập Google — bước DUY NHẤT phải làm tay, mỗi trường một lần
+
+Không tự động hoá được: bật Google cần tạo một OAuth client, mà bước đó bắt
+buộc qua giao diện Console. Mỗi project có cấu hình đăng nhập riêng nên trường
+nào cũng phải làm.
+
+`https://console.firebase.google.com/project/PROJECT_ID/authentication/providers`
+
+→ **Google** → gạt **Enable**. Màn hình hiện hai ô ở mục *project-level setting*:
+
+| Ô | Điền gì | Vì sao |
+|---|---|---|
+| **Public-facing name** | Tên trường, ví dụ `Nền Nếp — THPT Nguyễn Huệ` | Đây là dòng chữ Google hiện cho người dùng: *"Chọn tài khoản để tiếp tục đến ..."*. Để mặc định `project-8706...` thì giáo viên và học sinh thấy một dãy số lạ và ngần ngại không dám bấm |
+| **Support email** | Email quản trị của trường, hoặc email đơn vị triển khai | **Bắt buộc**, không chọn thì nút Save không ăn |
+
+Bấm **Save**. Hai mục *Web SDK configuration* và *Safelist client IDs* để nguyên —
+Firebase tự điền sau khi lưu.
+
+Dòng cảnh báo về **SHA-1 fingerprint** chỉ áp dụng cho ứng dụng Android. Sản phẩm
+này chạy trên web nên bỏ qua.
+
+Kiểm tra ngay sau đó: mở trang của trường, bấm *Đăng nhập bằng Google*. Chưa bật
+thì hệ thống báo *"Hệ thống chưa bật đăng nhập bằng Google"* — báo đúng chỗ sai,
+không phải lỗi mơ hồ.
+
+> **Không cần bật Email/Password.** Hệ thống đã bỏ hẳn mật khẩu riêng: quản trị
+> viên chỉ ghi email vào danh sách cho phép, người dùng đăng nhập bằng chính tài
+> khoản Google của họ.
 
 ---
 
@@ -91,32 +119,43 @@ theo mẫu `scripts/demo/import-to-firebase.ts`.
 
 ---
 
-## 4. Tạo tài khoản quản trị đầu tiên
+## 4. Cấp quyền cho quản trị viên đầu tiên
 
-Tài khoản admin đầu tiên phải tạo bằng khoá dịch vụ, vì Cloud Function chỉ cho
-admin gọi (con gà và quả trứng):
+Hệ thống không tạo tài khoản cho ai — chỉ ghi email vào danh sách cho phép. Dòng
+đầu tiên phải ghi bằng khoá dịch vụ, vì Cloud Function chỉ cho admin gọi (con gà
+và quả trứng):
 
 ```js
 // node -e với firebase-admin, dùng GOOGLE_APPLICATION_CREDENTIALS
-const user = await auth.createUser({ email: 'admin@truong.edu.vn', password: '<mật khẩu tạm>' });
-await auth.setCustomUserClaims(user.uid, { role: 'ADMIN' });
-await db.collection('users').doc(user.uid).set({
-  id: user.uid, name: 'Quản trị viên', username: 'admin@truong.edu.vn',
-  email: 'admin@truong.edu.vn', role: 'ADMIN', className: '', summaryMeetings: 0, active: true,
+const email = 'quantri@truong.edu.vn';   // PHẢI là địa chỉ đăng nhập Google được
+await db.collection('allowlist').doc(email).set({
+  email, name: 'Quản trị viên', role: 'ADMIN', className: '',
+  active: true, uid: '', lastSignIn: null,
 });
 ```
 
-Sau đó vào app, dùng chức năng *Quên mật khẩu* để nhà trường tự đặt mật khẩu thật.
-Mọi tài khoản còn lại tạo ngay trong app: Thiết lập → Tài khoản → nhập lẻ hoặc
-Import Excel, hệ thống tự gửi thư đặt mật khẩu.
+Sau đó người đó vào app, bấm *Đăng nhập bằng Google* với chính địa chỉ ấy — hệ
+thống tự gắn quyền ADMIN ngay lần đầu.
+
+Mọi người còn lại cấp ngay trong app: **Cấu hình → Ai được vào hệ thống** → nhập
+lẻ hoặc nhập Excel. Không gửi thư, không có mật khẩu; ai có email trong danh sách
+là đăng nhập được ngay.
+
+> Chuyển từ bản cũ dùng mật khẩu sang: chạy
+> `pnpm tsx scripts/demo/seed-allowlist.ts --project PROJECT_ID` để dựng danh
+> sách từ bảng tài khoản sẵn có. Script liệt kê rõ ai chưa có email để bổ sung
+> tay, không đoán bừa địa chỉ.
 
 ---
 
 ## 5. Kiểm tra trước khi bàn giao
 
 - [ ] Mở link, thấy đúng tên và logo trường
-- [ ] Đăng nhập admin được, đổi mật khẩu được
-- [ ] Tạo thử một tài khoản giáo viên, người đó nhận được email (kiểm tra cả hộp thư rác)
+- [ ] Bấm *Đăng nhập bằng Google*, cửa sổ Google hiện **tên trường** chứ không phải `project-8706...`
+- [ ] Đăng nhập admin được bằng tài khoản Google
+- [ ] Cấp quyền thử cho một địa chỉ Google khác, người đó đăng nhập vào được ngay
+- [ ] Đăng nhập bằng một địa chỉ KHÔNG có trong danh sách → bị từ chối, có câu hướng dẫn liên hệ ai
+- [ ] Đổi vai trò của một người đang mở app → quyền của họ đổi trong vài giây, không cần đăng xuất
 - [ ] Nhập thử một vi phạm kèm ảnh, ảnh xem lại được
 - [ ] Nhập thử một thành tích cho nhiều lớp
 - [ ] Xếp hạng hiện đúng số liệu
