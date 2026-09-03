@@ -378,8 +378,9 @@ const SettingsAccountsTab: React.FC = () => {
             </select>
 
             <p className="text-xs text-slate-500 mb-4 leading-relaxed">
-              Đổi vai trò có hiệu lực ngay với người chưa đăng nhập. Người đang đăng nhập sẽ thấy
-              quyền mới sau khi đăng xuất rồi vào lại.
+              Đổi vai trò có hiệu lực <strong>ngay lập tức</strong>, kể cả với người đang mở ứng dụng —
+              màn hình của họ tự cập nhật quyền mới trong vài giây, không cần đăng xuất.
+              Muốn đổi <em>quyền của từng vai trò</em> thì sang tab <strong>Vai trò</strong>.
             </p>
 
             <div className="flex gap-2 justify-end">

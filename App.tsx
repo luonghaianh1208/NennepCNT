@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useModal } from './contexts/ModalContext';
 import {
   Shield,
@@ -99,16 +99,22 @@ export default function App() {
 
   // ✅ Tự khôi phục phiên đăng nhập — Firebase Auth tự giữ token, không lưu
   // mật khẩu ở localStorage nữa
+  // Callback này nay chạy lại MỖI KHI hồ sơ của người dùng đổi, không chỉ lúc
+  // đăng nhập — để quản trị viên đổi vai trò là có hiệu lực ngay. Vì vậy chỉ
+  // được nhảy tab đúng một lần, nếu không đang làm dở lại bị đá về tab khác.
+  const didRouteRef = useRef(false);
   useEffect(() => {
     return onAuthChange(user => {
-      if (user && user.role && user.role !== 'GUEST') {
-        setCurrentUser(user);
-        const userRoleKey = String(user.role).toUpperCase();
-        const roleConfig = roleConfigs[userRoleKey] || roleConfigs['GUEST'] || INITIAL_ROLE_DEFINITIONS[userRoleKey];
-        if (roleConfig?.entryViolation) setActiveTab('entry');
-        else if (canOpenSettings(roleConfigs, user.role)) setActiveTab('settings');
-        else setActiveTab('dashboard');
-      }
+      if (!user || !user.role || user.role === 'GUEST') return;
+      setCurrentUser(user);
+      if (didRouteRef.current) return;
+      didRouteRef.current = true;
+
+      const userRoleKey = String(user.role).toUpperCase();
+      const roleConfig = roleConfigs[userRoleKey] || roleConfigs['GUEST'] || INITIAL_ROLE_DEFINITIONS[userRoleKey];
+      if (roleConfig?.entryViolation) setActiveTab('entry');
+      else if (canOpenSettings(roleConfigs, user.role)) setActiveTab('settings');
+      else setActiveTab('dashboard');
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

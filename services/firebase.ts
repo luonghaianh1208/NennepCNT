@@ -612,16 +612,50 @@ export const signOut = () => fbSignOut(auth);
 export const setRememberLogin = (remember: boolean) =>
   setPersistence(auth, remember ? browserLocalPersistence : browserSessionPersistence);
 
-/** Theo dõi trạng thái đăng nhập; trả về hồ sơ trong Firestore của người đang đăng nhập */
-export const onAuthChange = (callback: (profile: any | null) => void) =>
-  onAuthStateChanged(auth, async (user: FirebaseUser | null) => {
+/**
+ * Theo dõi trạng thái đăng nhập và cả những thay đổi về hồ sơ của chính người
+ * đang dùng.
+ *
+ * Vai trò nằm trong token, mà token chỉ tự làm mới mỗi giờ — quản trị viên đổi
+ * vai trò cho ai thì người đó phải chờ tới một tiếng, hoặc đăng xuất rồi vào
+ * lại, mới thấy quyền mới. Ở đây theo dõi thẳng hồ sơ: hễ vai trò trong cơ sở
+ * dữ liệu khác với vai trò trong token là ép lấy token mới ngay.
+ */
+export const onAuthChange = (callback: (profile: any | null) => void) => {
+  let stopProfileWatch: (() => void) | null = null;
+
+  const stopAll = onAuthStateChanged(auth, async (user: FirebaseUser | null) => {
+    stopProfileWatch?.();
+    stopProfileWatch = null;
+
     if (!user?.email) return callback(null);
-    const snap = await getDocs(
-      query(collection(db, 'users'), where('email', '==', user.email), limit(1)),
-    );
-    callback(
-      snap.empty
-        ? { id: user.uid, name: user.displayName ?? user.email, username: user.email, email: user.email, role: 'GUEST' }
-        : { ...snap.docs[0].data(), id: snap.docs[0].id },
+
+    stopProfileWatch = onSnapshot(
+      doc(db, 'users', user.uid),
+      async (snap) => {
+        if (!snap.exists()) {
+          // Chưa nhận quyền lần nào, hoặc vừa bị thu hồi
+          return callback({
+            id: user.uid, name: user.displayName ?? user.email,
+            username: user.email, email: user.email, role: 'GUEST',
+          });
+        }
+        const profile = { ...snap.data(), id: snap.id } as any;
+
+        // Vai trò trong hồ sơ đã đổi mà token còn giữ vai trò cũ → lấy token mới,
+        // nếu không thì giao diện mở khoá mà tầng dữ liệu vẫn từ chối
+        const token = await user.getIdTokenResult().catch(() => null);
+        if (token && String(token.claims.role ?? '') !== String(profile.role ?? '')) {
+          await user.getIdToken(true).catch(() => undefined);
+        }
+        callback(profile);
+      },
+      () => callback(null),
     );
   });
+
+  return () => {
+    stopProfileWatch?.();
+    stopAll();
+  };
+};
