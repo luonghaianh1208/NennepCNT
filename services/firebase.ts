@@ -33,8 +33,8 @@ import {
 } from 'firebase/firestore';
 import {
   getAuth,
-  signInWithEmailAndPassword,
-  sendPasswordResetEmail,
+  GoogleAuthProvider,
+  signInWithPopup,
   signOut as fbSignOut,
   onAuthStateChanged,
   setPersistence,
@@ -462,57 +462,53 @@ export const api = {
 
   // 9. Đăng nhập. Người dùng vẫn gõ tên đăng nhập như cũ — nếu đó không phải
   // email thì tra trong hồ sơ để lấy email tương ứng rồi mới gọi Firebase Auth.
-  verifyLogin: async (
-    username: string,
-    password: string,
-  ): Promise<{ success: boolean; user?: any; error?: string }> => {
+  /**
+   * Đăng nhập bằng tài khoản Google — cách duy nhất vào hệ thống.
+   *
+   * Dùng cửa sổ phụ chứ không chuyển trang: trang web chạy ở `<project>.web.app`
+   * còn phần đăng nhập ở `<project>.firebaseapp.com`, hai tên miền khác nhau nên
+   * trình duyệt đời mới chặn lưu trữ giữa chúng và luồng chuyển trang hỏng
+   * giữa chừng.
+   *
+   * Google xác thực xong thì tài khoản vẫn CHƯA có vai trò nào. `claimAccess`
+   * đối chiếu email với danh sách cho phép rồi mới gắn vai trò; email không có
+   * trong danh sách thì bị đăng xuất ngay để không kẹt ở trạng thái lửng lơ.
+   */
+  verifyLogin: async (): Promise<{ success: boolean; user?: any; error?: string }> => {
     try {
-      let email = username.trim();
-      if (!email.includes('@')) {
-        const found = await getDocs(
-          query(collection(db, 'users'), where('username', '==', email), limit(1)),
-        );
-        if (found.empty) return { success: false, error: 'Tên đăng nhập không tồn tại' };
-        email = String(found.docs[0].data().email ?? '');
-        if (!email) return { success: false, error: 'Tài khoản chưa có email, liên hệ quản trị viên' };
-      }
+      const provider = new GoogleAuthProvider();
+      // Luôn hiện ô chọn tài khoản: máy tính dùng chung ở trường thường đã đăng
+      // nhập sẵn Google của người trước
+      provider.setCustomParameters({ prompt: 'select_account' });
+      await signInWithPopup(auth, provider);
 
-      const cred = await signInWithEmailAndPassword(auth, email, password);
-      const profileSnap = await getDocs(
-        query(collection(db, 'users'), where('email', '==', email), limit(1)),
-      );
-      const profile = profileSnap.empty
-        ? { id: cred.user.uid, name: cred.user.displayName ?? email, username: email, email, role: 'GUEST' }
-        : { ...profileSnap.docs[0].data(), id: profileSnap.docs[0].id };
-
+      const profile = await callFn<any>('claimAccess', {});
+      // Vai trò vừa gắn vào token — phải lấy token mới thì luật dữ liệu mới
+      // thấy, không thì mọi thao tác đầu tiên đều bị từ chối
+      await auth.currentUser?.getIdToken(true);
       return { success: true, user: profile };
     } catch (e: any) {
       const code = String(e?.code ?? '');
-      const message =
-        code.includes('invalid-credential') || code.includes('wrong-password') || code.includes('user-not-found')
-          ? 'Tên đăng nhập hoặc mật khẩu không đúng'
-          : code.includes('too-many-requests')
-            ? 'Sai quá nhiều lần, vui lòng thử lại sau ít phút'
-            : 'Không đăng nhập được, vui lòng thử lại';
-      return { success: false, error: message };
+      // Người dùng tự đóng cửa sổ — không phải lỗi, không báo gì
+      if (code.includes('popup-closed') || code.includes('cancelled-popup')) {
+        return { success: false, error: '' };
+      }
+      await fbSignOut(auth).catch(() => undefined);
+      if (code.includes('popup-blocked')) {
+        return { success: false, error: 'Trình duyệt đang chặn cửa sổ đăng nhập. Cho phép cửa sổ bật lên cho trang này rồi thử lại.' };
+      }
+      // Lỗi cấu hình lúc bàn giao, không phải lỗi của người dùng — nói thẳng để
+      // đơn vị triển khai biết phải bật gì, thay vì "thử lại sau"
+      if (code.includes('operation-not-allowed')) {
+        return { success: false, error: 'Hệ thống chưa bật đăng nhập bằng Google. Báo đơn vị triển khai để bật giúp.' };
+      }
+      if (code.includes('unauthorized-domain')) {
+        return { success: false, error: 'Tên miền này chưa được cho phép đăng nhập. Báo đơn vị triển khai.' };
+      }
+      return { success: false, error: userMessage(e) };
     }
   },
 
-  // 10. Quên mật khẩu — Firebase gửi link đặt lại, không sinh mật khẩu mới
-  resetPassword: async (email: string): Promise<{ success: boolean; error?: string }> => {
-    try {
-      await sendPasswordResetEmail(auth, email.trim());
-      return { success: true };
-    } catch (e: any) {
-      const code = String(e?.code ?? '');
-      return {
-        success: false,
-        error: code.includes('user-not-found')
-          ? 'Email này chưa được đăng ký trong hệ thống'
-          : 'Không gửi được email, vui lòng thử lại',
-      };
-    }
-  },
 };
 
 // ── Theo dõi trực tiếp một khoảng thời gian ─────────────────────────────────
@@ -551,9 +547,24 @@ export const subscribeToRange = (
 
 // ── Quản lý tài khoản (chạy trên Cloud Functions, chỉ ADMIN gọi được) ───────
 //
-// Không hàm nào ở đây đặt mật khẩu hộ người dùng: hệ thống gửi link để họ tự đặt.
+// Hệ thống không có mật khẩu riêng: quản trị viên chỉ ghi email vào danh sách
+// cho phép, người dùng đăng nhập bằng chính tài khoản Google của họ. Khoá của
+// mọi thao tác dưới đây là EMAIL, không phải mã tài khoản — vì người trong
+// danh sách có thể chưa từng đăng nhập lần nào.
 
 type AccountInput = { name: string; email: string; role: string; className?: string };
+
+/** Một dòng trong danh sách cho phép */
+export interface AllowlistEntry {
+  email: string;
+  name: string;
+  role: string;
+  className?: string;
+  active?: boolean;
+  /** Rỗng nghĩa là người này chưa đăng nhập lần nào */
+  uid?: string;
+  lastSignIn?: any;
+}
 
 /** Bóc thông báo lỗi tiếng Việt do Cloud Function trả về */
 const callFn = async <T>(name: string, payload: any): Promise<T> => {
@@ -565,55 +576,32 @@ const callFn = async <T>(name: string, payload: any): Promise<T> => {
   }
 };
 
-/**
- * Admin SDK chỉ *tạo* được link đặt mật khẩu chứ không gửi thư.
- * Việc gửi do chính Firebase Auth đảm nhiệm qua lời gọi này (miễn phí, mẫu thư tiếng Việt).
- */
-const mailResetLink = (email: string) => sendPasswordResetEmail(auth, email);
-
 export const accounts = {
-  /** Tạo một tài khoản rồi gửi thư để người dùng tự đặt mật khẩu */
-  create: async (input: AccountInput) => {
-    const res = await callFn<{ uid: string; email: string; setupLink: string }>('createAccount', input);
-    await mailResetLink(res.email);
-    return res;
+  /** Đọc danh sách cho phép — chỉ người có quyền quản lý tài khoản đọc được */
+  list: async (): Promise<AllowlistEntry[]> => {
+    const snap = await getDocs(collection(db, 'allowlist'));
+    return snap.docs.map(d => ({ ...(d.data() as AllowlistEntry), email: d.id }));
   },
 
-  /** Tạo hàng loạt từ file Excel; gửi thư lần lượt để tránh bị Firebase chặn vì gửi quá nhanh */
-  importMany: async (list: AccountInput[]) => {
-    const res = await callFn<{
+  /** Cấp quyền cho một email. Không tạo tài khoản, không gửi thư. */
+  create: (input: AccountInput) => callFn<{ email: string }>('createAccount', input),
+
+  /** Cấp quyền hàng loạt từ file Excel */
+  importMany: (list: AccountInput[]) =>
+    callFn<{
       created: { email: string }[];
       failed: { email: string; reason: string }[];
-    }>('importAccounts', { accounts: list });
+    }>('importAccounts', { accounts: list }),
 
-    const mailFailed: { email: string; reason: string }[] = [];
-    for (const acc of res.created) {
-      try {
-        await mailResetLink(acc.email);
-      } catch (e: any) {
-        mailFailed.push({ email: acc.email, reason: 'Tạo được tài khoản nhưng chưa gửi được thư' });
-      }
-      await new Promise((r) => setTimeout(r, 200));
-    }
-    return { ...res, failed: [...res.failed, ...mailFailed] };
-  },
+  /** Khoá / mở khoá, giữ nguyên dữ liệu đã nhập */
+  setStatus: (email: string, active: boolean) =>
+    callFn<{ email: string; active: boolean }>('setAccountStatus', { email, active }),
 
-  /** Quản trị viên cấp lại mật khẩu cho một người */
-  sendReset: async (email: string) => {
-    const res = await callFn<{ email: string; link: string }>('sendPasswordReset', { email });
-    await mailResetLink(email);
-    return res;
-  },
-
-  /** Khoá / mở khoá đăng nhập, giữ nguyên dữ liệu đã nhập */
-  setStatus: (uid: string, active: boolean) =>
-    callFn<{ uid: string; active: boolean }>('setAccountStatus', { uid, active }),
-
-  setRole: (uid: string, role: string) =>
-    callFn<{ uid: string; role: string }>('setAccountRole', { uid, role }),
+  setRole: (email: string, role: string) =>
+    callFn<{ email: string; role: string }>('setAccountRole', { email, role }),
 
   /** Chỉ xoá được khi tài khoản chưa từng nhập bản ghi nào */
-  remove: (uid: string) => callFn<{ uid: string; deleted: boolean }>('deleteAccount', { uid }),
+  remove: (email: string) => callFn<{ email: string; deleted: boolean }>('deleteAccount', { email }),
 };
 
 // ── Tiện ích phiên đăng nhập ────────────────────────────────────────────────

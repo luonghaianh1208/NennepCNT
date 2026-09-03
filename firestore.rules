@@ -125,6 +125,14 @@ service cloud.firestore {
         : mayOrAdmin('manageSystem');
     }
 
+    // Danh sách email được phép vào hệ thống. Mọi thao tác đi qua Cloud
+    // Functions (Admin SDK bỏ qua luật này), nên trình duyệt chỉ được ĐỌC —
+    // ghi thẳng từ client là tự cấp quyền cho mình.
+    match /allowlist/{email} {
+      allow read: if mayOrAdmin('manageAccounts');
+      allow write: if false;
+    }
+
     // Hồ sơ tài khoản: đọc được để hiện tên người nhập liệu.
     // Vai trò do Cloud Function đặt qua custom claim — không ai sửa trường
     // `role` từ trình duyệt, kể cả người quản lý tài khoản, vì chốt "quản trị

@@ -26,7 +26,7 @@ const AboutModal: React.FC<AboutModalProps> = ({ isOpen, onClose }) => {
     { icon: <BarChart3 size={16} />, label: 'Tự động tính điểm và xếp hạng theo tuần, tháng, học kỳ' },
     { icon: <FileText size={16} />, label: 'Nhập vi phạm và khen thưởng nhiều lớp trong một lượt' },
     { icon: <Download size={16} />, label: 'Báo cáo Word và Excel xuất trong một lần bấm' },
-    { icon: <Users size={16} />, label: 'Cấp tài khoản hàng loạt, thư đặt mật khẩu gửi tự động' },
+    { icon: <Users size={16} />, label: 'Đăng nhập bằng tài khoản Google, cấp quyền hàng loạt từ Excel' },
     { icon: <Palette size={16} />, label: 'Mang thương hiệu riêng của nhà trường' },
   ];
 

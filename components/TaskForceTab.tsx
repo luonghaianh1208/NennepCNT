@@ -25,7 +25,7 @@ const TaskForceTab: React.FC = () => {
   const onSave = async () => {
     const ok = await showConfirm({ title: 'Xác nhận lưu', message: 'Lưu thay đổi lên hệ thống?' });
     if (!ok) return;
-    await syncUsers(); // Dùng syncUsers (không syncSettings) — tránh mất mật khẩu!
+    await syncUsers(); // syncUsers chứ không syncSettings — chỉ đụng bảng tài khoản
   };
 
   const isManager = useMemo(() => {

@@ -42,7 +42,7 @@ const SettingsAuditLogTab: React.FC = () => {
     CREATE_TIME_CONFIG: 'Thêm mốc thời gian',
     CREATE_ACCOUNT: 'Cấp tài khoản',
     IMPORT_ACCOUNTS: 'Cấp hàng loạt',
-    RESET_PASSWORD: 'Gửi lại mật khẩu',
+    RESET_PASSWORD: 'Cấp lại quyền truy cập',
     SET_ACCOUNT_STATUS: 'Khoá / mở tài khoản',
     SET_ACCOUNT_ROLE: 'Đổi vai trò',
   };

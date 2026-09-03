@@ -1,11 +1,20 @@
 /**
  * Cloud Functions quản lý tài khoản — những việc mà trình duyệt không được phép làm.
  *
- * Nguyên tắc:
- * - Chỉ tài khoản có vai trò ADMIN mới gọi được
- * - Không ai đặt mật khẩu hộ người khác: hệ thống gửi link để họ tự đặt
- * - "Xoá" mặc định là vô hiệu hoá, giữ nguyên dấu vết người nhập liệu;
- *   chỉ xoá hẳn khi tài khoản chưa từng ghi bản ghi nào
+ * Hệ thống đăng nhập BẰNG TÀI KHOẢN GOOGLE, không có mật khẩu riêng. Quản trị
+ * viên không tạo tài khoản cho ai cả — chỉ ghi email vào DANH SÁCH CHO PHÉP
+ * (`allowlist`). Ai đăng nhập Google mà email nằm trong danh sách thì `claimAccess`
+ * gắn vai trò cho họ ngay lần đầu; không có trong danh sách thì bị từ chối.
+ *
+ * Vì sao làm vậy: cách cũ gửi thư đặt mật khẩu cho từng người. Thư gửi từ một
+ * tên miền lạ nên hay vào hộp thư rác, và học sinh cờ đỏ — nhóm dùng nhiều nhất
+ * — thường không kiểm tra hộp thư. Đầu năm cấp 200 tài khoản là 200 đường có
+ * thể đứt.
+ *
+ * Nguyên tắc giữ nguyên:
+ * - Chỉ vai trò ADMIN mới gọi được các hàm quản trị
+ * - "Xoá" mặc định là khoá, giữ nguyên dấu vết người nhập liệu; chỉ xoá hẳn khi
+ *   tài khoản chưa từng ghi bản ghi nào
  */
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { setGlobalOptions } = require('firebase-functions/v2');
@@ -20,6 +29,9 @@ const auth = getAuth();
 const db = getFirestore();
 
 const MAX_IMPORT = 200;
+
+/** Email là khoá của danh sách cho phép — chuẩn hoá để "A@X.COM" và "a@x.com" là một */
+const emailKey = (email) => String(email || '').trim().toLowerCase();
 
 /** Chặn mọi lời gọi không phải từ quản trị viên đã đăng nhập */
 const requireAdmin = (request) => {
@@ -42,43 +54,86 @@ const writeAudit = (actor, action, details, targetId) =>
     createdAt: FieldValue.serverTimestamp(),
   });
 
-/** Tạo tài khoản Auth + hồ sơ Firestore, mật khẩu tạm ngẫu nhiên (người dùng tự đặt lại) */
-const provision = async ({ name, email, role, className }) => {
-  const cleanEmail = String(email || '').trim().toLowerCase();
-  if (!cleanEmail.includes('@')) throw new HttpsError('invalid-argument', `Email không hợp lệ: ${email}`);
+/** Ghi một email vào danh sách cho phép. Chưa tạo tài khoản đăng nhập nào cả. */
+const addToAllowlist = async ({ name, email, role, className }) => {
+  const key = emailKey(email);
+  if (!key.includes('@')) throw new HttpsError('invalid-argument', `Email không hợp lệ: ${email}`);
 
-  const user = await auth.createUser({
-    email: cleanEmail,
-    password: `Tmp@${Math.random().toString(36).slice(2, 10)}`,
-    displayName: String(name || cleanEmail),
-  });
-  await auth.setCustomUserClaims(user.uid, { role: String(role || 'GUEST').toUpperCase() });
-  await db.collection('users').doc(user.uid).set({
-    id: user.uid,
-    name: String(name || cleanEmail),
-    username: cleanEmail,
-    email: cleanEmail,
+  const ref = db.collection('allowlist').doc(key);
+  if ((await ref.get()).exists) {
+    throw new HttpsError('already-exists', `${key} đã có trong danh sách.`);
+  }
+  await ref.set({
+    email: key,
+    name: String(name || key),
     role: String(role || 'GUEST').toUpperCase(),
     className: String(className || ''),
-    summaryMeetings: 0,
     active: true,
+    // Điền khi người đó đăng nhập lần đầu — quản trị viên nhìn vào biết ai đã dùng
+    uid: '',
+    lastSignIn: null,
     createdAt: FieldValue.serverTimestamp(),
   });
-
-  // Link đặt mật khẩu lần đầu — trả về để quản trị viên gửi tay nếu cần
-  const setupLink = await auth.generatePasswordResetLink(cleanEmail);
-  return { uid: user.uid, email: cleanEmail, setupLink };
+  return { email: key };
 };
 
-// ── 1. Tạo một tài khoản ────────────────────────────────────────────────────
+// ── 0. Nhận quyền sau khi đăng nhập Google ──────────────────────────────────
+//
+// Hàm DUY NHẤT ở đây mà người thường gọi được. Trước khi gọi, tài khoản Google
+// vừa đăng nhập chưa có vai trò nào nên luật dữ liệu chặn hết — đúng như mong đợi.
+exports.claimAccess = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Bạn cần đăng nhập.');
+
+  // Lấy email từ token đã xác thực, KHÔNG lấy từ dữ liệu client gửi lên
+  const email = emailKey(request.auth.token.email);
+  if (!email) throw new HttpsError('failed-precondition', 'Tài khoản Google này không có địa chỉ email.');
+
+  const entry = await db.collection('allowlist').doc(email).get();
+  if (!entry.exists) {
+    throw new HttpsError(
+      'permission-denied',
+      `Địa chỉ ${email} chưa được cấp quyền vào hệ thống. Liên hệ Đoàn trường để được thêm vào danh sách.`,
+    );
+  }
+
+  const data = entry.data();
+  if (data.active === false) {
+    throw new HttpsError('permission-denied', 'Tài khoản của bạn đang bị khoá. Liên hệ Đoàn trường.');
+  }
+
+  const uid = request.auth.uid;
+  const role = String(data.role || 'GUEST').toUpperCase();
+
+  // Vai trò nằm trong custom claim — đây mới là thứ luật dữ liệu tin
+  await auth.setCustomUserClaims(uid, { role });
+
+  const profile = {
+    id: uid,
+    name: data.name || request.auth.token.name || email,
+    username: email,
+    email,
+    role,
+    className: String(data.className || ''),
+    active: true,
+  };
+  await db.collection('users').doc(uid).set(
+    { ...profile, summaryMeetings: data.summaryMeetings ?? 0 },
+    { merge: true },
+  );
+  await entry.ref.set({ uid, lastSignIn: FieldValue.serverTimestamp() }, { merge: true });
+
+  return profile;
+});
+
+// ── 1. Thêm một người vào danh sách cho phép ────────────────────────────────
 exports.createAccount = onCall(async (request) => {
   const actor = requireAdmin(request);
-  const result = await provision(request.data || {});
-  await writeAudit(actor, 'CREATE_ACCOUNT', `Tạo tài khoản ${result.email}`, result.uid);
+  const result = await addToAllowlist(request.data || {});
+  await writeAudit(actor, 'CREATE_ACCOUNT', `Cấp quyền cho ${result.email}`, result.email);
   return result;
 });
 
-// ── 2. Tạo hàng loạt (import từ Excel) ──────────────────────────────────────
+// ── 2. Thêm hàng loạt (nhập từ Excel) ───────────────────────────────────────
 exports.importAccounts = onCall(async (request) => {
   const actor = requireAdmin(request);
   const rows = Array.isArray(request.data?.accounts) ? request.data.accounts : [];
@@ -91,98 +146,119 @@ exports.importAccounts = onCall(async (request) => {
   const failed = [];
   for (const row of rows) {
     try {
-      created.push(await provision(row));
+      created.push(await addToAllowlist(row));
     } catch (e) {
-      failed.push({ email: row?.email ?? '', reason: e?.message ?? String(e) });
+      failed.push({ email: emailKey(row?.email), reason: e?.message ?? String(e) });
     }
   }
-  await writeAudit(actor, 'IMPORT_ACCOUNTS', `Nhập ${created.length} tài khoản, lỗi ${failed.length}`);
+  await writeAudit(actor, 'IMPORT_ACCOUNTS', `Cấp quyền cho ${created.length} người, lỗi ${failed.length}`);
   return { created, failed };
 });
 
-// ── 3. Gửi lại link đặt mật khẩu ────────────────────────────────────────────
-exports.sendPasswordReset = onCall(async (request) => {
-  const actor = requireAdmin(request);
-  const email = String(request.data?.email || '').trim().toLowerCase();
-  if (!email) throw new HttpsError('invalid-argument', 'Thiếu email.');
-
-  const link = await auth.generatePasswordResetLink(email);
-  await writeAudit(actor, 'RESET_PASSWORD', `Cấp lại mật khẩu cho ${email}`);
-  return { email, link };
-});
-
-// ── 4. Khoá / mở khoá tài khoản ─────────────────────────────────────────────
+// ── 3. Khoá / mở khoá ───────────────────────────────────────────────────────
 exports.setAccountStatus = onCall(async (request) => {
   const actor = requireAdmin(request);
-  const { uid, active } = request.data || {};
-  if (!uid) throw new HttpsError('invalid-argument', 'Thiếu mã tài khoản.');
-  if (uid === actor.uid && active === false) {
+  const email = emailKey(request.data?.email);
+  const active = request.data?.active !== false;
+  if (!email) throw new HttpsError('invalid-argument', 'Thiếu email.');
+  if (email === emailKey(actor.token.email) && !active) {
     throw new HttpsError('failed-precondition', 'Không thể tự khoá tài khoản của chính mình.');
   }
 
-  await auth.updateUser(uid, { disabled: !active });
-  await db.collection('users').doc(uid).set({ active: !!active }, { merge: true });
-  await writeAudit(actor, 'SET_ACCOUNT_STATUS', active ? 'Mở khoá tài khoản' : 'Khoá tài khoản', uid);
-  return { uid, active: !!active };
+  const ref = db.collection('allowlist').doc(email);
+  const entry = await ref.get();
+  if (!entry.exists) throw new HttpsError('not-found', `${email} không có trong danh sách.`);
+
+  await ref.set({ active }, { merge: true });
+
+  // Chặn luôn ở tầng đăng nhập nếu người đó đã từng vào hệ thống
+  const uid = entry.data().uid;
+  if (uid) {
+    await auth.updateUser(uid, { disabled: !active }).catch(() => {});
+    await db.collection('users').doc(uid).set({ active }, { merge: true });
+    // Thu hồi vai trò ngay, không đợi token cũ hết hạn sau một tiếng
+    if (!active) await auth.setCustomUserClaims(uid, { role: 'GUEST' });
+  }
+
+  await writeAudit(actor, 'SET_ACCOUNT_STATUS', active ? `Mở khoá ${email}` : `Khoá ${email}`, email);
+  return { email, active };
 });
 
-// ── 5. Đổi vai trò ──────────────────────────────────────────────────────────
+// ── 4. Đổi vai trò ──────────────────────────────────────────────────────────
 exports.setAccountRole = onCall(async (request) => {
   const actor = requireAdmin(request);
-  const { uid, role } = request.data || {};
-  if (!uid || !role) throw new HttpsError('invalid-argument', 'Thiếu mã tài khoản hoặc vai trò.');
+  const email = emailKey(request.data?.email);
+  const role = String(request.data?.role || '').toUpperCase();
+  if (!email || !role) throw new HttpsError('invalid-argument', 'Thiếu email hoặc vai trò.');
 
   // Tự hạ quyền chính mình là đường khoá cứng hệ thống dễ đi nhất — nhờ người
   // quản trị khác làm hộ thì vẫn còn người bấm nút.
-  if (uid === actor.uid && String(role).toUpperCase() !== 'ADMIN') {
+  if (email === emailKey(actor.token.email) && role !== 'ADMIN') {
     throw new HttpsError(
       'failed-precondition',
       'Không thể tự hạ quyền của chính mình. Nhờ một quản trị viên khác thực hiện.',
     );
   }
 
+  const ref = db.collection('allowlist').doc(email);
+  const entry = await ref.get();
+  if (!entry.exists) throw new HttpsError('not-found', `${email} không có trong danh sách.`);
+
   // Không để hệ thống rơi vào cảnh không còn quản trị viên nào ĐĂNG NHẬP ĐƯỢC.
   // Phải đếm cả trạng thái khoá: admin đang bị khoá không cứu được hệ thống.
-  if (String(role).toUpperCase() !== 'ADMIN') {
-    const current = await db.collection('users').doc(uid).get();
-    if (current.data()?.role === 'ADMIN') {
-      const admins = await db.collection('users').where('role', '==', 'ADMIN').get();
-      const usable = admins.docs.filter((d) => d.id !== uid && d.data()?.active !== false);
-      if (usable.length === 0) {
-        throw new HttpsError(
-          'failed-precondition',
-          'Đây là quản trị viên còn hoạt động duy nhất, không thể hạ quyền. Hãy cấp quyền quản trị cho người khác trước.',
-        );
-      }
+  if (role !== 'ADMIN' && entry.data().role === 'ADMIN') {
+    const admins = await db.collection('allowlist').where('role', '==', 'ADMIN').get();
+    const usable = admins.docs.filter((d) => d.id !== email && d.data()?.active !== false);
+    if (usable.length === 0) {
+      throw new HttpsError(
+        'failed-precondition',
+        'Đây là quản trị viên còn hoạt động duy nhất, không thể hạ quyền. Hãy cấp quyền quản trị cho người khác trước.',
+      );
     }
   }
 
-  await auth.setCustomUserClaims(uid, { role: String(role).toUpperCase() });
-  await db.collection('users').doc(uid).set({ role: String(role).toUpperCase() }, { merge: true });
-  await writeAudit(actor, 'SET_ACCOUNT_ROLE', `Đổi vai trò thành ${role}`, uid);
-  return { uid, role: String(role).toUpperCase() };
-});
+  await ref.set({ role }, { merge: true });
 
-// ── 6. Xoá vĩnh viễn (chỉ khi tài khoản chưa từng nhập bản ghi nào) ─────────
-exports.deleteAccount = onCall(async (request) => {
-  const actor = requireAdmin(request);
-  const uid = String(request.data?.uid || '');
-  if (!uid) throw new HttpsError('invalid-argument', 'Thiếu mã tài khoản.');
-  if (uid === actor.uid) throw new HttpsError('failed-precondition', 'Không thể tự xoá tài khoản của chính mình.');
-
-  const [violations, achievements] = await Promise.all([
-    db.collection('violations').where('reportedBy', '==', uid).limit(1).get(),
-    db.collection('achievements').where('reportedBy', '==', uid).limit(1).get(),
-  ]);
-  if (!violations.empty || !achievements.empty) {
-    throw new HttpsError(
-      'failed-precondition',
-      'Tài khoản này đã từng nhập dữ liệu nên không xoá được — hãy dùng chức năng khoá tài khoản để giữ nguyên dấu vết người nhập liệu.',
-    );
+  const uid = entry.data().uid;
+  if (uid) {
+    await auth.setCustomUserClaims(uid, { role });
+    await db.collection('users').doc(uid).set({ role }, { merge: true });
   }
 
-  await auth.deleteUser(uid);
-  await db.collection('users').doc(uid).delete();
-  await writeAudit(actor, 'DELETE_ACCOUNT', 'Xoá vĩnh viễn tài khoản', uid);
-  return { uid, deleted: true };
+  await writeAudit(actor, 'SET_ACCOUNT_ROLE', `Đổi vai trò của ${email} thành ${role}`, email);
+  return { email, role };
+});
+
+// ── 5. Xoá khỏi danh sách (chỉ khi chưa từng nhập bản ghi nào) ──────────────
+exports.deleteAccount = onCall(async (request) => {
+  const actor = requireAdmin(request);
+  const email = emailKey(request.data?.email);
+  if (!email) throw new HttpsError('invalid-argument', 'Thiếu email.');
+  if (email === emailKey(actor.token.email)) {
+    throw new HttpsError('failed-precondition', 'Không thể tự xoá tài khoản của chính mình.');
+  }
+
+  const ref = db.collection('allowlist').doc(email);
+  const entry = await ref.get();
+  if (!entry.exists) throw new HttpsError('not-found', `${email} không có trong danh sách.`);
+
+  const uid = entry.data().uid;
+  if (uid) {
+    const [violations, achievements] = await Promise.all([
+      db.collection('violations').where('reportedBy', '==', uid).limit(1).get(),
+      db.collection('achievements').where('reportedBy', '==', uid).limit(1).get(),
+    ]);
+    if (!violations.empty || !achievements.empty) {
+      throw new HttpsError(
+        'failed-precondition',
+        'Tài khoản này đã từng nhập dữ liệu nên không xoá được — hãy dùng chức năng khoá để giữ nguyên dấu vết người nhập liệu.',
+      );
+    }
+    await auth.deleteUser(uid).catch(() => {});
+    await db.collection('users').doc(uid).delete().catch(() => {});
+  }
+
+  await ref.delete();
+  await writeAudit(actor, 'DELETE_ACCOUNT', `Xoá ${email} khỏi danh sách`, email);
+  return { email, deleted: true };
 });

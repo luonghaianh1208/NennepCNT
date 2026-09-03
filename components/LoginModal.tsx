@@ -1,8 +1,7 @@
-
 import React, { useState } from 'react';
-import { LogIn, X, Mail, ArrowLeft, KeyRound } from 'lucide-react';
+import { X, ShieldCheck, Loader2 } from 'lucide-react';
 import { api, setRememberLogin } from '../services/firebase';
-import { GUEST_USER, INITIAL_ROLE_DEFINITIONS, canOpenSettings } from '../utils';
+import { INITIAL_ROLE_DEFINITIONS, canOpenSettings } from '../utils';
 import { useAppStore } from '../contexts/AppContext';
 
 interface LoginModalProps {
@@ -10,282 +9,107 @@ interface LoginModalProps {
   onSuccess: (tab: string) => void;
 }
 
-type View = 'login' | 'forgot' | 'forgot-success';
+/** Logo Google chính chủ — Google yêu cầu dùng đúng biểu tượng này trên nút đăng nhập */
+const GoogleMark = () => (
+  <svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true">
+    <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+    <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+    <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+    <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+  </svg>
+);
 
+/**
+ * Đăng nhập bằng tài khoản Google — hệ thống không có mật khẩu riêng.
+ *
+ * Trước đây mỗi người được cấp một tài khoản kèm thư đặt mật khẩu. Thư gửi từ
+ * một tên miền lạ nên hay rơi vào hộp thư rác, mà học sinh cờ đỏ — nhóm dùng
+ * nhiều nhất — thường không kiểm tra hộp thư. Nay quản trị viên chỉ ghi email
+ * vào danh sách cho phép, ai có email trong đó là đăng nhập được ngay.
+ */
 const LoginModal: React.FC<LoginModalProps> = ({ onClose, onSuccess }) => {
-  const { setCurrentUser, roleConfigs } = useAppStore();
+  const { setCurrentUser, roleConfigs, branding } = useAppStore();
 
-  // ── Login state ──────────────────────────────────────────
-  const [loginUsername, setLoginUsername] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  // ── Forgot password state ────────────────────────────────
-  const [view, setView] = useState<View>('login');
-  const [forgotEmail, setForgotEmail] = useState('');
-  const [forgotError, setForgotError] = useState('');
-  const [isSending, setIsSending] = useState(false);
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleGoogleLogin = async () => {
     if (isLoggingIn) return;
     setLoginError('');
     setIsLoggingIn(true);
     try {
-      // Firebase Auth tự lưu phiên; không còn lưu mật khẩu ở trình duyệt nữa
       await setRememberLogin(rememberMe);
-      const result = await api.verifyLogin(loginUsername, loginPassword);
+      const result = await api.verifyLogin();
 
       if (result?.success && result.user) {
         const user = result.user;
         setCurrentUser(user);
         onClose();
 
-        setLoginUsername('');
-        setLoginPassword('');
-
-        const userRoleKey = user.role.toUpperCase();
-        const roleConfig = roleConfigs[userRoleKey] || roleConfigs['GUEST'] || INITIAL_ROLE_DEFINITIONS[userRoleKey];
+        const roleKey = String(user.role).toUpperCase();
+        const roleConfig = roleConfigs[roleKey] || roleConfigs['GUEST'] || INITIAL_ROLE_DEFINITIONS[roleKey];
         if (roleConfig?.entryViolation || roleConfig?.entryAchievement) onSuccess('entry');
         else if (canOpenSettings(roleConfigs, user.role)) onSuccess('settings');
         else onSuccess('dashboard');
-      } else {
-        setLoginError(result?.error || 'Tên đăng nhập hoặc mật khẩu không đúng');
+      } else if (result?.error) {
+        // Chuỗi rỗng nghĩa là người dùng tự đóng cửa sổ — không phải lỗi
+        setLoginError(result.error);
       }
     } finally {
       setIsLoggingIn(false);
     }
   };
 
-  const handleForgotSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (isSending) return;
-    setForgotError('');
-
-    if (!forgotEmail.trim()) {
-      setForgotError('Vui lòng nhập email.');
-      return;
-    }
-
-    setIsSending(true);
-    try {
-      const result = await api.resetPassword(forgotEmail.trim());
-      if (result?.success) {
-        setView('forgot-success');
-      } else {
-        setForgotError(result?.error || 'Có lỗi xảy ra, vui lòng thử lại.');
-      }
-    } finally {
-      setIsSending(false);
-    }
-  };
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-red-900/80 backdrop-blur-sm p-6 animate-in fade-in">
-      <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl p-8 animate-in zoom-in-95 relative">
-        <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-slate-600">
-          <X size={24} />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-red-900/80 backdrop-blur-sm p-6 animate-in fade-in overflow-y-auto"
+      role="dialog" aria-modal="true" aria-label="Đăng nhập">
+      <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl p-8 animate-in zoom-in-95 relative my-auto">
+        <button onClick={onClose} aria-label="Đóng"
+          className="absolute top-3 right-3 text-slate-500 hover:text-slate-700 w-11 h-11 inline-flex items-center justify-center rounded-lg hover:bg-slate-100">
+          <X size={22} />
         </button>
 
-        {/* ── VIEW: LOGIN ───────────────────────────────── */}
-        {view === 'login' && (
-          <>
-            <div className="text-center mb-8">
-              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-600">
-                <LogIn size={32} />
-              </div>
-              <h2 className="text-2xl font-bold text-slate-800">Đăng Nhập</h2>
-              <p className="text-slate-500 text-sm mt-1">Vui lòng đăng nhập để tiếp tục</p>
-            </div>
+        <div className="text-center mb-7">
+          <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-white"
+            style={{ background: `linear-gradient(160deg, var(--brand-from, #b91c1c), var(--brand-to, #7f1d1d))` }}>
+            <ShieldCheck size={30} />
+          </div>
+          <h2 className="text-2xl font-bold text-slate-800">Đăng Nhập</h2>
+          <p className="text-slate-500 text-sm mt-1">
+            Dùng tài khoản Google của {branding?.shortName ? branding.shortName : 'nhà trường'}
+          </p>
+        </div>
 
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1">
-                  Tên đăng nhập{' '}
-                  <span className="text-xs font-normal text-slate-500 italic ml-1">(nhập email đã đăng ký)</span>
-                </label>
-                <input
-                  type="text"
-                  className="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-red-500 outline-none"
-                  value={loginUsername}
-                  onChange={e => setLoginUsername(e.target.value)}
-                  placeholder="admin"
-                  autoFocus
-                />
-              </div>
+        <button
+          onClick={handleGoogleLogin}
+          disabled={isLoggingIn}
+          className="w-full flex items-center justify-center gap-3 border-2 border-slate-200 hover:border-slate-300 hover:bg-slate-50 rounded-xl py-3.5 font-bold text-slate-700 transition-all active:scale-95 disabled:opacity-60"
+        >
+          {isLoggingIn ? <Loader2 size={20} className="animate-spin" /> : <GoogleMark />}
+          {isLoggingIn ? 'Đang kiểm tra quyền…' : 'Đăng nhập bằng Google'}
+        </button>
 
-              <div>
-                {/* Nhãn cũ ghi "(dạng CNT@xxxx)" — vừa sai (người dùng tự đặt
-                    mật khẩu), vừa gắn cứng tên viết tắt của một trường cụ thể */}
-                <label className="block text-sm font-bold text-slate-700 mb-1">Mật khẩu</label>
-                <input
-                  type="password"
-                  className="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-red-500 outline-none"
-                  value={loginPassword}
-                  onChange={e => setLoginPassword(e.target.value)}
-                  placeholder="••••••"
-                />
-              </div>
+        <label className="flex items-center gap-2 mt-4 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={rememberMe}
+            onChange={e => setRememberMe(e.target.checked)}
+            className="w-4 h-4 rounded border-slate-300 text-red-600 focus:ring-red-500"
+          />
+          <span className="text-sm text-slate-600">Ghi nhớ đăng nhập trên máy này</span>
+        </label>
 
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="rememberMe"
-                  checked={rememberMe}
-                  onChange={e => setRememberMe(e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
-                />
-                <label htmlFor="rememberMe" className="text-sm text-slate-600 cursor-pointer select-none">
-                  Ghi nhớ đăng nhập
-                </label>
-              </div>
-
-              {loginError && (
-                <div className="text-red-500 text-sm font-medium text-center">{loginError}</div>
-              )}
-
-              <button
-                type="submit"
-                disabled={isLoggingIn}
-                className={`w-full text-white font-bold py-3.5 rounded-xl shadow-lg shadow-red-200 transition-all flex items-center justify-center gap-2 ${
-                  isLoggingIn ? 'bg-red-400 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 active:scale-95'
-                }`}
-              >
-                {isLoggingIn ? (
-                  <>
-                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
-                    Đang xác thực...
-                  </>
-                ) : (
-                  'Đăng Nhập'
-                )}
-              </button>
-
-              {/* Quên mật khẩu link */}
-              <div className="text-center pt-1">
-                <button
-                  type="button"
-                  onClick={() => { setView('forgot'); setForgotError(''); setForgotEmail(''); }}
-                  className="text-sm text-red-600 hover:text-red-800 font-semibold hover:underline transition-colors"
-                >
-                  Quên mật khẩu?
-                </button>
-              </div>
-            </form>
-          </>
-        )}
-
-        {/* ── VIEW: FORGOT PASSWORD ─────────────────────── */}
-        {view === 'forgot' && (
-          <>
-            <div className="text-center mb-7">
-              <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4 text-amber-600">
-                <KeyRound size={30} />
-              </div>
-              <h2 className="text-xl font-bold text-slate-800">Lấy lại mật khẩu</h2>
-              <p className="text-slate-500 text-sm mt-1 leading-relaxed">
-                Nhập email đã đăng ký — hệ thống sẽ gửi<br/>mật khẩu mới về hòm thư của bạn.
-              </p>
-            </div>
-
-            <form onSubmit={handleForgotSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1">
-                  Email đã đăng ký
-                </label>
-                <div className="relative">
-                  <Mail size={16} className="absolute left-3 top-3.5 text-slate-500 pointer-events-none" />
-                  <input
-                    type="email"
-                    className="w-full pl-9 pr-3 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-400 outline-none"
-                    value={forgotEmail}
-                    onChange={e => setForgotEmail(e.target.value)}
-                    placeholder="example@gmail.com"
-                    autoFocus
-                  />
-                </div>
-              </div>
-
-              {forgotError && (
-                <div className="bg-red-50 border border-red-200 text-red-600 text-sm font-medium rounded-lg px-3 py-2 text-center">
-                  {forgotError}
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={isSending}
-                className={`w-full text-white font-bold py-3.5 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 ${
-                  isSending
-                    ? 'bg-amber-300 cursor-not-allowed'
-                    : 'bg-amber-500 hover:bg-amber-600 shadow-amber-200 active:scale-95'
-                }`}
-              >
-                {isSending ? (
-                  <>
-                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
-                    Đang gửi...
-                  </>
-                ) : (
-                  <>
-                    <Mail size={18} />
-                    Gửi mật khẩu mới
-                  </>
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setView('login')}
-                className="w-full flex items-center justify-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 font-medium transition-colors"
-              >
-                <ArrowLeft size={14} />
-                Quay lại đăng nhập
-              </button>
-            </form>
-          </>
-        )}
-
-        {/* ── VIEW: SUCCESS ─────────────────────────────── */}
-        {view === 'forgot-success' && (
-          <div className="text-center py-4">
-            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-5 text-green-600">
-              <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            {/* Hệ thống gửi ĐƯỜNG DẪN để người dùng tự đặt mật khẩu, không sinh
-                mật khẩu mới. Màn hình cũ hứa một chuỗi không tồn tại nên người
-                dùng mở thư đi tìm rồi kẹt luôn. */}
-            <h2 className="text-xl font-bold text-slate-800 mb-2">Đã gửi thư hướng dẫn!</h2>
-            <p className="text-slate-500 text-sm leading-relaxed mb-2">
-              Thư đặt lại mật khẩu đã được gửi tới
-            </p>
-            <p className="font-semibold text-slate-700 text-sm mb-4">{forgotEmail}</p>
-            <p className="text-slate-600 text-sm leading-relaxed mb-6 bg-slate-50 border border-slate-200 rounded-lg p-3 text-left">
-              Mở thư và bấm vào <strong>đường dẫn trong thư</strong> để tự đặt mật khẩu mới.
-              Thư không chứa mật khẩu sẵn — bạn tự chọn mật khẩu của mình.
-            </p>
-            <p className="text-xs text-slate-500 mb-6">
-              Chưa thấy thư? Kiểm tra thêm mục Thư rác (Spam).
-            </p>
-            <button
-              onClick={() => setView('login')}
-              className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-red-200 transition-all active:scale-95 flex items-center justify-center gap-2"
-            >
-              <LogIn size={18} />
-              Đăng nhập ngay
-            </button>
+        {loginError && (
+          <div className="mt-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl p-3 leading-relaxed">
+            {loginError}
           </div>
         )}
+
+        <p className="text-xs text-slate-500 mt-6 leading-relaxed text-center">
+          Chỉ những địa chỉ đã được Đoàn trường cấp quyền mới vào được.
+          Nếu chưa đăng nhập được, liên hệ Đoàn trường để thêm email của bạn vào danh sách.
+        </p>
       </div>
     </div>
   );
