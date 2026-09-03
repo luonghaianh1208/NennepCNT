@@ -91,7 +91,33 @@ export const sanitize = <T extends Record<string, any>>(record: T): T => {
   return clean as T;
 };
 
-/** Nơi gọi vẫn kiểm tra `result.error` như thời còn dùng Apps Script */
+/**
+ * Đổi lỗi kỹ thuật thành một câu tiếng Việt nói được người dùng phải làm gì.
+ *
+ * Không bao giờ để lọt chuỗi lỗi gốc ra giao diện: nó vừa là tiếng Anh, vừa nêu
+ * đích danh nền tảng hạ tầng — thứ sản phẩm này cố ý giấu.
+ */
+export const friendlyError = (e: any): string => {
+  const code = String(e?.code ?? '').toLowerCase();
+  const raw = String(e?.message ?? '').toLowerCase();
+  const has = (...needles: string[]) => needles.some(n => code.includes(n) || raw.includes(n));
+
+  if (has('permission-denied', 'unauthorized', 'insufficient')) {
+    return 'Tài khoản của bạn không có quyền thực hiện việc này. Liên hệ quản trị viên nếu cần cấp thêm quyền.';
+  }
+  if (has('unauthenticated')) return 'Phiên đăng nhập đã hết hạn. Đăng nhập lại rồi thử tiếp.';
+  if (has('unavailable', 'network', 'offline', 'deadline-exceeded', 'timeout')) {
+    return 'Mất kết nối mạng. Kiểm tra đường truyền rồi thử lại.';
+  }
+  if (has('quota', 'resource-exhausted')) return 'Hệ thống đang quá tải, thử lại sau ít phút.';
+  if (has('not-found')) return 'Không tìm thấy dữ liệu cần thao tác — có thể ai đó vừa xoá.';
+  if (has('already-exists')) return 'Dữ liệu này đã tồn tại.';
+  if (has('invalid-argument', 'failed-precondition')) return 'Dữ liệu nhập vào chưa hợp lệ, kiểm tra lại các ô đã điền.';
+  if (has('too-large', 'payload')) return 'Tệp quá lớn. Chọn ảnh nhỏ hơn rồi thử lại.';
+  return 'Thao tác chưa thực hiện được. Thử lại, nếu vẫn lỗi thì báo quản trị viên.';
+};
+
+/** Nơi gọi vẫn kiểm tra `result.error` như thời còn dùng backend cũ */
 type BatchResult = { status: string; created?: number; updated?: number; error?: string };
 
 const collectionFor = (points: number) => (Number(points) < 0 ? 'achievements' : 'violations');
@@ -217,22 +243,52 @@ export const api = {
     return { status: 'success' };
   },
 
-  // 3. Xoá một bản ghi (thử cả hai collection vì không biết dương hay âm)
-  deleteViolation: async (id: string) => {
-    await Promise.all([
-      deleteDoc(doc(db, 'violations', id)).catch(() => {}),
-      deleteDoc(doc(db, 'achievements', id)).catch(() => {}),
-    ]);
-    return { status: 'success' };
+  // 3. Xoá một bản ghi.
+  //
+  // Dấu điểm quyết định collection: dương là vi phạm, âm là thành tích. Trước
+  // đây hàm này xoá mù cả hai rồi nuốt lỗi bằng .catch(() => {}) và luôn báo
+  // thành công — vai trò không có quyền ghi khen thưởng xoá một thành tích thì
+  // giao diện báo "đã xoá", bản ghi biến mất khỏi màn hình, nhưng còn nguyên
+  // trên máy chủ và quay lại sau khi làm mới.
+  deleteViolation: async (id: string, points?: number) => {
+    try {
+      if (typeof points === 'number') {
+        await deleteDoc(doc(db, collectionFor(points), String(id)));
+      } else {
+        // Không biết dấu (bản ghi cũ) thì thử lần lượt, nhưng vẫn phải có ít
+        // nhất một lần xoá thành công mới được báo thành công
+        const results = await Promise.allSettled([
+          deleteDoc(doc(db, 'violations', String(id))),
+          deleteDoc(doc(db, 'achievements', String(id))),
+        ]);
+        if (results.every(r => r.status === 'rejected')) throw (results[0] as PromiseRejectedResult).reason;
+      }
+      return { status: 'success' };
+    } catch (e: any) {
+      return { status: 'error', message: friendlyError(e) };
+    }
   },
 
-  // 3b. Xoá nhiều bản ghi trong một lượt
-  deleteViolations: async (ids: string[]) => {
-    await commitInChunks(ids, (batch, id) => {
-      batch.delete(doc(db, 'violations', String(id)));
-      batch.delete(doc(db, 'achievements', String(id)));
-    });
-    return { status: 'success' };
+  // 3b. Xoá nhiều bản ghi trong một lượt.
+  // Nhận kèm dấu điểm để chỉ đụng đúng collection — trước đây mỗi id phát lệnh
+  // xoá ở cả hai nơi, vừa tính tiền gấp đôi vừa làm cả lô bị từ chối khi người
+  // dùng không có quyền với collection kia.
+  deleteViolations: async (ids: string[], pointsById?: Record<string, number>) => {
+    try {
+      await commitInChunks(ids, (batch, id) => {
+        const key = String(id);
+        const points = pointsById?.[key];
+        if (typeof points === 'number') {
+          batch.delete(doc(db, collectionFor(points), key));
+        } else {
+          batch.delete(doc(db, 'violations', key));
+          batch.delete(doc(db, 'achievements', key));
+        }
+      });
+      return { status: 'success' };
+    } catch (e: any) {
+      return { status: 'error', message: friendlyError(e) };
+    }
   },
 
   // 4. Cập nhật một bản ghi — nếu đổi dấu điểm thì chuyển sang collection kia
@@ -244,11 +300,16 @@ export const api = {
     return { status: 'success' };
   },
 
-  // 4b. Cập nhật hàng loạt
+  // 4b. Cập nhật hàng loạt.
+  // Phải xoá bản ghi ở collection cũ khi điểm đổi dấu, giống updateViolation —
+  // sửa hàng loạt cho phép đổi tiêu chí, nên đổi một loạt vi phạm sang tiêu chí
+  // thành tích là sinh bản sao không bao giờ bị xoá.
   batchUpdateViolations: async (records: any[]): Promise<BatchResult> => {
     await commitInChunks(records, (batch, r) => {
       const target = collectionFor(r.points);
+      const other = target === 'violations' ? 'achievements' : 'violations';
       batch.set(doc(db, target, String(r.id)), sanitize(r));
+      batch.delete(doc(db, other, String(r.id)));
     });
     return { status: 'success', updated: records.length };
   },
@@ -453,13 +514,20 @@ export const subscribeToRange = (
   onChange: (records: any[]) => void,
 ): (() => void) => {
   const buckets: Record<string, any[]> = { violations: [], achievements: [] };
+  // Nơi nhận sẽ THAY SẠCH phần dữ liệu trong khoảng này, nên chỉ được báo khi cả
+  // hai nguồn đã về. Bắn sớm lúc nguồn kia còn rỗng là xoá hết thành tích của
+  // tuần hiện tại khỏi màn hình — và mất hẳn nếu nguồn kia lỗi.
+  const arrived = new Set<string>();
 
   const unsubs = Object.keys(buckets).map((name) =>
     onSnapshot(
       query(collection(db, name), where('date', '>=', startDate), where('date', '<=', endDate)),
       (snap) => {
         buckets[name] = snap.docs.map((d) => ({ ...d.data(), id: d.id }));
-        onChange([...buckets.violations, ...buckets.achievements]);
+        arrived.add(name);
+        if (arrived.size === Object.keys(buckets).length) {
+          onChange([...buckets.violations, ...buckets.achievements]);
+        }
       },
       (err) => console.warn(`Mất kết nối trực tiếp với ${name}:`, err.message),
     ),

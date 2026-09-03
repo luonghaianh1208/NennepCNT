@@ -50,6 +50,8 @@ interface AppContextType {
   isRefreshing: boolean;
   /** Đang lấy thêm dữ liệu ở chế độ nền — giao diện vẫn dùng được bình thường */
   isBackgroundLoading: boolean;
+  /** Thông báo tiếng Việt khi không lấy được dữ liệu — null nghĩa là đang bình thường */
+  dataError: string | null;
   /** Tuần đang được theo dõi trực tiếp (null nếu chưa xác định được tuần nào) */
   liveWeek: TimeConfig | null;
   /** Bảo đảm đã có dữ liệu cho một khoảng ngày trước khi hiển thị số liệu */
@@ -178,6 +180,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // Khoảng nào chưa tải mà người dùng chọn xem thì lấy thêm đúng khoảng đó.
 
   const [isBackgroundLoading, setIsBackgroundLoading] = useState(false);
+  const [dataError, setDataError] = useState<string | null>(null);
   /** Những khoảng ngày đã có đủ dữ liệu trong bộ nhớ */
   const loadedRanges = useRef<{ start: string; end: string }[]>([]);
   const loadedAll = useRef(false);
@@ -203,8 +206,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const records = await api.getRecordsInRange(start, end);
       loadedRanges.current = [...loadedRanges.current, { start, end }];
       mergeRecords(records as Violation[]);
+      setDataError(null);
     } catch (e) {
       console.error('ensureRangeLoaded error:', e);
+      // Không báo ra thì bảng xếp hạng vẫn vẽ bình thường với dữ liệu thiếu —
+      // ban giám hiệu đọc một bảng vàng sai mà không có dấu hiệu nào
+      setDataError('Chưa lấy được dữ liệu của khoảng thời gian này nên số liệu đang thiếu. Kiểm tra kết nối rồi bấm Làm mới.');
     } finally {
       setIsBackgroundLoading(false);
     }
@@ -218,8 +225,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const records = await api.getAllRecords();
       loadedAll.current = true;
       mergeRecords(records as Violation[]);
+      setDataError(null);
     } catch (e) {
       console.error('ensureAllLoaded error:', e);
+      setDataError('Chưa lấy được dữ liệu cả năm nên số liệu đang thiếu. Kiểm tra kết nối rồi bấm Làm mới.');
     } finally {
       setIsBackgroundLoading(false);
     }
@@ -270,10 +279,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         : null;
 
       if (window) {
-        const records = await api.getRecordsInRange(window.start, window.end);
-        loadedRanges.current = [window];
-        loadedAll.current = false;
-        setViolations(records as Violation[]);
+        // Bấm Làm mới trong lúc đang xem "cả năm" thì phải giữ lại phạm vi đó,
+        // nếu không bảng xếp hạng vẫn vẽ bình thường nhưng chỉ còn hai tuần
+        const wasAllLoaded = loadedAll.current;
+        if (wasAllLoaded) {
+          const records = await api.getAllRecords();
+          setViolations(records as Violation[]);
+        } else {
+          const records = await api.getRecordsInRange(window.start, window.end);
+          loadedRanges.current = [window];
+          setViolations(records as Violation[]);
+        }
       } else {
         // Chưa cấu hình tuần nào thì đành lấy hết
         const records = await api.getAllRecords();
@@ -292,16 +308,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           setUsers(us);
           configSnapshot.current = { ...configSnapshot.current, students: st };
         })
-        .then(async () => {
-          // Nạp nốt học kỳ đang diễn ra để xếp hạng và báo cáo có đủ số liệu
-          const semesters = configs.filter((t: TimeConfig) => t.type === 'SEMESTER');
-          const currentSemester =
-            semesters.find((s: TimeConfig) => today >= s.startDate && today <= s.endDate) ??
-            semesters[semesters.length - 1];
-          if (currentSemester) {
-            await ensureRangeLoaded(currentSemester.startDate, currentSemester.endDate);
-          }
-        })
+        // Trước đây chỗ này nạp nốt cả học kỳ cho mọi người dùng — khoảng 1.500
+        // bản ghi mỗi lần mở app, kể cả với cờ đỏ chỉ vào ghi ba lỗi rồi thoát.
+        // Thừa, vì Xếp hạng và Tra cứu đã tự gọi ensureRangeLoaded đúng kỳ mà
+        // người dùng chọn.
         .catch(e => console.error('Tải nền lỗi:', e))
         .finally(() => setIsBackgroundLoading(false));
 
@@ -309,12 +319,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       api.getAuditLogs().then(logs => {
         if (Array.isArray(logs) && logs.length > 0) setAuditLogs(logs.slice(-MAX_AUDIT_ENTRIES));
       }).catch(() => setAuditLogs(loadAuditLogs()));
+      setDataError(null);
     } catch (e) {
       console.error('fetchData error:', e);
+      setDataError('Chưa kết nối được để lấy dữ liệu. Kiểm tra mạng rồi bấm Làm mới — số liệu đang hiện có thể chưa đầy đủ.');
       if (showLoading) setIsLoading(false);
       else setIsRefreshing(false);
     }
-  }, [ensureRangeLoaded]);
+  }, []);
 
   const refreshData = () => fetchData(false);
 
@@ -377,7 +389,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const snapshot = violations;
     setViolations(prev => prev.filter(v => v.id !== id));
     try {
-      await api.deleteViolation(id);
+      const res = await api.deleteViolation(id, targetViolation?.points);
+      // Không kiểm tra kết quả thì bản ghi biến mất khỏi màn hình mà vẫn nằm
+      // nguyên trên máy chủ, quay lại sau khi làm mới
+      if (res?.status !== 'success') throw new Error(res?.message || 'Xoá không thành công');
 
       // Build thông tin chi tiết về lỗi vừa bị xóa
       logAction(
@@ -405,7 +420,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const snapshot = violations;
     setViolations(prev => prev.filter(v => !ids.includes(v.id)));
     try {
-      await api.deleteViolations(ids);
+      const pointsById = Object.fromEntries(targetViolations.map(v => [v.id, v.points]));
+      const res = await api.deleteViolations(ids, pointsById);
+      if (res?.status !== 'success') throw new Error(res?.message || 'Xoá không thành công');
 
       // Log từng record riêng — mỗi lần xóa một dòng audit log
       targetViolations.forEach(v => {
@@ -558,7 +575,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       auditLogs, clearAuditLogs,
       currentUser, setCurrentUser,
       appTheme, setAppTheme,
-      isLoading, isRefreshing, isBackgroundLoading, liveWeek,
+      isLoading, isRefreshing, isBackgroundLoading, dataError, liveWeek,
       ensureRangeLoaded, ensureAllLoaded,
       branding, saveBranding, saveRoleConfigs,
       schoolSettings, saveSchoolSettings,

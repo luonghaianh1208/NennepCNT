@@ -1,9 +1,9 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Award, TrendingUp, ThumbsDown, ThumbsUp, AlertCircle, Link2, Users, Download } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Violation } from '../types';
-import { calculateScore, safeParseImages, formatDateDisplay, getUniqueWeeksCount, getEarliestViolationDate, getLatestViolationDate, isDateInRange, getYearWeekKey, exportToExcel, computeRankingContext } from '../utils';
+import { calculateScore, safeParseImages, formatDateDisplay, getUniqueWeeksCount, getEarliestViolationDate, getLatestViolationDate, isDateInRange, getYearWeekKey, exportToExcel, computeRankingContext, can, getLocalDateString } from '../utils';
 import { useAppStore } from '../contexts/AppContext';
 import { useModal } from '../contexts/ModalContext';
 
@@ -14,13 +14,21 @@ interface ClassDetailTabProps {
 }
 
 const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ setViewingViolation, selectedClassId, setSelectedClassId }) => {
-  const { currentUser, classes, violations, criteria, students, timeConfigs, schoolSettings } = useAppStore();
+  const { currentUser, classes, violations, criteria, students, timeConfigs, schoolSettings,
+          roleConfigs, ensureAllLoaded, isBackgroundLoading } = useAppStore();
   const { showToast } = useModal();
 
   // selectedClassId is lifted to App.tsx for tab persistence
 
-  const isRestrictedUser = (currentUser.role === 'TEACHER' || currentUser.role === 'RED_FLAG' || currentUser.role === 'DISCIPLINE') && currentUser.className;
-  
+  // Đọc quyền thay vì gán cứng tên vai trò — trường tự tạo vai trò mới thì
+  // danh sách cứng không bao giờ khớp
+  const isRestrictedUser = can(roleConfigs, currentUser.role, 'ownClassOnly') && !!currentUser.className;
+
+  // Trang này tính điểm cả năm, nên phải có đủ dữ liệu cả năm mới đúng. Không
+  // gọi thì điểm học kỳ trước bị cộng khống vì các tuần chưa tải trông như
+  // "không có vi phạm nào".
+  useEffect(() => { void ensureAllLoaded(); }, [ensureAllLoaded]);
+
   const targetClassId = isRestrictedUser 
       ? currentUser.className 
       : (selectedClassId || classes[0]?.id || '');
@@ -91,22 +99,15 @@ const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ setViewingViolation, se
       }
   }, [timeConfigs, clsViolations, violations]);
 
-  if (!cls) {
-      return (
-          <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-              <AlertCircle size={48} className="mb-2 opacity-50"/>
-              <p>Chưa có dữ liệu lớp học.</p>
-          </div>
-      );
-  }
-
-  // Tính điểm và xế́p hạng theo logic nhất quán với RankingTab (mode ALL: HK1×1 + HK2×2)
+  // Tính điểm và xế́p hạng theo logic nhất quán với RankingTab (mode ALL: HK1×1 + HK2×2).
+  // Mọi hook phải chạy TRƯỚC lệnh return sớm ở dưới, nếu không số hook giữa hai
+  // lần render lệch nhau và React ném lỗi làm trắng cả màn hình.
   const { myRank, myScore, scoringLabel } = useMemo(() => {
     const { relevantViolations, weeksCount, isRangeMode, weightedSemesters } = computeRankingContext(
       violations, timeConfigs, 'ALL', ''
     );
 
-    const baseScore = 500;
+    const baseScore = schoolSettings.baseScore;
     const calcClassScore = (classId: string): number => {
       const clsV = relevantViolations.filter(v => v.classId === classId);
       if (weightedSemesters) {
@@ -123,15 +124,23 @@ const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ setViewingViolation, se
       .map(c => ({ id: c.id, score: calcClassScore(c.id) }))
       .sort((a, b) => b.score - a.score);
 
-    const rank = gradeRankings.findIndex(r => r.id === targetClassId) + 1;
-    const score = gradeRankings.find(r => r.id === targetClassId)?.score ?? 0;
+    // Bằng điểm thì cùng hạng, giống hệt RankingTab và báo cáo Word — nếu không
+    // thì hai màn hình nói hai con số khác nhau cho cùng một lớp
+    const index = gradeRankings.findIndex(r => r.id === targetClassId);
+    const score = index > -1 ? gradeRankings[index].score : 0;
+    let rank = index + 1;
+    if (index > 0) {
+      let first = index;
+      while (first > 0 && gradeRankings[first - 1].score === score) first--;
+      rank = first + 1;
+    }
 
     const label = weightedSemesters
-      ? `${weightedSemesters.hk1.name} ×1 + ${weightedSemesters.hk2.name} ×2`
+      ? `${weightedSemesters.hk1.name} ×1 + ${weightedSemesters.hk2.name} ×${schoolSettings.semester2Multiplier}`
       : `Trên tổng ${totalWeeksCount} tuần cấu hình`;
 
     return { myRank: rank, myScore: score, scoringLabel: label };
-  }, [violations, timeConfigs, classes, cls, targetClassId, totalWeeksCount]);
+  }, [violations, timeConfigs, classes, cls, targetClassId, totalWeeksCount, schoolSettings]);
 
   const minusViolations = clsViolations.filter(v => v.points > 0);
   const plusViolations = clsViolations.filter(v => v.points < 0);
@@ -150,6 +159,17 @@ const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ setViewingViolation, se
       return stats.filter(s => s.count > 0).sort((a, b) => b.count - a.count);
   }, [students, targetClassId, minusViolations]);
 
+  // Từ đây trở xuống không còn hook nào, nên return sớm là an toàn
+  if (!cls) {
+      return (
+          <div className="flex flex-col items-center justify-center py-20 text-slate-500 text-center px-6">
+              <AlertCircle size={48} className="mb-2 opacity-50"/>
+              <p className="font-medium">Chưa có lớp nào trong hệ thống.</p>
+              <p className="text-sm mt-1">Quản trị viên thêm lớp ở Cấu hình → Lớp học, sau đó trang này sẽ hiện dữ liệu.</p>
+          </div>
+      );
+  }
+
   const handleExportTopStudents = () => {
     if (studentViolationStats.length === 0) {
         showToast('Không có dữ liệu học sinh vi phạm để xuất.', 'error');
@@ -163,7 +183,7 @@ const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ setViewingViolation, se
         stat.count,
         stat.totalPoints
     ]);
-    exportToExcel([header, ...data], `Top_VP_${cls.name}_${new Date().toISOString().slice(0,10)}`);
+    exportToExcel([header, ...data], `Top_VP_${cls.name}_${getLocalDateString()}`);
   };
 
   return (
@@ -184,7 +204,7 @@ const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ setViewingViolation, se
            <div className="relative z-10">
              <div className="text-blue-100 text-xs font-bold uppercase mb-1">Thứ hạng (Khối {cls.grade})</div>
              <div className="text-4xl font-black flex items-end gap-2">#{myRank}<span className="text-base font-normal text-blue-200 mb-1">/ {classes.filter(c => c.grade === cls.grade).length}</span></div>
-             <div className="text--[10px] text-blue-200 mt-1">Tính theo cấu hình tuần</div>
+             <div className="text-[10px] text-blue-200 mt-1">Tính theo cấu hình tuần</div>
            </div>
         </div>
         
@@ -202,7 +222,7 @@ const ClassDetailTab: React.FC<ClassDetailTabProps> = ({ setViewingViolation, se
              <LineChart data={chartData}>
                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b'}} interval="preserveStartEnd" minTickGap={20} />
-               <YAxis domain={[0, 520]} hide />
+               <YAxis domain={[0, Math.round(schoolSettings.baseScore * 1.04)]} hide />
                <Tooltip 
                  labelStyle={{ fontWeight: 'bold', color: '#1e293b' }}
                  itemStyle={{ color: '#3b82f6' }}

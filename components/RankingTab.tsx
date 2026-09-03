@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Trophy, Download, X, FileSpreadsheet, Layers, FileText } from 'lucide-react';
 import { Violation } from '../types';
-import { calculateScore, getEarliestViolationDate, getLatestViolationDate, formatDateDisplay, exportToExcel, computeRankingContext } from '../utils';
+import { calculateScore, getEarliestViolationDate, getLatestViolationDate, formatDateDisplay, exportToExcel, computeRankingContext, can, getLocalDateString } from '../utils';
 // Trình tạo báo cáo .docx nặng gần 500KB, chỉ nạp khi bấm xuất báo cáo
 import { useAppStore } from '../contexts/AppContext';
 import { useModal } from '../contexts/ModalContext';
@@ -38,15 +38,26 @@ const RankingTab: React.FC<RankingTabProps> = ({
     const config = timeConfigs.find(c => c.id === rankingFilterConfigId);
     if (config) ensureRangeLoaded(config.startDate, config.endDate);
   }, [rankingFilterMode, rankingFilterConfigId, timeConfigs, ensureRangeLoaded, ensureAllLoaded]);
+
+  // Khối đang chọn phải nằm trong danh sách khối của trường. Trường liên cấp
+  // khai khối 6-9 mà mặc định là '10' thì bảng trống trơn dù dữ liệu đầy đủ.
+  useEffect(() => {
+    const grades = schoolSettings.grades;
+    if (grades.length && !grades.includes(rankingGradeTab)) setRankingGradeTab(grades[0]);
+  }, [schoolSettings.grades, rankingGradeTab, setRankingGradeTab]);
+
   const { showToast } = useModal();
 
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
-  // Kiểm tra quyền xuất báo cáo Word
-  const canExportReport = useMemo(() => {
-    const role = currentUser.role.toUpperCase();
-    return ['ADMIN', 'BCH', 'BCH_PHU_TRACH', 'LEADER'].includes(role);
-  }, [currentUser.role]);
+  // Quyền xuất báo cáo Word đọc từ bảng quyền, không so tên vai trò — trường tự
+  // tạo vai trò mới thì danh sách cứng không bao giờ khớp. Dùng seeReporter vì
+  // đó là quyền chung của đúng bốn vai trò vẫn xuất được báo cáo trước đây
+  // (Quản trị, BCH, BCH Phụ trách, Lãnh đạo), và báo cáo có nêu tên người ghi.
+  const canExportReport = useMemo(
+    () => can(roleConfigs, currentUser.role, 'seeReporter'),
+    [roleConfigs, currentUser.role],
+  );
 
   const handleExportWordReport = async () => {
     if (rankingFilterMode !== 'WEEK') {
@@ -62,7 +73,7 @@ const RankingTab: React.FC<RankingTabProps> = ({
         baseScore: schoolSettings.baseScore, grades: schoolSettings.grades });
       showToast(`Đã xuất báo cáo ${weekConfig.name} thành công!`, 'success');
     } catch (err) {
-      showToast('Lỗi khi tạo file DOCX. Vui lòng thử lại.', 'error');
+      showToast('Chưa tạo được file báo cáo. Kiểm tra kết nối mạng rồi thử lại.', 'error');
       console.error(err);
     } finally {
       setIsGeneratingReport(false);
@@ -125,7 +136,7 @@ const RankingTab: React.FC<RankingTabProps> = ({
     );
     const targetClasses = classes.filter(c => c.grade.toString() === rankingGradeTab);
     return rankClassList(targetClasses, relevantViolations, weeksCount, isRangeMode, weightedSemesters, isHK2);
-  }, [violations, classes, rankingGradeTab, rankingFilterMode, rankingFilterConfigId, timeConfigs]);
+  }, [violations, classes, rankingGradeTab, rankingFilterMode, rankingFilterConfigId, timeConfigs, schoolSettings]);
 
   // isHK2: dùng để hiển thị badge ×2 trên UI
   const { isHK2: rankingIsHK2, weightedSemesters: rankingWeightedSemesters } = useMemo(() => 
@@ -223,7 +234,7 @@ const RankingTab: React.FC<RankingTabProps> = ({
       ]);
 
       const scopeName = scope === 'CURRENT' ? `Khoi_${rankingGradeTab}` : `Toan_Truong`;
-      const fileName = `Bang_Xep_Hang_${scopeName}_${new Date().toISOString().slice(0,10)}`;
+      const fileName = `Bang_Xep_Hang_${scopeName}_${getLocalDateString()}`;
       
       exportToExcel([header, ...rows], fileName);
       setShowExportModal(false);
@@ -266,7 +277,7 @@ const RankingTab: React.FC<RankingTabProps> = ({
                       >
                           <div className="bg-indigo-200 p-2 rounded-lg"><FileSpreadsheet size={20}/></div>
                           <div>
-                              <div className="text-sm">Toàn Trường (3 Khối)</div>
+                              <div className="text-sm">Toàn Trường ({schoolSettings.grades.length} Khối)</div>
                               <div className="text-[10px] font-normal opacity-70">Gộp nhưng xếp hạng riêng từng khối</div>
                           </div>
                       </button>
@@ -307,7 +318,7 @@ const RankingTab: React.FC<RankingTabProps> = ({
              <option value="WEEK">Theo Tuần</option>
              <option value="MONTH">Theo Tháng</option>
              <option value="SEMESTER">Theo Học kỳ</option>
-             <option value="ALL">🏆 Năm học (HK1×1 + HK2×2)</option>
+             <option value="ALL">🏆 Năm học (HK1×1 + HK2×{schoolSettings.semester2Multiplier})</option>
              </select>
              
              {rankingFilterMode !== 'ALL' && (
@@ -321,7 +332,7 @@ const RankingTab: React.FC<RankingTabProps> = ({
                    <option key={c.id} value={c.id}>
                      {c.name}{c.type === 'SEMESTER' && (() => {
                        const semesters = timeConfigs.filter(s => s.type === 'SEMESTER').sort((a,b) => a.startDate.localeCompare(b.startDate));
-                       return semesters.length >= 2 && c.id === semesters[semesters.length - 1].id ? ' (×2 HK2)' : '';
+                       return semesters.length >= 2 && c.id === semesters[semesters.length - 1].id ? ` (×${schoolSettings.semester2Multiplier} HK2)` : '';
                      })()}
                    </option>
                  ))}
@@ -329,7 +340,7 @@ const RankingTab: React.FC<RankingTabProps> = ({
              )}
              {rankingFilterMode === 'ALL' && rankingWeightedSemesters && (
                <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-300 rounded-lg text-xs text-amber-700 font-bold flex-1">
-                 ℹ️ {rankingWeightedSemesters.hk1.name} ×1 + {rankingWeightedSemesters.hk2.name} ×2 — đầu năm học
+                 ℹ️ {rankingWeightedSemesters.hk1.name} ×1 + {rankingWeightedSemesters.hk2.name} ×{schoolSettings.semester2Multiplier} — đầu năm học
                </div>
              )}
              {rankingFilterMode === 'ALL' && !rankingWeightedSemesters && (
