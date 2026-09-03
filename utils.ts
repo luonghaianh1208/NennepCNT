@@ -19,16 +19,23 @@ export const THEME_PRESETS: Record<string, { label: string; from: string; to: st
 /**
  * Công tắc bật/tắt tính năng — sửa ở ĐÚNG MỘT CHỖ này rồi dựng lại là xong.
  *
- * `excelImport`: nhập vi phạm hàng loạt từ file Excel. Tắt từ 03/09/2026 theo
- * yêu cầu của chủ dự án — tính năng vẫn còn nguyên trong mã nguồn, chỉ ẩn khỏi
- * giao diện. Bật lại: đổi thành `true`, dựng lại, triển khai. Khi tắt thì cả
- * nút bấm, phần hướng dẫn trong app lẫn dòng quyền "Nhập từ Excel" ở bảng phân
- * quyền đều ẩn theo — để quản trị viên không bật một quyền không có tác dụng.
+ * `excelImport`: nhập vi phạm hàng loạt từ file Excel.
  *
- * Nhập THÀNH TÍCH hàng loạt đã bỏ hẳn, không nằm sau công tắc này: khen thưởng
- * nay nhập bằng bảng "một hoạt động — nhiều lớp", lấy điểm từ bảng giải × cấp
- * độ trong Cấu hình → Quy định. Giữ thêm đường Excel là có hai nguồn điểm khác
- * nhau cho cùng một giải.
+ * **Quyết định 03/09/2026 — GIỮ NGUYÊN, đừng xoá mã.** Chủ dự án đã cân nhắc
+ * giữa xoá hẳn và giữ sau công tắc, và chọn giữ. Mọi trường bàn giao đều dựng
+ * với `false`; người dùng không thấy gì cả, chỉ tốn thêm khoảng 15KB trong gói
+ * tải mà không ai nhận ra. Luồng này làm khá kỹ (khớp mờ tên tiếng Việt, bảng
+ * đối chiếu ba màu, cảnh báo ngày ngoài mốc thời gian) — xoá đi rồi trường nào
+ * xin lại thì phải viết lại từ đầu.
+ *
+ * Bật lại cho một trường: đổi thành `true`, dựng lại, triển khai. Khi tắt thì
+ * cả nút bấm, phần hướng dẫn trong app lẫn dòng quyền "Nhập từ Excel" ở bảng
+ * phân quyền đều ẩn theo — để quản trị viên không bật một quyền vô tác dụng.
+ *
+ * Nhập THÀNH TÍCH hàng loạt thì đã bỏ HẲN, không nằm sau công tắc này: khen
+ * thưởng nay nhập bằng bảng "một hoạt động — nhiều lớp", lấy điểm từ bảng giải
+ * × cấp độ trong Cấu hình → Quy định. Giữ thêm đường Excel là có hai nguồn điểm
+ * khác nhau cho cùng một giải.
  */
 export const FEATURES = {
   excelImport: false,

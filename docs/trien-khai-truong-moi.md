@@ -36,6 +36,13 @@ https://console.firebase.google.com/project/PROJECT_ID/usage/details
 ```
 Chọn *Modify plan* → Blaze → đặt ngân sách cảnh báo 10 USD.
 
+> **Chỗ trống còn lại (kiểm 03/09/2026):** mỗi tài khoản thanh toán gắn được tối
+> đa 5 project. `Firebase Payment` và `Firebase Payment` (cái thứ hai) đã đầy;
+> **EcoSort** còn 4 chỗ, **My Maps Billing Account** còn 5. Gộp các trường vào
+> **EcoSort** để cuối tháng chỉ đối chiếu một hoá đơn. Hết chỗ thì **xin nâng
+> hạn mức** trên chính tài khoản đó, đừng tạo tài khoản mới — cái mới lại bắt
+> đầu từ 5 và càng về sau càng khó theo dõi.
+
 Tạo cơ sở dữ liệu và kho ảnh (đặt tại Singapore cho gần Việt Nam):
 
 ```bash
@@ -90,6 +97,10 @@ cp public/tenant-config.json public/tenant-config.json.bak
 pnpm build
 firebase deploy --only hosting --project PROJECT_ID
 ```
+
+**Nhập Excel:** mặc định TẮT cho mọi trường (`FEATURES.excelImport` trong
+`utils.ts`). Trường nào xin thì đổi thành `true`, dựng lại rồi triển khai riêng
+cho trường đó. Mã nguồn giữ nguyên, không xoá — quyết định 03/09/2026.
 
 Kết quả: `https://PROJECT_ID.web.app`
 
