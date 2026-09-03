@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   isDateOutsideAllConfigs, toISODate, diffConfigChanges, type ConfigSnapshot,
-  renameInList, renamePrizeKey, renameLevelKey,
+  renameInList, renamePrizeKey, renameLevelKey, isDateInRange,
 } from './utils';
 import { TimeConfig } from './types';
 
@@ -185,5 +185,37 @@ describe('đổi tên giải/cấp độ phải chuyển cả khoá bảng đi�
     renamePrizeKey(table, 'Nhất', 'X');
     renameLevelKey(table, 'Cấp trường', 'Y');
     expect(JSON.stringify(table)).toBe(before);
+  });
+});
+
+describe('isDateInRange — so sánh chuỗi, không dựng Date', () => {
+  it('ngày trong khoảng', () => {
+    expect(isDateInRange('2026-05-20', '2026-05-18', '2026-05-24')).toBe(true);
+  });
+
+  it('trùng đúng hai đầu mút vẫn tính là trong khoảng', () => {
+    expect(isDateInRange('2026-05-18', '2026-05-18', '2026-05-24')).toBe(true);
+    expect(isDateInRange('2026-05-24', '2026-05-18', '2026-05-24')).toBe(true);
+  });
+
+  it('ngoài khoảng', () => {
+    expect(isDateInRange('2026-05-17', '2026-05-18', '2026-05-24')).toBe(false);
+    expect(isDateInRange('2026-05-25', '2026-05-18', '2026-05-24')).toBe(false);
+  });
+
+  it('bản ghi cũ còn phần giờ vẫn khớp đúng ngày cuối khoảng', () => {
+    // "2026-05-24T00:00:00" > "2026-05-24" nếu so nguyên chuỗi — phải cắt giờ
+    expect(isDateInRange('2026-05-24T00:00:00', '2026-05-18', '2026-05-24')).toBe(true);
+    expect(isDateInRange('2026-05-24T23:30:00Z', '2026-05-18', '2026-05-24')).toBe(true);
+  });
+
+  it('sang năm mới vẫn so đúng thứ tự', () => {
+    expect(isDateInRange('2026-01-05', '2025-12-28', '2026-01-11')).toBe(true);
+    expect(isDateInRange('2025-12-27', '2025-12-28', '2026-01-11')).toBe(false);
+  });
+
+  it('thiếu tham số thì không tính là trong khoảng', () => {
+    expect(isDateInRange('', '2026-05-18', '2026-05-24')).toBe(false);
+    expect(isDateInRange('2026-05-20', '', '2026-05-24')).toBe(false);
   });
 });

@@ -321,17 +321,22 @@ export const getUniqueWeeksCount = (startDateStr: string | Date, endDateStr: str
 };
 
 // Kiểm tra xem một ngày có nằm trong khoảng không (Chính xác tuyệt đối theo Local Time)
+/**
+ * Ngày đều ở dạng YYYY-MM-DD nên so sánh CHUỖI là đủ và đúng — chính truy vấn
+ * theo khoảng ngày và phần đồng bộ trực tiếp đã dựa vào tính chất đó.
+ *
+ * Bản cũ dựng ba đối tượng Date mỗi lần gọi. Riêng bộ lọc "ngoài mốc thời gian"
+ * đã gọi 138.000 lần (3.000 bản ghi × 46 mốc) — hơn 400.000 đối tượng Date, và
+ * chạy lại mỗi nhịp đồng bộ trong lúc cờ đỏ đang nhập liệu.
+ *
+ * Vẫn cắt phần giờ nếu gặp bản ghi cũ dạng "2026-05-20T00:00:00".
+ */
+const dayPart = (value: string) => (value.includes('T') ? value.slice(0, value.indexOf('T')) : value);
+
 export const isDateInRange = (targetDateStr: string, startStr: string, endStr: string): boolean => {
   if (!targetDateStr || !startStr || !endStr) return false;
-
-  // Chuyển target về giữa ngày để so sánh an toàn, hoặc đầu ngày
-  const target = parseLocalStartOfDay(targetDateStr).getTime();
-
-  const start = parseLocalStartOfDay(startStr).getTime(); // 00:00:00 ngày bắt đầu
-  const end = parseLocalEndOfDay(endStr).getTime();       // 23:59:59 ngày kết thúc
-
-  // So sánh timestamp
-  return target >= start && target <= end;
+  const target = dayPart(targetDateStr);
+  return target >= dayPart(startStr) && target <= dayPart(endStr);
 };
 
 // -----------------------------------------------------------------------

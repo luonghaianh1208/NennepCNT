@@ -54,7 +54,7 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setToasts(prev => [...prev, { id, message, type }]);
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
-    }, 3000);
+    }, message.length > 60 ? 6000 : 3000);
   }, []);
 
   const handleConfirm = () => {
@@ -69,16 +69,33 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setModal(null);
   };
 
+  // Mở hộp thoại thì khoá cuộn trang nền, và Esc đóng như mọi hộp thoại khác.
+  // Không khoá thì trên điện thoại vuốt trong hộp thoại lại cuộn trang phía sau.
+  React.useEffect(() => {
+    if (!modal?.visible) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') handleCancel(); };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = previous;
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [modal?.visible]);
+
   return (
     <ModalContext.Provider value={{ showConfirm, showAlert, showToast }}>
       {children}
 
       {/* === MODAL === */}
       {modal?.visible && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-          <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-150 overflow-y-auto"
+          role="dialog" aria-modal="true" aria-label={modal.title}>
+          {/* max-h + cuộn: trên màn nhỏ, thông báo dài từng đẩy hai nút Huỷ/Xác
+              nhận ra khỏi màn hình và không cuộn tới được */}
+          <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150 max-h-[85vh] flex flex-col">
             {/* Header */}
-            <div className={`p-5 pb-3 ${modal.type === 'danger' ? 'bg-red-50' : modal.type === 'alert' && modal.title.toLowerCase().includes('lỗi') ? 'bg-red-50' : 'bg-white'}`}>
+            <div className={`p-5 pb-3 overflow-y-auto ${modal.type === 'danger' ? 'bg-red-50' : modal.type === 'alert' && modal.title.toLowerCase().includes('lỗi') ? 'bg-red-50' : 'bg-white'}`}>
               <div className="flex items-center gap-3 mb-1">
                 {modal.type === 'danger' ? (
                   <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-red-600 text-xl font-bold flex-shrink-0">⚠</div>
@@ -126,11 +143,13 @@ export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
       {/* === TOASTS === */}
       {toasts.length > 0 && (
-        <div className="fixed top-4 right-4 z-[101] flex flex-col gap-2 pointer-events-none">
+        // Trên điện thoại, ngón tay và mắt người dùng đang ở nút bấm dưới đáy —
+        // phản hồi nhảy ở góc trên đối diện thì rất dễ đọc không kịp
+        <div className="fixed bottom-28 left-4 right-4 sm:bottom-auto sm:left-auto sm:top-4 sm:right-4 z-[101] flex flex-col gap-2 pointer-events-none">
           {toasts.map(toast => (
             <div
               key={toast.id}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl text-white text-sm font-medium animate-in slide-in-from-right-5 fade-in duration-200 pointer-events-auto ${
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl text-white text-sm font-medium animate-in slide-in-from-bottom-5 sm:slide-in-from-right-5 fade-in duration-200 pointer-events-auto ${
                 toast.type === 'success' ? 'bg-green-600' :
                 toast.type === 'error' ? 'bg-red-600' : 'bg-slate-800'
               }`}

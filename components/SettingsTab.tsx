@@ -44,6 +44,14 @@ const SettingsTab: React.FC<SettingsTabProps> = ({ initialSubTab }) => {
     if (initialSubTab) setActiveSubTab(initialSubTab);
   }, [initialSubTab]);
 
+  // Đóng trình duyệt lúc còn thay đổi chưa lưu thì mất trắng công nhập, im lặng
+  React.useEffect(() => {
+    if (!unsavedChanges) return;
+    const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [unsavedChanges]);
+
   const handleSaveSettings = async () => {
     const ok = await showConfirm({ title: 'Lưu cấu hình', message: 'Lưu toàn bộ cấu hình lên hệ thống?', confirmText: 'Lưu' });
     if (!ok) return;

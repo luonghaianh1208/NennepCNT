@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Save, Loader2, Plus, X, Info, Calculator, Palette, Pencil, Check } from 'lucide-react';
 import { SchoolSettings } from '../../types';
 import { THEME_PRESETS, renameInList, renamePrizeKey, renameLevelKey } from '../../utils';
@@ -108,8 +108,20 @@ const SettingsRulesTab: React.FC = () => {
 
   const [form, setForm] = useState<SchoolSettings>(schoolSettings);
   const [isSaving, setIsSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
 
-  const set = (patch: Partial<SchoolSettings>) => setForm(prev => ({ ...prev, ...patch }));
+  // Quy định của trường nạp bất đồng bộ. Mở tab này lúc mạng chậm thì form chụp
+  // đúng giá trị MẶC ĐỊNH, sửa một ô màu rồi bấm Lưu là ghi đè toàn bộ quy định
+  // riêng của trường, kể cả bảng điểm thưởng đã khai công phu — không hoàn tác
+  // được. Đồng bộ lại khi dữ liệu thật về, nhưng chỉ khi người dùng chưa sửa dở.
+  useEffect(() => {
+    if (!dirty) setForm(schoolSettings);
+  }, [schoolSettings, dirty]);
+
+  const set = (patch: Partial<SchoolSettings>) => {
+    setForm(prev => ({ ...prev, ...patch }));
+    setDirty(true);
+  };
 
   const handleSave = async () => {
     if (form.baseScore <= 0) return showToast('Điểm khởi đầu phải lớn hơn 0', 'error');
@@ -123,6 +135,7 @@ const SettingsRulesTab: React.FC = () => {
       semester2Multiplier: Math.max(1, Number(form.semester2Multiplier) || 1),
     });
     setIsSaving(false);
+    if (ok) setDirty(false);
     showToast(ok ? 'Đã lưu quy định của trường' : 'Lưu thất bại, thử lại giúp em', ok ? 'success' : 'error');
   };
 

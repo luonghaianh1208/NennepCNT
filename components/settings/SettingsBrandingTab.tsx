@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Save, Image as ImageIcon, Loader2, Info, X } from 'lucide-react';
 import { useAppStore } from '../../contexts/AppContext';
 import { useModal } from '../../contexts/ModalContext';
@@ -14,11 +14,15 @@ const SettingsBrandingTab: React.FC = () => {
   const { showToast, showAlert } = useModal();
 
   const [form, setForm] = useState(branding);
+  const [dirty, setDirty] = useState(false);
+
+  // Thương hiệu nạp bất đồng bộ — xem chú thích cùng lỗi ở SettingsRulesTab
+  useEffect(() => { if (!dirty) setForm(branding); }, [branding, dirty]);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const set = (patch: Partial<typeof form>) => setForm(prev => ({ ...prev, ...patch }));
+  const set = (patch: Partial<typeof form>) => { setForm(prev => ({ ...prev, ...patch })); setDirty(true); };
 
   const handleLogo = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -52,6 +56,7 @@ const SettingsBrandingTab: React.FC = () => {
     setIsSaving(true);
     const ok = await saveBranding({ ...form, schoolName: form.schoolName.trim(), shortName: form.shortName.trim() });
     setIsSaving(false);
+    if (ok) setDirty(false);
     showToast(ok ? 'Đã lưu thương hiệu' : 'Lưu thất bại, thử lại giúp em', ok ? 'success' : 'error');
   };
 
