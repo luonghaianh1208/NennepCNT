@@ -1,0 +1,41 @@
+{
+  "nennep-thptchuyenlaocai": {
+    "appId": "1:535645635326:web:41e8fb19943bc83cc09baf",
+    "config": {
+      "projectId": "nennep-thptchuyenlaocai",
+      "appId": "1:535645635326:web:41e8fb19943bc83cc09baf",
+      "storageBucket": "nennep-thptchuyenlaocai.firebasestorage.app",
+      "apiKey": "AIzaSyAVc55HlOBRikqbu3NVWmOANYePGTL8DWE",
+      "authDomain": "nennep-thptchuyenlaocai.firebaseapp.com",
+      "messagingSenderId": "535645635326",
+      "projectNumber": "535645635326",
+      "version": "2"
+    }
+  },
+  "nennep-thptnguyendu": {
+    "appId": "1:509405453897:web:115209b5fc9b016d04e998",
+    "config": {
+      "projectId": "nennep-thptnguyendu",
+      "appId": "1:509405453897:web:115209b5fc9b016d04e998",
+      "storageBucket": "nennep-thptnguyendu.firebasestorage.app",
+      "apiKey": "AIzaSyAQI09SXjOwZPkhcXCr6v1IbLXfUoInk30",
+      "authDomain": "nennep-thptnguyendu.firebaseapp.com",
+      "messagingSenderId": "509405453897",
+      "projectNumber": "509405453897",
+      "version": "2"
+    }
+  },
+  "nennep-thptlythuongkiet": {
+    "appId": "1:438244604383:web:39db0acdbae7e672f52c6a",
+    "config": {
+      "projectId": "nennep-thptlythuongkiet",
+      "appId": "1:438244604383:web:39db0acdbae7e672f52c6a",
+      "storageBucket": "nennep-thptlythuongkiet.firebasestorage.app",
+      "apiKey": "AIzaSyCbUDRCFx4pm7W93NjrPUefkw1g6-r3b5s",
+      "authDomain": "nennep-thptlythuongkiet.firebaseapp.com",
+      "messagingSenderId": "438244604383",
+      "projectNumber": "438244604383",
+      "version": "2"
+    }
+  }
+}
