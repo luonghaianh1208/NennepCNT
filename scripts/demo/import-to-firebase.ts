@@ -14,6 +14,7 @@ import { initializeApp, cert, applicationDefault } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import { getAuth } from 'firebase-admin/auth';
+import { DEMO_EMAIL, DEMO_PASSWORD } from './credentials';
 
 const OUT_DIR = join(process.cwd(), 'scripts', 'demo', 'out');
 const BUCKET = 'nennep-demo.firebasestorage.app';
@@ -28,12 +29,11 @@ const SKIP_IMAGES = process.argv.includes('--skip-images');
 
 /** Tài khoản trình diễn — mật khẩu cố định để đưa cho khách xem thử */
 const DEMO_ACCOUNTS = [
-  { email: 'admin@nennep.demo', name: 'Quản trị viên Demo', role: 'ADMIN', className: '' },
-  { email: 'bch@nennep.demo', name: 'Cán bộ Đoàn Demo', role: 'BCH', className: '' },
-  { email: 'codo@nennep.demo', name: 'Cờ đỏ Demo', role: 'RED_FLAG', className: '10 Toán 1' },
-  { email: 'gv@nennep.demo', name: 'Giáo viên Demo', role: 'GUEST', className: '10 Toán 1' },
+  { email: DEMO_EMAIL.admin, name: 'Quản trị viên Demo', role: 'ADMIN', className: '' },
+  { email: DEMO_EMAIL.bch, name: 'Cán bộ Đoàn Demo', role: 'BCH', className: '' },
+  { email: DEMO_EMAIL.redFlag, name: 'Cờ đỏ Demo', role: 'RED_FLAG', className: '10 Toán 1' },
+  { email: DEMO_EMAIL.teacher, name: 'Giáo viên Demo', role: 'GUEST', className: '10 Toán 1' },
 ];
-const DEMO_PASSWORD = 'NenNep@2026';
 
 /** Ghi một collection theo lô 400 doc — dưới hạn 500 thao tác mỗi batch của Firestore */
 async function writeCollection(db: FirebaseFirestore.Firestore, name: string, docs: any[]) {
@@ -121,7 +121,7 @@ async function main() {
   await writeCollection(db, 'violations', violations);
 
   await db.doc('settings/branding').set({
-    schoolName: 'THPT Chuyên Nguyễn Trãi',
+    schoolName: process.env.DEMO_SCHOOL_NAME || 'Trường THPT Demo',
     shortName: 'NỀN NẾP CNT',
     logoUrl: '',
     themePreset: 'DOAN',

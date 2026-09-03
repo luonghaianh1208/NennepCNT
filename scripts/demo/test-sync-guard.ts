@@ -7,12 +7,13 @@
 import { readFileSync } from 'fs';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { initFirebase, api, auth } from '../../services/firebase';
+import { DEMO_EMAIL, DEMO_PASSWORD } from './credentials';
 
 const config = JSON.parse(readFileSync('public/tenant-config.json', 'utf8')).firebase;
 initFirebase(config);
 
 (async () => {
-  await signInWithEmailAndPassword(auth, 'admin@nennep.demo', 'NenNep@2026');
+  await signInWithEmailAndPassword(auth, DEMO_EMAIL.admin, DEMO_PASSWORD);
 
   const before = await api.getDirectory();
   const core = await api.getCoreData();

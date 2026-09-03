@@ -7,6 +7,7 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { getAuth, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import { DEMO_EMAIL, DEMO_PASSWORD } from './credentials';
 
 const app = initializeApp({
   apiKey: 'AIzaSyA8vDLt97KKSKsGQ9gExVMC93phNbdVlK8',
@@ -48,7 +49,7 @@ const attempt = async (label: string, fn: () => Promise<unknown>) => {
   const cleanup: (() => Promise<unknown>)[] = [];
 
   console.log('▶ Tài khoản BCH (không phải admin)');
-  await signInWithEmailAndPassword(auth, 'bch@nennep.demo', 'NenNep@2026');
+  await signInWithEmailAndPassword(auth, DEMO_EMAIL.bch, DEMO_PASSWORD);
   const bchAch = await attempt('Ghi điểm thưởng', () => setDoc(doc(db, 'achievements', 'TEST_PERM_A'), sample('TEST_PERM_A')));
   const bchCri = await attempt('Thêm tiêu chí', () => setDoc(doc(db, 'criteria', 'TEST_PERM_C'), { id: 'TEST_PERM_C', content: 'Thử', points: 10, type: 'PLUS' }));
   const bchVio = await attempt('Ghi vi phạm', () => setDoc(doc(db, 'violations', 'TEST_PERM_V'), { ...sample('TEST_PERM_V'), points: 10 }));
@@ -56,7 +57,7 @@ const attempt = async (label: string, fn: () => Promise<unknown>) => {
 
   console.log('\n▶ Tài khoản ADMIN');
   await signOut(auth);
-  await signInWithEmailAndPassword(auth, 'admin@nennep.demo', 'NenNep@2026');
+  await signInWithEmailAndPassword(auth, DEMO_EMAIL.admin, DEMO_PASSWORD);
   const adminAch = await attempt('Ghi điểm thưởng', () => setDoc(doc(db, 'achievements', 'TEST_PERM_A2'), sample('TEST_PERM_A2')));
   if (adminAch) cleanup.push(() => deleteDoc(doc(db, 'achievements', 'TEST_PERM_A2')));
 

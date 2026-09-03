@@ -12,8 +12,11 @@
 import { writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 
-const GAS_URL =
-  'https://script.google.com/macros/s/AKfycbx5QAqX116WySkFKgb6v0Ia_x4ZWs-PhhJGSWnlnTa3Ld2XyaofoCt7_mrBhTiIn2r3nQ/exec';
+try { process.loadEnvFile(); } catch { /* chưa có .env thì bỏ qua */ }
+
+// Địa chỉ nguồn dữ liệu cũ đọc từ biến môi trường — không viết vào mã nguồn,
+// kho này công khai. Đặt SOURCE_DATA_URL trong .env khi cần chạy lại script.
+const GAS_URL = process.env.SOURCE_DATA_URL ?? '';
 const OUT_DIR = join(process.cwd(), 'scripts', 'demo', 'out');
 
 const argOf = (name: string, fallback: number) => {
@@ -40,6 +43,39 @@ const hash = (s: string) => {
 const fakeName = (seed: string) => {
   const h = hash(seed);
   return `${HO[h % HO.length]} ${DEM[(h >> 5) % DEM.length]} ${TEN[(h >> 11) % TEN.length]}`;
+};
+
+/** Biển số giả nhưng đúng dạng Việt Nam, ổn định theo id */
+const fakeBikeNumber = (seed: string) => {
+  const h = hash(`BIEN_${seed}`);
+  const tinh = 10 + (h % 89);
+  const seri = 'ABCDEFGHKLMNPSTUVXYZ'[(h >> 7) % 20];
+  return `${tinh}${seri}-${String((h >> 11) % 100000).padStart(5, '0')}`;
+};
+
+/**
+ * Ghi chú vi phạm là ô nhập tự do, thường có dạng "em Nguyễn Văn A không đeo
+ * phù hiệu" — tên thật đi thẳng vào demo nếu không quét. Thay bằng đúng tên giả
+ * đã sinh cho người đó, để câu văn vẫn đọc được.
+ *
+ * Quét tên dài trước tên ngắn: "Nguyễn Văn An" phải được thay trước "Nguyễn Văn",
+ * nếu không sẽ để lại mảnh tên thật.
+ */
+const buildNameScrubber = (people: { real: string; fake: string }[]) => {
+  const pairs = people
+    .filter(p => p.real.trim().split(/\s+/).length >= 2)
+    .sort((a, b) => b.real.length - a.real.length);
+
+  return (note: string) => {
+    if (!note) return '';
+    let out = note;
+    for (const { real, fake } of pairs) {
+      if (out.toLowerCase().includes(real.toLowerCase())) {
+        out = out.replace(new RegExp(real.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), fake);
+      }
+    }
+    return out;
+  };
 };
 
 // ─── Chuẩn hoá ngày: nhận cả YYYY-MM-DD lẫn M/D/YYYY ─────────────────────────
@@ -73,16 +109,25 @@ const spread = <T>(list: T[], count: number): T[] => {
 };
 
 async function main() {
-  console.log('→ Tải dữ liệu thật từ Google Apps Script...');
+  if (!GAS_URL) {
+    console.error(
+      '\n✖ Thiếu SOURCE_DATA_URL.\n' +
+      '  Đặt SOURCE_DATA_URL=<địa chỉ nguồn dữ liệu> trong tệp .env rồi chạy lại.\n'
+    );
+    process.exit(1);
+  }
+
+  console.log('→ Tải dữ liệu thật từ nguồn cũ...');
   const res = await fetch(`${GAS_URL}?action=getAllData&t=${Date.now()}`);
   const data = await res.json();
 
-  // ─── Lớp & tiêu chí: giữ nguyên toàn bộ ───────────────────────────────────
+  // ─── Lớp & tiêu chí ───────────────────────────────────────────────────────
+  // Tên GVCN là người thật — ánh xạ được giáo viên với lớp nên phải ẩn danh.
   const classes = (data.Classes ?? []).map((c: any) => ({
     id: String(c.id),
     name: String(c.name),
     grade: Number(c.grade) || 0,
-    homeroomTeacher: String(c.homeroomTeacher ?? ''),
+    homeroomTeacher: c.homeroomTeacher ? fakeName(`GVCN_${c.id}`) : '',
   }));
 
   const criteria = (data.Criteria ?? []).map((c: any) => ({
@@ -109,15 +154,17 @@ async function main() {
       id: String(s.id),
       name: fakeName(String(s.id)),
       classId: String(s.classId ?? ''),
-      bikeNumber: String(s.bikeNumber ?? ''),
+      // Biển số xe thật tra ngược ra được một gia đình cụ thể — sinh biển giả,
+      // vẫn giữ chỗ để demo khoe được tính năng tra xe.
+      bikeNumber: s.bikeNumber ? fakeBikeNumber(String(s.id)) : '',
     }));
 
-  // ─── Tài khoản: giữ tên giáo viên, BỎ email và mật khẩu thật ──────────────
+  // ─── Tài khoản: ẩn danh tên, BỎ email và mật khẩu thật ────────────────────
   const users = (data.Users ?? [])
     .filter((u: any) => String(u.id ?? '').trim())
     .map((u: any) => ({
       id: String(u.id),
-      name: String(u.name ?? ''),
+      name: u.name ? fakeName(`USER_${u.id}`) : '',
       username: String(u.id),
       role: String(u.role ?? 'GUEST'),
       className: String(u.className ?? ''),
@@ -125,6 +172,13 @@ async function main() {
       summaryMeetings: Number(u.summaryMeetings) || 0,
       isDemoProfile: true,
     }));
+
+  // Bảng tên thật → tên giả, dùng để quét ghi chú tự do
+  const scrubNames = buildNameScrubber([
+    ...(data.Students ?? []).map((s: any) => ({ real: String(s.name ?? ''), fake: fakeName(String(s.id)) })),
+    ...(data.Users ?? []).map((u: any) => ({ real: String(u.name ?? ''), fake: fakeName(`USER_${u.id}`) })),
+    ...(data.Classes ?? []).map((c: any) => ({ real: String(c.homeroomTeacher ?? ''), fake: fakeName(`GVCN_${c.id}`) })),
+  ]);
 
   const timeConfigs = (data.TimeConfigs ?? []).map((t: any) => ({
     id: String(t.id),
@@ -149,7 +203,7 @@ async function main() {
         studentId: String(v.studentId ?? ''),
         criteriaId: String(v.criteriaId ?? ''),
         points: Number(v.points) || 0,
-        note: String(v.note ?? ''),
+        note: scrubNames(String(v.note ?? '')),
         images: asArray(v.images),
         reportedBy: String(v.reportedBy ?? ''),
         isSecurityReport: v.isSecurityReport === true || v.isSecurityReport === 'TRUE',

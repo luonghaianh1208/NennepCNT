@@ -86,7 +86,7 @@ const SettingsBrandingTab: React.FC = () => {
           <label className="block text-xs font-bold text-slate-600 mb-1">Tên đầy đủ của trường *</label>
           <input
             className="w-full p-2.5 border border-slate-300 rounded-lg"
-            placeholder="Trường THPT Chuyên Nguyễn Trãi – Hải Phòng"
+            placeholder="Ví dụ: Trường THPT Nguyễn Huệ – Hà Nội"
             value={form.schoolName}
             onChange={e => set({ schoolName: e.target.value })}
           />

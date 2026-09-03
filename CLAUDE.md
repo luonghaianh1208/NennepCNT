@@ -4,50 +4,93 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Nền Nếp CNT** — A competitive scoring management system for THPT Chuyên Nguyễn Trãi (Hải Dương). Built with React + TypeScript + Vite + TailwindCSS. Backend is Google Apps Script (GAS) deployed as a REST API; database is Google Sheets.
+**Nền Nếp** — a competitive scoring (nền nếp / thi đua) management system for Vietnamese secondary
+schools, packaged as a white-label product: one build serves every customer school, each on its own
+Firebase project. React 18 + TypeScript + Vite. Firestore for data, Firebase Auth for accounts,
+Firebase Storage for evidence photos, Cloud Functions for account provisioning.
+
+THPT Chuyên Nguyễn Trãi is the first real deployment and the reference customer. The demo tenant is
+`nennep-demo`. **Never hardcode a school's name, colours, grades, or scoring rules** — they belong in
+`public/tenant-config.json` (loaded at runtime) or in the `settings/school` Firestore document.
+
+> The Google Apps Script backend and Google Sheets database were retired in September 2026.
+> If you find code or docs referring to `gas_backend.gs`, `services/googleApi.ts`, or a
+> `script.google.com` URL, it is stale — delete it rather than following it.
 
 ## Commands
 
 ```bash
-npm run dev       # Start dev server
-npm run build     # Production build (must pass before pushing to trigger Netlify deploy)
-npm run preview   # Preview built dist locally
+pnpm dev            # Dev server
+pnpm build          # Production build — must pass before pushing
+pnpm test           # vitest (utils, services, report generator)
+pnpm preview        # Preview built dist locally
 ```
 
-No test runner is configured — manual testing flow: login as `RED_FLAG` role (test entry), then as `ADMIN` (test settings/bulk).
+`pnpm tsx scripts/demo/*.ts` runs the demo-tenant tooling (seed, verify, permission tests).
 
 ## Architecture
 
-### Data Flow
-- On app load, `AppContext` calls `api.getAllData()` once and caches everything in global state.
-- All filtering/search runs on in-memory React state — never re-fetches for filters.
-- Write operations use batch endpoints (`batchCreateViolations`, `batchUpdateViolations`) — never loop N individual calls from the client.
+### Data flow
+- `AppContext` loads in phases: core catalogue → current + previous week → directory in background →
+  the rest of the semester on demand. `ensureRangeLoaded` / `ensureAllLoaded` widen the window.
+- The current week is kept live with an `onSnapshot` subscription; older data needs a manual refresh.
+- All filtering and search runs on in-memory React state — never re-fetch for a filter.
+- Writes use the batch helpers (`batchCreateViolations`, `batchUpdateViolations`). Never loop N
+  individual writes from the client.
 
-### Frontend → Backend
-All API calls go through [services/googleApi.ts](services/googleApi.ts) which POSTs to the GAS deployment URL. To avoid CORS preflight, requests use `Content-Type: text/plain`. The GAS URL is hardcoded in that file.
+### Frontend → backend
+[services/firebase.ts](services/firebase.ts) is the only data-access layer. `initFirebase(config)` is
+called once at startup from [index.tsx](index.tsx) with the tenant's config. Every write goes through
+`sanitize()`, which strips `undefined` and normalises `date` to `YYYY-MM-DD` — bypassing it produces
+records that display correctly but never match a range query.
 
-### Backend
-[gas_backend.gs](gas_backend.gs) is the entire backend. It's deployed as a Google Apps Script Web App. To modify backend behavior, edit this file and re-deploy from the Google Apps Script editor. The Spreadsheet ID and Drive folder ID are constants inside this file.
+Account management (create, import, reset, lock, delete, change role) goes through the callables in
+[functions/index.js](functions/index.js), which are admin-only and write audit entries.
 
-### State Management
-- [contexts/AppContext.tsx](contexts/AppContext.tsx) — global data store (users, classes, students, violations, achievements, criteria, time configs)
-- [contexts/ModalContext.tsx](contexts/ModalContext.tsx) — toast/confirm/alert dialog management; reuse these hooks instead of building new modal logic
+### Permissions
+Twelve permissions in `RolePermissions` ([types.ts](types.ts)), configured per role in
+Settings → Vai trò, stored in `settings/roles`. **Enforce every permission in
+[firestore.rules](firestore.rules) as well as in the UI** — hiding a button is not access control.
+Use `can(roleConfigs, role, permission)` in components; the rules read the same document.
 
-### Key Types
-All core TypeScript interfaces live in [types.ts](types.ts). When adding new data fields, update the interface here AND update the `SCHEMA` headers object in `gas_backend.gs`.
+### State management
+- [contexts/AppContext.tsx](contexts/AppContext.tsx) — global data store
+- [contexts/ModalContext.tsx](contexts/ModalContext.tsx) — toast / confirm / alert; reuse these hooks
+  instead of building new modal logic
 
-## Critical Rules (from PROJECT_RULES.md)
+### Key types
+All core interfaces live in [types.ts](types.ts).
 
-**Batching** — GAS has cold-start latency. Any bulk operation (delete many, import Excel) MUST use batch endpoints. Never loop API calls on the client.
+## Critical rules
 
-**Password security** — `verifyLogin` is server-side only. `getAllData` returns `safeUser` objects with no password field. Reset password generates `CNT@xxxx` format and sends via GAS `MailApp` — do not change this format.
+**Per-school configuration** — scoring formula, base score, semester-II multiplier, mandatory
+evidence photo, grade list, prize list, activity groups/levels, prize × level score table and theme
+all come from `schoolSettings`. Any new hardcoded `500`, `[10, 11, 12]`, or school name is a bug.
 
-**Vietnamese text** — Excel import uses Unicode normalization + diacritic stripping for fuzzy matching (e.g., `Hóa` ≈ `Hoá`). Preserve this logic.
+**Points sign convention** — positive points → `violations` collection (deductions); negative points
+→ `achievements` collection (bonuses). Code that deletes or moves a record must target the collection
+matching the record's sign.
 
-**Points sign convention** — Positive points → `Violations` sheet (deductions). Negative points → `Achievements` sheet (bonuses).
+**Vietnamese text** — Excel import uses Unicode normalisation + diacritic stripping for fuzzy
+matching (`Hóa` ≈ `Hoá`). Preserve this.
 
-**UI theme** — Red/yellow "Đoàn" theme: `from-red-700 to-red-900` gradient background, `yellow-300` text. Keep the star-fall animation. Do not redesign the theme.
+**Dates** — always `YYYY-MM-DD` local time. Use `getLocalDateString()`, never
+`new Date().toISOString().slice(0,10)` (UTC, off by one after 17:00 Vietnam time). Excel serials go
+through `excelSerialToISO`.
+
+**Secrets** — this repository is public. No passwords, endpoints, or customer data in source; use
+`.env` (see [.env.example](.env.example)).
+
+**Customer-facing wording** — infrastructure names are deliberately hidden from the UI and from
+customer documents. No "Firebase", "Firestore", "Storage", "document", "collection", "server", or raw
+SDK error strings in anything a user reads. Wrap caught errors in a Vietnamese sentence that says
+what to do next.
+
+**UI theme** — red/yellow "Đoàn" theme by default, but driven by the `--brand-from` / `--brand-to` /
+`--brand-accent` CSS variables so each school can retheme. Semantic colours stay fixed: red means
+deduction and delete, green means bonus. Keep the star-fall animation.
 
 ## Deployment
 
-Netlify auto-deploys on git push to main. Build must pass (`npm run build`) with zero lint/type errors before pushing. Publish directory: `dist`.
+`firebase deploy` from the tenant's project. `public/tenant-config.json` is served with `no-cache` so
+one build can be repointed at a different school without rebuilding.

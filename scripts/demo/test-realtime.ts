@@ -7,6 +7,7 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, query, where, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
+import { DEMO_EMAIL, DEMO_PASSWORD } from './credentials';
 
 const app = initializeApp({
   apiKey: 'AIzaSyA8vDLt97KKSKsGQ9gExVMC93phNbdVlK8',
@@ -23,7 +24,7 @@ const WEEK = { start: '2026-05-18', end: '2026-05-24' }; // Tuần 36
 const TEST_ID = 'TEST_REALTIME_TMP';
 
 (async () => {
-  await signInWithEmailAndPassword(auth, 'admin@nennep.demo', 'NenNep@2026');
+  await signInWithEmailAndPassword(auth, DEMO_EMAIL.admin, DEMO_PASSWORD);
   console.log('✔ Đã đăng nhập admin');
 
   let firstCount = 0;

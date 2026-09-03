@@ -10,6 +10,7 @@ import { readFileSync } from 'fs';
 import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { initFirebase, auth, db } from '../../services/firebase';
+import { DEMO_EMAIL, DEMO_PASSWORD } from './credentials';
 
 initFirebase(JSON.parse(readFileSync('public/tenant-config.json', 'utf8')).firebase);
 
@@ -41,20 +42,20 @@ const cleanup = async (ids: string[]) => {
   const results: Record<string, boolean> = {};
 
   console.log('▶ CỜ ĐỎ (học sinh) — chỉ có quyền ghi vi phạm');
-  await signInWithEmailAndPassword(auth, 'codo@nennep.demo', 'NenNep@2026');
+  await signInWithEmailAndPassword(auth, DEMO_EMAIL.redFlag, DEMO_PASSWORD);
   results.codoViolation = await attempt('Ghi vi phạm', () => setDoc(doc(db, 'violations', 'TEST_P1'), sample('TEST_P1', 10)));
   results.codoAchievement = await attempt('Ghi khen thưởng', () => setDoc(doc(db, 'achievements', 'TEST_P2'), sample('TEST_P2', -20)));
   results.codoCatalog = await attempt('Sửa danh mục tiêu chí', () => setDoc(doc(db, 'criteria', 'TEST_P3'), { id: 'TEST_P3', content: 'x', points: 1, type: 'MINUS' }));
 
   console.log('\n▶ BAN CHẤP HÀNH — có thêm quyền ghi khen thưởng');
   await signOut(auth);
-  await signInWithEmailAndPassword(auth, 'bch@nennep.demo', 'NenNep@2026');
+  await signInWithEmailAndPassword(auth, DEMO_EMAIL.bch, DEMO_PASSWORD);
   results.bchAchievement = await attempt('Ghi khen thưởng', () => setDoc(doc(db, 'achievements', 'TEST_P4'), sample('TEST_P4', -20)));
   results.bchCatalog = await attempt('Sửa danh mục tiêu chí', () => setDoc(doc(db, 'criteria', 'TEST_P5'), { id: 'TEST_P5', content: 'x', points: 1, type: 'MINUS' }));
 
   console.log('\n▶ QUẢN TRỊ VIÊN — đủ quyền');
   await signOut(auth);
-  await signInWithEmailAndPassword(auth, 'admin@nennep.demo', 'NenNep@2026');
+  await signInWithEmailAndPassword(auth, DEMO_EMAIL.admin, DEMO_PASSWORD);
   results.adminAchievement = await attempt('Ghi khen thưởng', () => setDoc(doc(db, 'achievements', 'TEST_P6'), sample('TEST_P6', -20)));
   results.adminCatalog = await attempt('Sửa danh mục tiêu chí', () => setDoc(doc(db, 'criteria', 'TEST_P7'), { id: 'TEST_P7', content: 'x', points: 1, type: 'MINUS' }));
 

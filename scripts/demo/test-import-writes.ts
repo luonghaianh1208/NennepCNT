@@ -11,6 +11,7 @@
 import { readFileSync } from 'fs';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { initFirebase, api, auth } from '../../services/firebase';
+import { DEMO_EMAIL, DEMO_PASSWORD } from './credentials';
 
 const config = JSON.parse(readFileSync('public/tenant-config.json', 'utf8')).firebase;
 initFirebase(config);
@@ -18,7 +19,7 @@ initFirebase(config);
 const IDS = ['TEST_IMP_GROUP', 'TEST_IMP_DATE'];
 
 (async () => {
-  await signInWithEmailAndPassword(auth, 'admin@nennep.demo', 'NenNep@2026');
+  await signInWithEmailAndPassword(auth, DEMO_EMAIL.admin, DEMO_PASSWORD);
   console.log('✔ Đăng nhập admin\n');
 
   // Đúng hình dạng bản ghi mà màn hình import sinh ra

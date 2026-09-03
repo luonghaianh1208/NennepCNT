@@ -8,6 +8,7 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore, doc, setDoc, getDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
+import { DEMO_EMAIL, DEMO_PASSWORD } from './credentials';
 
 const app = initializeApp({
   apiKey: 'AIzaSyA8vDLt97KKSKsGQ9gExVMC93phNbdVlK8',
@@ -24,9 +25,9 @@ const CRITERIA_ID = 'TEST_C_HOATDONG';
 const RECORD_IDS = ['TEST_A_1', 'TEST_A_2', 'TEST_A_3'];
 
 (async () => {
-  const cred = await signInWithEmailAndPassword(auth, 'bch@nennep.demo', 'NenNep@2026');
+  const cred = await signInWithEmailAndPassword(auth, DEMO_EMAIL.bch, DEMO_PASSWORD);
   const token = await cred.user.getIdTokenResult();
-  console.log(`✔ Đăng nhập bch@nennep.demo (vai trò: ${token.claims.role}) — không phải ADMIN`);
+  console.log(`✔ Đăng nhập ${DEMO_EMAIL.bch} (vai trò: ${token.claims.role}) — không phải ADMIN`);
 
   // 1. Tạo tiêu chí cho hoạt động chưa có trong danh mục
   await setDoc(doc(db, 'criteria', CRITERIA_ID), {
