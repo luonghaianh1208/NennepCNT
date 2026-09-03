@@ -70,6 +70,18 @@ nào cũng phải làm.
 Bấm **Save**. Hai mục *Web SDK configuration* và *Safelist client IDs* để nguyên —
 Firebase tự điền sau khi lưu.
 
+> ⚠️ **Đừng đổi `authDomain` trong `tenant-config.json`.** Giữ đúng
+> `PROJECT_ID.firebaseapp.com` mà Firebase sinh ra. Đổi sang `PROJECT_ID.web.app`
+> cho "đẹp" là đăng nhập chết ngay với **lỗi 400 redirect_uri_mismatch**: Firebase
+> chỉ tự đăng ký một địa chỉ trả về là `firebaseapp.com`, tên miền nào khác phải
+> tự thêm tay vào OAuth client trong Google Cloud Console. Đã thử và dính lỗi này
+> ngày 03/09/2026.
+>
+> Trường muốn cửa sổ Google hiện tên miền của mình thì làm đủ ba việc: thêm tên
+> miền vào Hosting → thêm vào *Authorized domains* của Authentication → **thêm
+> `https://<tên-miền>/__/auth/handler` vào Authorized redirect URIs của OAuth
+> client** → rồi mới sửa `authDomain`. Thiếu bước thứ ba là lỗi trên.
+
 Dòng cảnh báo về **SHA-1 fingerprint** chỉ áp dụng cho ứng dụng Android. Sản phẩm
 này chạy trên web nên bỏ qua.
 
