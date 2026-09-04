@@ -5,7 +5,7 @@ import { generateProductHtml } from '../utils/generateHtml';
 import { useAppStore } from '../contexts/AppContext';
 
 /** Phiên bản và bản quyền — cố định, trường sử dụng không sửa được từ giao diện */
-export const APP_VERSION = '4.1.2 — Tháng 9/2026';
+export const APP_VERSION = '4.1.3 — Tháng 9/2026';
 
 interface AboutModalProps {
   isOpen: boolean;

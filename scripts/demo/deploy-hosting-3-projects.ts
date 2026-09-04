@@ -56,7 +56,18 @@ async function main() {
     const tenantConfig = {
       firebase: {
         apiKey: cfg.config.apiKey,
-        authDomain: `${p.pid}.firebaseapp.com`,
+        // authDomain phải TRÙNG tên miền của trang, không được để
+        // *.firebaseapp.com. Cửa sổ đăng nhập mở /__/auth/handler của
+        // authDomain — khác origin thì trình duyệt trong Zalo/Messenger và app
+        // thêm ra màn hình chính tách riêng bộ nhớ tạm, sinh lỗi
+        // "missing initial state" lúc được lúc không.
+        //
+        // Đổi được vì đã đủ ba điều kiện, thiếu một là chết đăng nhập cả trường:
+        //   1. Tên miền nằm trong Authorized domains của Firebase Auth
+        //   2. Tên miền phục vụ thật /__/auth/handler (đọc nội dung, không tin mã 200)
+        //   3. https://<tên miền>/__/auth/handler nằm trong Authorized redirect
+        //      URIs của OAuth client — thêm TRƯỚC khi đổi dòng này
+        authDomain: p.domain,
         projectId: cfg.config.projectId,
         storageBucket: cfg.config.storageBucket,
         messagingSenderId: cfg.config.messagingSenderId,
