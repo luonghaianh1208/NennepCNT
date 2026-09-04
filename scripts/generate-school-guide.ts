@@ -372,7 +372,7 @@ const doc = new Document({
           new TextRun({ text: 'HỆ THỐNG QUẢN LÝ NỀN NẾP & THI ĐUA HỌC SINH', font: FONT, size: 30, bold: true, color: '0F172A' }),
         ] }),
         new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 100 }, children: [
-          new TextRun({ text: 'Phiên bản chuyên nghiệp 4.0 — Công nghệ Đồng bộ Đám mây', font: FONT, size: 24, italics: true, color: 'D97706' }),
+          new TextRun({ text: 'Phiên bản chuyên nghiệp 4.1.1 — Công nghệ Đồng bộ Đám mây', font: FONT, size: 24, italics: true, color: 'D97706' }),
         ] }),
         space,
         space,
