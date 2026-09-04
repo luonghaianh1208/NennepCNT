@@ -372,7 +372,7 @@ const doc = new Document({
           new TextRun({ text: 'HỆ THỐNG QUẢN LÝ NỀN NẾP & THI ĐUA HỌC SINH', font: FONT, size: 30, bold: true, color: '0F172A' }),
         ] }),
         new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 100 }, children: [
-          new TextRun({ text: 'Phiên bản chuyên nghiệp 4.1.1 — Công nghệ Đồng bộ Đám mây', font: FONT, size: 24, italics: true, color: 'D97706' }),
+          new TextRun({ text: 'Phiên bản chuyên nghiệp 4.1.2 — Công nghệ Đồng bộ Đám mây', font: FONT, size: 24, italics: true, color: 'D97706' }),
         ] }),
         space,
         space,
@@ -489,12 +489,12 @@ const doc = new Document({
         step(3, 'Điền danh mục các lỗi (ví dụ: "Đi học muộn" — 5đ, "Không mặc đồng phục" — 2đ, "Sử dụng điện thoại trong giờ" — 10đ...). Điểm nhập số dương, hệ thống tự động trừ.'),
         step(4, 'Bấm "Nhập Excel" và bấm "Lưu Thay Đổi".'),
         space,
-        heading2('Bước 6: Thiết lập Quy định chung & Bảng điểm khen thưởng'),
+        heading2('Bước 6: Thiết lập Quy định chung & Bảng điểm thưởng'),
         step(1, 'Vào Cấu hình → Quy định.'),
         step(2, 'Điểm khởi đầu mỗi tuần: Mặc định là 500 điểm (tuỳ trường có thể đặt 1000 hoặc 100).'),
         step(3, 'Hệ số Học kỳ II: Mặc định là 1 (nếu trường có quy định học kỳ 2 nhân đôi thì đặt là 2).'),
         step(4, 'Bắt buộc ảnh minh chứng: Bật ON để yêu cầu cờ đỏ bắt buộc phải chụp ảnh khi chấm vi phạm.'),
-        step(5, 'Bảng điểm khen thưởng: Nhập ma trận điểm cho các Giải (Nhất, Nhì, Ba, Khuyến khích) tương ứng với từng Cấp độ (Cấp Trường, Cấp Huyện/TP, Cấp Tỉnh, Cấp Quốc gia).'),
+        step(5, 'Chuyển sang tab Cấu hình → Điểm thưởng: Nhập ma trận điểm cho các Giải (Nhất, Nhì, Ba, Khuyến khích) tương ứng với từng Cấp độ (Cấp Trường, Cấp Huyện/TP, Cấp Tỉnh, Cấp Quốc gia). Ba danh mục Giải thưởng, Cấp độ và Nhóm hoạt động cũng khai ngay tại tab này.'),
         pageBreak,
 
         // ── PHẦN 4 ──────────────────────────────────────────────────────────
@@ -524,7 +524,7 @@ const doc = new Document({
         step(2, 'Nhập Tên hoạt động (ví dụ: "Hội thao Chào mừng 20/11"). Gõ vài chữ hệ thống sẽ gợi ý tên hoạt động cũ.'),
         step(3, 'Chọn Nhóm hoạt động (Học tập / Văn thể mỹ / Hoạt động Đoàn / Phong trào khác) và Cấp độ tổ chức.'),
         step(4, 'Chọn Ngày và tải lên Ảnh minh chứng trao giải (1 ảnh dùng chung cho tất cả các lớp).'),
-        step(5, 'Ở bảng danh sách lớp đạt giải bên dưới: Bấm "Thêm dòng", chọn Lớp và chọn Giải thưởng (Nhất/Nhì/Ba/Khuyến khích). Số điểm chuẩn (viền xanh) sẽ tự động hiển thị từ ma trận quy định.'),
+        step(5, 'Ở bảng danh sách lớp đạt giải bên dưới: Bấm "Thêm dòng", chọn Lớp và chọn Giải thưởng (Nhất/Nhì/Ba/Khuyến khích). Số điểm chuẩn (viền xanh) sẽ tự động hiển thị từ ma trận đã khai ở tab Cấu hình → Điểm thưởng.'),
         step(6, 'Bấm nút "LƯU TOÀN BỘ THÀNH TÍCH". Toàn bộ các lớp sẽ được cộng điểm cùng lúc.'),
         space,
         noteBox('Điểm khen thưởng là điểm CỘNG (+) trực tiếp vào quỹ điểm tuần của lớp. Học sinh cờ đỏ không có quyền nhập mục này nhằm bảo đảm tính khách quan và nghiêm túc.', 'info', 'PHÂN QUYỀN ĐIỂM THƯỞNG'),
