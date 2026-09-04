@@ -3,7 +3,7 @@ import React, { useState, useRef, useMemo } from 'react';
 import { AlertTriangle, Star, ChevronDown, Camera, X, CheckCircle2, Loader2, StopCircle, FileSpreadsheet, Download, Settings } from 'lucide-react';
 import { Violation } from '../types';
 import { api } from '../services/firebase';
-import { isDateInRange, removeVietnameseTones, exportToExcel, getLocalDateString, matchVietnamese, fuzzyMatchScore, toISODate, can, isDateOutsideAllConfigs, formatDateDisplay, FEATURES } from '../utils';
+import { isDateInRange, removeVietnameseTones, exportToExcel, getLocalDateString, matchVietnamese, fuzzyMatchScore, toISODate, can, isDateOutsideAllConfigs, formatDateDisplay, studentLabel, FEATURES } from '../utils';
  import { compressImageFile } from '../utils/imagePipeline';
 import { useAppStore } from '../contexts/AppContext';
 import { useModal } from '../contexts/ModalContext';
@@ -800,7 +800,7 @@ const EntryTab: React.FC<EntryTabProps> = ({ onNavigateToCriteria }) => {
                 <option value="">
                   {students.length ? '-- Chọn Học Sinh --' : 'Đang tải danh sách học sinh...'}
                 </option>
-                {students.filter(s => s.classId === selectedClassId).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                {students.filter(s => s.classId === selectedClassId).map(s => <option key={s.id} value={s.id}>{studentLabel(s)}</option>)}
               </select>
               {!students.length && (
                 <p className="text-xs text-blue-600 mt-1 animate-pulse">

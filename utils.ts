@@ -835,6 +835,15 @@ export const formatDateDisplay = (dateStr: string): string => {
 };
 
 /**
+ * Nhãn hiển thị của học sinh trong các ô chọn.
+ *
+ * Một lớp có thể có hai em trùng tên, nên kèm ngày sinh để cán bộ chọn đúng em.
+ * Em nào chưa khai ngày sinh thì hiện tên trơn như trước.
+ */
+export const studentLabel = (student: { name: string; dob?: string }): string =>
+  student.dob ? `${student.name} — ${formatDateDisplay(student.dob)}` : student.name;
+
+/**
  * FIXED: Chuyển đổi mọi định dạng ngày tháng về chuỗi YYYY-MM-DD theo giờ địa phương (Local Time).
  * Khắc phục lỗi lệch ngày do Timezone khi Google trả về chuỗi ISO (VD: 2023-09-04T17:00:00Z -> 2023-09-05).
  */

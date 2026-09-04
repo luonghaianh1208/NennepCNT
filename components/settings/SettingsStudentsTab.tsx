@@ -2,7 +2,7 @@
 import React, { useState, useRef } from 'react';
 import { Upload, Trash2, FileSpreadsheet, Download } from 'lucide-react';
 import { Student } from '../../types';
-import { removeVietnameseTones, exportToExcel } from '../../utils';
+import { removeVietnameseTones, exportToExcel, toISODate, formatDateDisplay } from '../../utils';
 import { useAppStore } from '../../contexts/AppContext';
 import { useModal } from '../../contexts/ModalContext';
 
@@ -12,17 +12,26 @@ const SettingsStudentsTab: React.FC = () => {
 
   const [selectedClassForStudent, setSelectedClassForStudent] = useState(classes[0]?.id || '');
   const [newStudentName, setNewStudentName] = useState('');
+  const [newStudentDob, setNewStudentDob] = useState('');
   const excelStudentInputRef = useRef<HTMLInputElement>(null);
 
   const handleAddStudent = () => {
     if (!newStudentName || !selectedClassForStudent) return;
-    const safeId = `S_${selectedClassForStudent}_${removeVietnameseTones(newStudentName).replace(/\s+/g, '')}`.toUpperCase();
+    // Hai em trùng tên trong cùng lớp phải khác ID, nên ghép thêm ngày sinh vào ID
+    const dobPart = newStudentDob ? `_${newStudentDob.replace(/-/g, '')}` : '';
+    const safeId = `S_${selectedClassForStudent}_${removeVietnameseTones(newStudentName).replace(/\s+/g, '')}${dobPart}`.toUpperCase();
     if (students.find(s => s.id === safeId)) {
       showToast('Học sinh này đã tồn tại trong lớp', 'error');
       return;
     }
-    setStudents([...students, { id: safeId, name: newStudentName, classId: selectedClassForStudent }]);
+    setStudents([...students, {
+      id: safeId,
+      name: newStudentName,
+      classId: selectedClassForStudent,
+      dob: newStudentDob || undefined,
+    }]);
     setNewStudentName('');
+    setNewStudentDob('');
     setUnsavedChanges(true);
   };
 
@@ -44,10 +53,10 @@ const SettingsStudentsTab: React.FC = () => {
   // --- TẢI FILE EXCEL MẪU ---
   const handleDownloadStudentTemplate = () => {
     const data = [
-      ['Ten_lop', 'Ho_ten_HS', 'So_xe'],
-      ['10A1', 'Nguyễn Văn A', '29B1-12345'],
-      ['10A1', 'Trần Thị B', ''],
-      ['10A2', 'Lê Văn C', '51B2-67890'],
+      ['Ten_lop', 'Ho_ten_HS', 'Ngay_sinh', 'So_xe'],
+      ['10A1', 'Nguyễn Văn A', '12/05/2009', '29B1-12345'],
+      ['10A1', 'Trần Thị B', '03/11/2009', ''],
+      ['10A2', 'Lê Văn C', '', '51B2-67890'],
     ];
     exportToExcel(data, 'Mau_Import_HocSinh');
   };
@@ -69,9 +78,33 @@ const SettingsStudentsTab: React.FC = () => {
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
         const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
 
+        // ── DÒ CỘT THEO TÊN TIÊU ĐỀ ──────────────────────────────────────────
+        // File mẫu cũ chỉ có 3 cột (Ten_lop, Ho_ten_HS, So_xe), file mẫu mới có
+        // thêm Ngay_sinh chen vào giữa. Đọc theo tên tiêu đề thì cả file cũ lẫn
+        // file mới đều vào đúng cột, không cần trường nhập lại từ đầu.
+        const normHeader = (v: any) =>
+          removeVietnameseTones(String(v ?? '')).toLowerCase().replace(/[^a-z0-9]/g, '');
+        const header = (rows[0] || []).map(normHeader);
+        const findCol = (...keys: string[]) =>
+          header.findIndex(h => h && keys.some(k => h === k || h.includes(k)));
+
+        let colClass = findCol('tenlop', 'lop');
+        let colName = findCol('hotenhs', 'hoten', 'hovaten');
+        let colDob = findCol('ngaysinh', 'sinhngay', 'namsinh');
+        let colBike = findCol('soxe', 'bienso', 'bienkiemsoat');
+
+        // File không có dòng tiêu đề nhận diện được — quay về thứ tự cột mẫu mới
+        if (colClass < 0 || colName < 0) {
+          colClass = 0;
+          colName = 1;
+          colDob = 2;
+          colBike = 3;
+        }
+
         const newStudents: Student[] = [];
         let count = 0;
         let missingClassCount = 0;
+        let badDobCount = 0;
 
         // ── ATOMIC COUNTER: đảm bảo mỗi ID là duy nhất tuyệt đối ──────────────
         // Khởi từ Date.now(), tăng đều sau mỗi dòng → không bao giờ trùng
@@ -82,10 +115,18 @@ const SettingsStudentsTab: React.FC = () => {
           const row = rows[i];
           if (!row || row.every((cell: any) => cell === '' || cell === null || cell === undefined)) continue;
 
-          const [tenLop, hotMHS, soXe] = row;
-          const className = String(tenLop || '').trim();
-          const studentName = String(hotMHS || '').trim();
+          const className = String(row[colClass] ?? '').trim();
+          const studentName = String(row[colName] ?? '').trim();
           if (!className || !studentName) continue;
+
+          // Ngày sinh nhận cả số thứ tự Excel lẫn dd/mm/yyyy người Việt hay gõ.
+          // Ô để trống là hợp lệ — trường nào chưa có dữ liệu thì bỏ qua.
+          const rawDob = colDob >= 0 ? row[colDob] : '';
+          const hasDob = rawDob !== '' && rawDob !== null && rawDob !== undefined;
+          const dob = hasDob ? toISODate(rawDob) : '';
+          if (hasDob && !dob) badDobCount++;
+
+          const soXe = colBike >= 0 ? row[colBike] : '';
 
           const cls = classes.find(c =>
             c.name.toLowerCase() === className.toLowerCase() ||
@@ -111,6 +152,7 @@ const SettingsStudentsTab: React.FC = () => {
             id: newId,
             name: studentName,
             classId: cls.id,
+            dob: dob || undefined,
             bikeNumber: String(soXe || '').trim() || undefined,
           });
           count++;
@@ -124,6 +166,7 @@ const SettingsStudentsTab: React.FC = () => {
           const note = [
             `Đã thêm ${count} học sinh.`,
             missingClassCount > 0 ? `Bỏ qua ${missingClassCount} dòng do không tìm thấy lớp.` : '',
+            badDobCount > 0 ? `${badDobCount} dòng có ngày sinh không đọc được nên để trống.` : '',
             'Nhớ bấm LƯU để đồng bộ.',
           ].filter(Boolean).join(' ');
           showToast(note, 'success');
@@ -172,14 +215,21 @@ const SettingsStudentsTab: React.FC = () => {
             {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           <input
             className="flex-1 p-2 border border-slate-300 rounded-lg text-sm"
             placeholder="Thêm thủ công tên học sinh..."
             value={newStudentName}
             onChange={e => setNewStudentName(e.target.value)}
           />
-          <button onClick={handleAddStudent} className="bg-blue-600 text-white px-4 rounded-lg font-bold text-sm">Thêm</button>
+          <input
+            type="date"
+            className="p-2 border border-slate-300 rounded-lg text-sm sm:w-44"
+            title="Ngày sinh (không bắt buộc) — giúp phân biệt hai em trùng tên"
+            value={newStudentDob}
+            onChange={e => setNewStudentDob(e.target.value)}
+          />
+          <button onClick={handleAddStudent} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold text-sm">Thêm</button>
         </div>
       </div>
 
@@ -189,6 +239,7 @@ const SettingsStudentsTab: React.FC = () => {
             <tr>
               <th className="px-4 py-3">ID</th>
               <th className="px-4 py-3">Họ và tên</th>
+              <th className="px-4 py-3">Ngày sinh</th>
               <th className="px-4 py-3 text-right">Hành động</th>
             </tr>
           </thead>
@@ -197,6 +248,9 @@ const SettingsStudentsTab: React.FC = () => {
               <tr key={s.id} className="border-b last:border-0 hover:bg-slate-50">
                 <td className="px-4 py-3 font-medium text-slate-500 text-xs">{s.id}</td>
                 <td className="px-4 py-3 font-medium text-slate-700">{s.name}</td>
+                <td className="px-4 py-3 text-slate-600">
+                  {s.dob ? formatDateDisplay(s.dob) : <span className="text-slate-300">—</span>}
+                </td>
                 <td className="px-4 py-3 text-right">
                   <button onClick={() => handleDeleteStudent(s.id)} title={`Xoá ${s.name}`}
                     className="text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg w-11 h-11 inline-flex items-center justify-center">

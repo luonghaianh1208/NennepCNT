@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Edit, X, Save } from 'lucide-react';
 import { Violation } from '../../types';
-import { formatDateForInput } from '../../utils';
+import { formatDateForInput, studentLabel } from '../../utils';
 import { useAppStore } from '../../contexts/AppContext';
 
 interface EditViolationModalProps {
@@ -105,7 +105,7 @@ const EditViolationModal: React.FC<EditViolationModalProps> = ({
                   .filter((s) => s.classId === editClassId)
                   .map((s) => (
                     <option key={s.id} value={s.id}>
-                      {s.name}
+                      {studentLabel(s)}
                     </option>
                   ))}
               </select>

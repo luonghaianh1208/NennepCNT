@@ -92,6 +92,8 @@ export interface Student {
   name: string;
   classId: string;
   bikeNumber?: string;
+  /** Ngày sinh dạng YYYY-MM-DD — để phân biệt hai em trùng tên trong cùng lớp */
+  dob?: string;
 }
 
 export interface Criteria {
